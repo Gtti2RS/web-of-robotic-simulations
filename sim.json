@@ -1,0 +1,55 @@
+{
+  "@context": ["https://www.w3.org/2019/wot/td/v1"],
+  "title": "sim-server",
+  "id": "urn:dev:wot:sim-server",
+  "actions": {
+    "start": {
+      "description": "Start the simulation",
+      "output": { "type": "string" },
+      "forms": [
+        {
+          "href": "http://localhost:8888/sim-server/actions/start",
+          "contentType": "application/json"
+        }
+      ]
+    },
+    "pause": {
+      "description": "Pause the simulation",
+      "output": { "type": "string" },
+      "forms": [
+        {
+          "href": "http://localhost:8888/sim-server/actions/pause",
+          "contentType": "application/json"
+        }
+      ]
+    },
+    "reset": {
+      "description": "Reset the simulation",
+      "output": { "type": "string" },
+      "forms": [
+        {
+          "href": "http://localhost:8888/sim-server/actions/reset",
+          "contentType": "application/json"
+        }
+      ]
+    },
+    "spawn": {
+      "description": "Spawn a new entity",
+      "input": {
+        "type": "object",
+        "properties": {
+          "name": { "type": "string" },
+          "type": { "type": "string" }
+        },
+        "required": ["name", "type"]
+      },
+      "output": { "type": "string" },
+      "forms": [
+        {
+          "href": "http://localhost:8888/sim-server/actions/spawn",
+          "contentType": "application/json"
+        }
+      ]
+    }
+  }
+}
