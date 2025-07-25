@@ -1,0 +1,76 @@
+{
+  "@context": ["https://www.w3.org/2019/wot/td/v1"],
+  "title": "gz_controller",
+  "id": "urn:dev:wot:publisher-server",
+  "security": ["nosec"],
+  "securityDefinitions": {
+    "nosec": {
+      "scheme": "nosec"
+    }
+  },
+  "properties": {
+    "uploadedWorlds": {
+      "type": "array",
+      "items": { "type": "string" },
+      "readOnly": true
+    },
+    "uploadedModels": {
+      "type": "array",
+      "items": { "type": "string" },
+      "readOnly": true
+    }
+  },
+  "actions": {
+    "publishMessage": {
+      "input": {
+        "type": "string"
+      },
+      "output": {
+        "type": "string"
+      }
+    },
+    "uploadFile": {
+      "input": {
+        "type": "object",
+        "required": ["name", "content", "target"],
+        "properties": {
+          "name": { "type": "string" },
+          "content": { "type": "string" },
+          "target": { "type": "string", "enum": ["world", "model", "launch"] }
+        }
+      },
+      "output": {
+        "type": "string"
+      }
+    },
+    "launchSimulation": {
+      "input": {
+        "type": "object",
+        "required": ["fileName"],
+        "properties": {
+          "method": {
+            "type": "string",
+            "enum": ["gz", "ros2"],
+            "default": "gz"
+          },
+          "fileName": {
+            "type": "string"
+          },
+          "arguments": {
+            "type": "array",
+            "items": { "type": "string" },
+            "default": []
+          }
+        }
+      },
+      "output": {
+        "type": "string"
+      }
+    },
+    "exitSimulation": {
+      "output": {
+        "type": "string"
+      }
+    }
+  }
+}
