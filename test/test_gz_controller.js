@@ -1,9 +1,11 @@
 const fs = require("fs");
+const fsp = require("fs/promises");
 const path = require("path");
 const { spawn } = require("child_process");
 const rclnodejs = require("rclnodejs");
 const { Servient } = require("@node-wot/core");
 const { HttpServer } = require("@node-wot/binding-http");
+const baseDir = path.join(process.env.HOME, "wos");
 
 class WotPublisherServer {
   constructor(tdPath = "./gz_controller.json", rosTopic = "wot_topic", port = 8080) {
@@ -14,9 +16,9 @@ class WotPublisherServer {
     this.gzProcess = null;
     this.simPid = null;
     this.uploadDirs = {
-      world: path.join(process.env.HOME, "wos", "world"),
-      model: path.join(process.env.HOME, "wos", "model"),
-      launch: path.join(process.env.HOME, "wos", "launch")
+      world: path.join(process.env.HOME, "wos/upload", "world"),
+      model: path.join(process.env.HOME, "wos/upload", "model"),
+      launch: path.join(process.env.HOME, "wos/upload", "launch")
     };
     Object.values(this.uploadDirs).forEach(dir => fs.mkdirSync(dir, { recursive: true }));
   }
@@ -42,6 +44,30 @@ class WotPublisherServer {
       return `Published: ${msg}`;
     });
 
+    async function resolveFilePath(fileName) {
+      const searchPaths = [
+        ["resource", "world"],
+        ["resource", "model"],
+        ["resource", "launch"],
+        ["upload", "world"],
+        ["upload", "model"],
+        ["upload", "launch"]
+      ];
+
+      for (const [group, subdir] of searchPaths) {
+        const fullPath = path.join(baseDir, group, subdir, fileName);
+        try {
+          const stat = await fs.promises.stat(fullPath);
+          if (stat.isFile()) {
+            return fullPath;
+          }
+        } catch (e) {
+        }
+      }
+      console.warn("File NOT FOUND:", fileName);
+      return null;
+    }
+
     this.thing.setActionHandler("launchSimulation", async (input) => {
       const data = await input.value();
       const method = data?.method || "gz";
@@ -50,15 +76,17 @@ class WotPublisherServer {
 
       if (!fileName) throw new Error("Missing fileName for launchSimulation.");
 
-      const targetDir = method === "ros2" ? this.uploadDirs.launch : this.uploadDirs.world;
-      const filePath = path.join(targetDir, fileName);
-      const expandedPath = filePath.replace(/^~\//, `${process.env.HOME}/`);
+      const fullPath = await resolveFilePath(fileName);
+      if (!fullPath) throw new Error(`File "${fileName}" not found in resource or upload folders`);
 
       if (this.gzProcess) throw new Error("Simulation already running.");
 
       try {
         const cmd = method === "gz" ? "gz" : "ros2";
-        const cmdArgs = method === "gz" ? ["sim", expandedPath, ...args] : ["launch", expandedPath, ...args];
+        const cmdArgs = method === "gz"
+          ? ["sim", fullPath, ...args]
+          : ["launch", fullPath, ...args];
+
         console.log(`[launchSimulation] Spawning: ${cmd} ${cmdArgs.join(" ")}`);
 
         this.gzProcess = spawn(cmd, cmdArgs, {
@@ -67,7 +95,8 @@ class WotPublisherServer {
         });
         this.simPid = this.gzProcess.pid;
         this.gzProcess.unref();
-        return `Simulation launched with: ${expandedPath}`;
+
+        return `Simulation launched with: ${fullPath}`;
       } catch (error) {
         console.error(`[${method.toUpperCase()} Error]`, error.message);
         this.gzProcess = null;
@@ -75,6 +104,7 @@ class WotPublisherServer {
         throw new Error(`Failed to launch simulation: ${error.message}`);
       }
     });
+
 
     this.thing.setActionHandler("exitSimulation", async () => {
       if (this.gzProcess && this.simPid) {
@@ -104,13 +134,33 @@ class WotPublisherServer {
       return `Uploaded to ${target}: ${filePath}`;
     });
 
-    this.thing.setPropertyReadHandler("uploadedWorlds", async () => {
-      return fs.readdirSync(this.uploadDirs.world);
+    this.thing.setPropertyReadHandler("availableResources", async () => {
+
+      async function listFiles(subdir) {
+        try {
+          const entries = await fsp.readdir(subdir, { withFileTypes: true });
+          return entries.filter(e => e.isFile()).map(e => e.name);
+        } catch (e) {
+          console.warn(`Failed to read ${subdir}: ${e.message}`);
+          return [];
+        }
+      }
+
+      async function listAll(dirType) {
+        const result = {};
+        for (const type of ["model", "world", "launch"]) {
+          const fullPath = path.join(baseDir, dirType, type);
+          result[type] = await listFiles(fullPath);
+        }
+        return result;
+      }
+
+      return {
+        resource: await listAll("resource"),
+        upload: await listAll("upload")
+      };
     });
 
-    this.thing.setPropertyReadHandler("uploadedModels", async () => {
-      return fs.readdirSync(this.uploadDirs.model);
-    });
 
     await this.thing.expose();
     console.log(`Thing exposed at http://localhost:${this.port}/`);

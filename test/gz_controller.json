@@ -1,75 +1,126 @@
 {
-  "@context": ["https://www.w3.org/2019/wot/td/v1"],
+  "$schema": "https://www.w3.org/2022/wot/td/v1.1",
   "title": "gz_controller",
-  "id": "urn:dev:wot:publisher-server",
-  "security": ["nosec"],
-  "securityDefinitions": {
-    "nosec": {
-      "scheme": "nosec"
-    }
-  },
-  "properties": {
-    "uploadedWorlds": {
-      "type": "array",
-      "items": { "type": "string" },
-      "readOnly": true
-    },
-    "uploadedModels": {
-      "type": "array",
-      "items": { "type": "string" },
-      "readOnly": true
-    }
-  },
+  "id": "urn:dev:wot:simulation-controller",
+  "base": "http://localhost:8080/",
   "actions": {
     "publishMessage": {
+      "description": "Publish a ROS 2 string message",
       "input": {
-        "type": "string"
-      },
-      "output": {
         "type": "string"
       }
     },
     "uploadFile": {
+      "description": "Upload a file to world/model/launch directory",
       "input": {
         "type": "object",
-        "required": ["name", "content", "target"],
         "properties": {
-          "name": { "type": "string" },
-          "content": { "type": "string" },
-          "target": { "type": "string", "enum": ["world", "model", "launch"] }
-        }
-      },
-      "output": {
-        "type": "string"
+          "name": {
+            "type": "string"
+          },
+          "content": {
+            "type": "string"
+          },
+          "target": {
+            "type": "string",
+            "enum": [
+              "world",
+              "model",
+              "launch"
+            ]
+          }
+        },
+        "required": [
+          "name",
+          "content",
+          "target"
+        ]
       }
     },
     "launchSimulation": {
+      "description": "Launch simulation using 'gz sim' or 'ros2 launch'",
       "input": {
         "type": "object",
-        "required": ["fileName"],
         "properties": {
           "method": {
             "type": "string",
-            "enum": ["gz", "ros2"],
-            "default": "gz"
+            "enum": [
+              "gz",
+              "ros2"
+            ]
           },
           "fileName": {
             "type": "string"
           },
           "arguments": {
             "type": "array",
-            "items": { "type": "string" },
+            "items": {
+              "type": "string"
+            },
             "default": []
           }
-        }
-      },
-      "output": {
-        "type": "string"
+        },
+        "required": [
+          "fileName"
+        ]
       }
     },
     "exitSimulation": {
-      "output": {
-        "type": "string"
+      "description": "Stop the currently running simulation"
+    }
+  },
+  "properties": {
+    "availableResources": {
+      "description": "Lists all available files in resource and upload folders",
+      "readOnly": true,
+      "type": "object",
+      "properties": {
+        "resource": {
+          "type": "object",
+          "properties": {
+            "model": {
+              "type": "array",
+              "items": {
+                "type": "string"
+              }
+            },
+            "world": {
+              "type": "array",
+              "items": {
+                "type": "string"
+              }
+            },
+            "launch": {
+              "type": "array",
+              "items": {
+                "type": "string"
+              }
+            }
+          }
+        },
+        "upload": {
+          "type": "object",
+          "properties": {
+            "model": {
+              "type": "array",
+              "items": {
+                "type": "string"
+              }
+            },
+            "world": {
+              "type": "array",
+              "items": {
+                "type": "string"
+              }
+            },
+            "launch": {
+              "type": "array",
+              "items": {
+                "type": "string"
+              }
+            }
+          }
+        }
       }
     }
   }
