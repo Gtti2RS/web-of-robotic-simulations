@@ -67,6 +67,26 @@
     },
     "exitSimulation": {
       "description": "Stop the currently running simulation"
+    },
+    "send_ros2_cmd": {
+      "description": "Send a full ROS 2 CLI command as a string, starting with 'ros2'",
+      "input": {
+        "type": "string"
+      },
+      "output": {
+        "type": "object",
+        "properties": {
+          "lines": {
+            "type": "array",
+            "items": {
+              "type": "string"
+            }
+          },
+          "raw": {
+            "type": "string"
+          }
+        }
+      }
     }
   },
   "properties": {
