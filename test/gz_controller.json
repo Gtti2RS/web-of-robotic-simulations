@@ -87,6 +87,28 @@
           }
         }
       }
+    },
+    "sim_control": {
+      "description": "Control simulation: pause, run, or reset",
+      "input": {
+        "type": "object",
+        "properties": {
+          "mode": {
+            "type": "string",
+            "enum": [
+              "pause",
+              "run",
+              "reset"
+            ]
+          }
+        },
+        "required": [
+          "mode"
+        ]
+      },
+      "output": {
+        "type": "string"
+      }
     }
   },
   "properties": {
