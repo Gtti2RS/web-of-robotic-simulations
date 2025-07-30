@@ -5,7 +5,7 @@ const { Servient } = require("@node-wot/core");
 const { HttpServer } = require("@node-wot/binding-http");
 
 const { handleUploadFile, readAvailableResources } = require("../library/common/fileUtils");
-const { launchSimulation, exitSimulation } = require("../library/gazebo/gz_actions");
+const { launchSimulation, exitSimulation, sim_control } = require("../library/gazebo/gz_actions");
 const { publishMessage, sendRos2Cmd } = require("../library/common/ros2_utils");
 
 class WotPublisherServer {
@@ -38,12 +38,6 @@ class WotPublisherServer {
     const wot = await this.servient.start();
     this.thing = await wot.produce(td);
 
-    // this.thing.setActionHandler("publishMessage", async (input) => {
-    //   const msg = await input.value();
-    //   this.publisher.publish({ data: msg });
-    //   console.log(`[WoT Action] Published: ${msg}`);
-    //   return `Published: ${msg}`;
-    // });
     this.thing.setActionHandler("publishMessage", (input) =>
       publishMessage(input, this.node)
     );
@@ -54,6 +48,8 @@ class WotPublisherServer {
       return await readAvailableResources();
     });
     this.thing.setActionHandler("send_ros2_cmd", sendRos2Cmd.bind(this));
+    this.thing.setActionHandler('sim_control', sim_control);
+
     await this.thing.expose();
     console.log(`Thing exposed at http://localhost:${this.port}/`);
   }
