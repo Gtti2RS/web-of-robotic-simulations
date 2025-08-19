@@ -1,5 +1,6 @@
 const { spawn, exec } = require("child_process");
-const { resolveFilePath } = require("../common/fileUtils");
+const { resolveFilePath, saveFile } = require("../common/fileUtils");
+const path = require('path');
 
 let cachedWorldNames = [];
 
@@ -118,9 +119,145 @@ async function sim_control(input) {
   }
 }
 
+async function getModelList() {
+  return new Promise((resolve, reject) => {
+    const world = cachedWorldNames.length > 0 ? cachedWorldNames[0] : null;
+    const cmd = `gz service -s /world/${world}/scene/info --reqtype gz.msgs.Empty --reptype gz.msgs.Scene --req ''`;
+
+    exec(cmd, (error, stdout, stderr) => {
+      if (error) return reject(stderr || error.message);
+
+      const models = [];
+      const modelRegex = /model\s*{\s*name:\s*"([^"]+)"[^}]*?id:\s*(\d+)/g;
+      let match;
+      while ((match = modelRegex.exec(stdout)) !== null) {
+        models.push({ name: match[1], id: parseInt(match[2]) });
+      }
+      resolve(models);
+    });
+  });
+}
+
+async function entity_management(params) {
+  const {
+    action, name, filename, x = 0.0, y = 0.0, z = 0.0,
+    zRot = 0.0, wRot = 1.0, world = cachedWorldNames.length > 0 ? cachedWorldNames[0] : null
+  } = await params.value();
+
+  const timeout = 1000;
+  let cmd = '';
+  let fullPath = '';
+
+  try {
+    if (!world) {
+      throw new Error("No world has been loaded.")
+    }
+    if (action === 'spawn') {
+      if (!filename) throw new Error("Missing filename.");
+      fullPath = await resolveFilePath(filename);
+      if (!fullPath) {
+        throw new Error(`File not found: ${filename}`);
+      }
+
+      cmd = `gz service -s /world/${world}/create \
+--reqtype gz.msgs.EntityFactory --reptype gz.msgs.Boolean --timeout ${timeout} \
+--req 'sdf_filename: "${fullPath}", name: "${name}", pose: { position: { x: ${x}, y: ${y}, z: ${z} } }'`;
+    }
+
+    else if (action === 'move') {
+      cmd = `gz service -s /world/${world}/set_pose \
+--reqtype gz.msgs.Pose --reptype gz.msgs.Boolean --timeout ${timeout} \
+--req 'name: "${name}", position: { x: ${x}, y: ${y}, z: ${z} }, orientation: { z: ${zRot}, w: ${wRot} }'`;
+    }
+
+    else if (action === 'remove') {
+      cmd = `gz service -s /world/${world}/remove \
+--reqtype gz.msgs.Entity --reptype gz.msgs.Boolean --timeout ${timeout} \
+--req 'name: "${name}", type: 2'`;
+    }
+
+    else {
+      throw new Error(`Unsupported action type: "${action}".`);
+    }
+
+    return new Promise((resolve, reject) => {
+      console.debug("[Entity_management]Executing: ", cmd);
+      exec(cmd, (err) => {
+        if (err) {
+          console.error(`[entity_management error] ${err.message}`);
+          return reject(`Error: ${err.message}`);
+        }
+        console.debug("[Entity_management]Action completed successfully.");
+        resolve("Action completed successfully.");
+      });
+    });
+
+  } catch (err) {
+    console.error(`[entity_management exception] ${err.message}`);
+    throw new Error(`Error: ${err.message}`);
+  }
+}
+
+async function save_world(input) {
+  const { name } = await input.value();
+
+  if (!cachedWorldNames.length) {
+    console.error('[save_world] No active world');
+    throw new Error('No active Gazebo world found.');
+  }
+
+  const worldName = cachedWorldNames[0];
+  const service = `/world/${worldName}/generate_world_sdf`;
+
+  const gzCommand = [
+    'gz service',
+    `-s ${service}`,
+    '--reqtype gz.msgs.SdfGeneratorConfig',
+    '--reptype gz.msgs.StringMsg',
+    '--req' 
+  ].join(' ');
+
+  return new Promise((resolve, reject) => {
+    exec(gzCommand, async (error, stdout, stderr) => {
+      if (error) {
+        console.error('[save_world error]', stderr || error.message);
+        return reject(new Error('Failed to call Gazebo service'));
+      }
+
+      const line = stdout.trim();
+      if (!line.startsWith('data:')) {
+        return reject(new Error('Unexpected service output'));
+      }
+
+      try {
+        const jsonLine = `{${line.replace(/^data:\s*/, '"data": ').replace(/'/g, '"')}}`;
+        const parsed = JSON.parse(jsonLine);
+        const sdfString = parsed.data;
+
+        const safeName = name && name.trim() !== ''
+          ? name.trim().replace(/[^a-zA-Z0-9_\-]/g, '_') + '.sdf'
+          : `world_${worldName}_${new Date().toISOString().replace(/[:.]/g, '-')}.sdf`;
+
+        const filePath = path.join(__dirname, '../../saved/world', safeName);
+        await saveFile(filePath, sdfString);
+
+        console.log(`World '${worldName}' saved to '${safeName}'`);
+        resolve(`World saved as '${safeName}'`);
+      } catch (parseErr) {
+        console.error('[save_world] JSON parse error:', parseErr.message);
+        reject(new Error('Failed to parse Gazebo service response'));
+      }
+    });
+  });
+}
+
+
 
 module.exports = {
   launchSimulation,
   exitSimulation,
-  sim_control
+  sim_control,
+  getModelList,
+  entity_management,
+  save_world
 };

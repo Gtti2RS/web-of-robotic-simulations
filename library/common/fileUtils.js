@@ -3,7 +3,7 @@ const path = require("path");
 const os = require("os");
 
 const BASE_PATH = path.join(os.homedir(), "wos");
-const folderGroups = ["resource", "upload"];
+const folderGroups = ["resource", "upload", "saved"];
 const folderTypes = ["world", "model", "launch"];
 
 /**
@@ -26,30 +26,33 @@ async function readAvailableResources() {
     return result;
 }
 
-/**
- * Handle uploadFile WoT action.
- */
-async function handleUploadFile(input) {
-    const data = await input.value();
-    const { name, content, target } = data;
-
-    if (!name || !content || !target || !folderTypes.includes(target)) {
-        throw new Error("Invalid upload parameters");
-    }
-
-    const filePath = path.join(BASE_PATH, "upload", target, name);
-    const buffer = Buffer.from(content, "utf8");
-
-    try {
-        await fs.mkdir(path.dirname(filePath), { recursive: true });
-        await fs.writeFile(filePath, buffer);
-        console.log("✅ File written:", filePath);
-        return `File '${name}' uploaded to '${target}'`;
-    } catch (err) {
-        console.error("❌ Failed to write file:", err.message);
-        throw new Error("File upload failed");
-    }
+async function saveFile(filePath, data) {
+  try {
+    await fs.mkdir(path.dirname(filePath), { recursive: true });
+    const buffer = Buffer.from(data, 'utf8');
+    await fs.writeFile(filePath, buffer);
+    // console.log("✅ File written:", filePath);
+    return filePath;
+  } catch (err) {
+    console.error("❌ Failed to write file:", err.message);
+    throw new Error("File save failed");
+  }
 }
+
+async function handleUploadFile(input) {
+  const data = await input.value();
+  const { name, content, target } = data;
+
+  if (!name || !content || !target || !folderTypes.includes(target)) {
+    throw new Error("Invalid upload parameters");
+  }
+
+  const filePath = path.join(BASE_PATH, 'upload', target, name);
+  await saveFile(filePath, content);
+  return `File '${name}' uploaded to '${target}'`;
+}
+
+
 
 async function resolveFilePath(fileName) {
     const searchPaths = [
@@ -58,7 +61,8 @@ async function resolveFilePath(fileName) {
         ["resource", "launch"],
         ["upload", "world"],
         ["upload", "model"],
-        ["upload", "launch"]
+        ["upload", "launch"],
+        ["saved", "world"]
     ];
 
     for (const [group, subdir] of searchPaths) {
@@ -78,6 +82,7 @@ async function resolveFilePath(fileName) {
 
 module.exports = {
     readAvailableResources,
+    saveFile,
     handleUploadFile,
     resolveFilePath
 };

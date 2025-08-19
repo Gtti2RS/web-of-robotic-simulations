@@ -5,7 +5,7 @@ const { Servient } = require("@node-wot/core");
 const { HttpServer } = require("@node-wot/binding-http");
 
 const { handleUploadFile, readAvailableResources } = require("../library/common/fileUtils");
-const { launchSimulation, exitSimulation, sim_control } = require("../library/gazebo/gz_actions");
+const { launchSimulation, exitSimulation, sim_control, getModelList, entity_management, save_world } = require("../library/gazebo/gz_actions");
 const { publishMessage, sendRos2Cmd } = require("../library/common/ros2_utils");
 
 class WotPublisherServer {
@@ -38,17 +38,27 @@ class WotPublisherServer {
     const wot = await this.servient.start();
     this.thing = await wot.produce(td);
 
+    this.thing.setPropertyReadHandler("availableResources", async () => {
+      return await readAvailableResources();
+    });
+    this.thing.setPropertyReadHandler('model_list', async () => {
+      try {
+        return await getModelList();
+      } catch (err) {
+        console.error('[model_list error]', err);
+        throw err;
+      }
+    });
     this.thing.setActionHandler("publishMessage", (input) =>
       publishMessage(input, this.node)
     );
     this.thing.setActionHandler("launchSimulation", launchSimulation.bind(this));
     this.thing.setActionHandler("exitSimulation", exitSimulation.bind(this));
     this.thing.setActionHandler("uploadFile", handleUploadFile.bind(this));
-    this.thing.setPropertyReadHandler("availableResources", async () => {
-      return await readAvailableResources();
-    });
     this.thing.setActionHandler("send_ros2_cmd", sendRos2Cmd.bind(this));
     this.thing.setActionHandler('sim_control', sim_control);
+    this.thing.setActionHandler('entity_management', entity_management);
+    this.thing.setActionHandler('save_world', save_world);
 
     await this.thing.expose();
     console.log(`Thing exposed at http://localhost:${this.port}/`);

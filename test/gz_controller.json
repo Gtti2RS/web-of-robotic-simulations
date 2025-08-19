@@ -109,6 +109,66 @@
       "output": {
         "type": "string"
       }
+    },
+    "entity_management": {
+      "description": "Manage entities in Gazebo (spawn, move, or remove)",
+      "input": {
+        "type": "object",
+        "properties": {
+          "action": {
+            "type": "string",
+            "enum": [
+              "spawn",
+              "move",
+              "remove"
+            ]
+          },
+          "name": {
+            "type": "string"
+          },
+          "filename": {
+            "type": "string"
+          },
+          "x": {
+            "type": "number"
+          },
+          "y": {
+            "type": "number"
+          },
+          "z": {
+            "type": "number"
+          },
+          "zRot": {
+            "type": "number"
+          },
+          "wRot": {
+            "type": "number"
+          }
+        },
+        "required": [
+          "action",
+          "name"
+        ]
+      }
+    },
+    "save_world": {
+      "description": "Save the current world using the specified file name.",
+      "input": {
+        "type": "object",
+        "properties": {
+          "name": {
+            "type": "string",
+            "description": "File name (without extension)"
+          }
+        },
+        "required": [
+          "name"
+        ]
+      },
+      "output": {
+        "type": "string",
+        "description": "Confirmation message"
+      }
     }
   },
   "properties": {
@@ -164,6 +224,21 @@
           }
         }
       }
+    },
+    "model_list": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "properties": {
+          "name": {
+            "type": "string"
+          },
+          "id": {
+            "type": "integer"
+          }
+        }
+      },
+      "readOnly": true
     }
   }
 }
