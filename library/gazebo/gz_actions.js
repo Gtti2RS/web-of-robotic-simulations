@@ -214,7 +214,7 @@ async function save_world(input) {
     `-s ${service}`,
     '--reqtype gz.msgs.SdfGeneratorConfig',
     '--reptype gz.msgs.StringMsg',
-    '--req' 
+    '--req'
   ].join(' ');
 
   return new Promise((resolve, reject) => {
@@ -239,7 +239,8 @@ async function save_world(input) {
           : `world_${worldName}_${new Date().toISOString().replace(/[:.]/g, '-')}.sdf`;
 
         const filePath = path.join(__dirname, '../../saved/world', safeName);
-        await saveFile(filePath, sdfString);
+        const finalSdf = `<?xml version="1.0" ?>\n${sdfString}`;
+        await saveFile(filePath, finalSdf);
 
         console.log(`World '${worldName}' saved to '${safeName}'`);
         resolve(`World saved as '${safeName}'`);
