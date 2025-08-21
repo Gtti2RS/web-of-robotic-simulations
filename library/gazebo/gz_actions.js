@@ -178,67 +178,109 @@ async function sim_control(input) {
   }
 }
 
-async function entity_management(params) {
-  const data = await params.value();
-
-  const action = data.action;
-  const name = data.name;
-  const filename = data.filename;
-  const { x, y, z } = data.position;
-  const { qx, qy, qz, qw } = deg2quat(data.orientation);
-  const world = cachedWorldNames.length > 0 ? cachedWorldNames[0] : null;
-
-  const timeout = 1000;
-  let cmd = '';
-  let fullPath = '';
-
+async function spawn_entity(input) {
   try {
-    if (!world) {
-      throw new Error("No world has been loaded.")
-    }
-    if (action === 'spawn') {
-      if (!filename) throw new Error("Missing filename.");
-      fullPath = await resolveFilePath(filename);
+    const world = get_world();
+    const data = await input.value();          
+    const entity_name = data.entity_name;
+    const file_name = data.file_name;
+
+    if (!entity_name) return 'Entity name is required.';
+    if (!file_name) throw new Error("Missing filename.");
+      fullPath = await resolveFilePath(file_name);
       if (!fullPath) {
-        throw new Error(`File not found: ${filename}`);
+        throw new Error(`File not found: ${file_name}`);
       }
 
-      cmd = `gz service -s /world/${world}/create \
---reqtype gz.msgs.EntityFactory --reptype gz.msgs.Boolean --timeout ${timeout} \
---req 'sdf_filename: "${fullPath}", name: "${name}", pose: { position: { x: ${x}, y: ${y}, z: ${z} }, orientation: { x: ${qx}, y: ${qy}, z: ${qz}, w: ${qw}} }'`;
+    // Avoid name collision
+    if (typeof entityExists === 'function') {
+      const exists = await entityExists(entity_name);
+      if (exists) return `Entity ${entity_name} already exists.`;
     }
 
-    else if (action === 'move') {
-      cmd = `gz service -s /world/${world}/set_pose \
---reqtype gz.msgs.Pose --reptype gz.msgs.Boolean --timeout ${timeout} \
---req 'name: "${name}", position: { x: ${x}, y: ${y}, z: ${z} }, orientation: { x: ${qx}, y: ${qy}, z: ${qz}, w: ${qw}}'`;
-    }
+    // Position defaults
+    const p = data.position || {};
+    const position = {
+      x: Number.isFinite(p.x) ? p.x : 0,
+      y: Number.isFinite(p.y) ? p.y : 0,
+      z: Number.isFinite(p.z) ? p.z : 0
+    };
 
-    else if (action === 'remove') {
-      cmd = `gz service -s /world/${world}/remove \
---reqtype gz.msgs.Entity --reptype gz.msgs.Boolean --timeout ${timeout} \
---req 'name: "${name}", type: 2'`;
-    }
-
-    else {
-      throw new Error(`Unsupported action type: "${action}".`);
-    }
-
-    return new Promise((resolve, reject) => {
-      console.debug("[Entity_management]Executing: ", cmd);
-      exec(cmd, (err) => {
-        if (err) {
-          console.error(`[entity_management error] ${err.message}`);
-          return reject(`Error: ${err.message}`);
-        }
-        console.debug("[Entity_management]Action completed successfully.");
-        resolve("Action completed successfully.");
-      });
+    // Orientation: roll/pitch/yaw (deg) -> quaternion
+    const rpy = data.orientation || {};
+    const { qx, qy, qz, qw } = deg2quat({
+      roll: Number.isFinite(rpy.roll) ? rpy.roll : 0,
+      pitch: Number.isFinite(rpy.pitch) ? rpy.pitch : 0,
+      yaw: Number.isFinite(rpy.yaw) ? rpy.yaw : 0
     });
 
+    const req =
+      `sdf_filename: "${fullPath}", ` +
+      `name: "${entity_name}", ` +
+      `pose: { position: { x: ${position.x}, y: ${position.y}, z: ${position.z} }, ` +
+      `orientation: { x: ${qx}, y: ${qy}, z: ${qz}, w: ${qw} } }`;
+
+    const cmd =
+      `gz service -s /world/${world}/create ` +
+      `--reqtype gz.msgs.EntityFactory --reptype gz.msgs.Boolean --timeout 1000 ` +
+      `--req '${req}'`;
+
+    await new Promise((resolve, reject) => {
+      exec(cmd, (error, stdout, stderr) => error ? reject(new Error(stderr || error.message)) : resolve());
+    });
+
+    return `${entity_name} is spawned to current world.`;
+
   } catch (err) {
-    console.error(`[entity_management exception] ${err.message}`);
-    throw new Error(`Error: ${err.message}`);
+    console.error('[spawn_entity error]', err);
+    return `Failed to spawn entity: ${err.message || String(err)}`;
+  }
+}
+
+async function set_entity_pose(input) {
+  try {
+    const world = get_world();
+    const data = await input.value(); 
+    const name = data.name;
+    if (!name) return 'Entity name is required.';
+
+    const exists = await entityExists(name);
+    if (!exists) return `Entity "${name}" not found.`;
+
+    // Position defaults
+    const p = data.position || {};
+    const position = {
+      x: Number.isFinite(p.x) ? p.x : 0,
+      y: Number.isFinite(p.y) ? p.y : 0,
+      z: Number.isFinite(p.z) ? p.z : 0
+    };
+
+    // Orientation: always roll, pitch, yaw in degrees → quaternion
+    const { qx, qy, qz, qw } = deg2quat({
+      roll: data.orientation?.roll || 0,
+      pitch: data.orientation?.pitch || 0,
+      yaw: data.orientation?.yaw || 0
+    });
+
+    const req =
+      `name: "${name}", ` +
+      `position: { x: ${position.x}, y: ${position.y}, z: ${position.z} }, ` +
+      `orientation: { x: ${qx}, y: ${qy}, z: ${qz}, w: ${qw} }`;
+
+    const cmd =
+      `gz service -s /world/${world}/set_pose ` +
+      `--reqtype gz.msgs.Pose --reptype gz.msgs.Boolean --timeout 1000 ` +
+      `--req '${req}'`;
+
+    await new Promise((resolve, reject) => {
+      exec(cmd, (error, stdout, stderr) => error ? reject(new Error(stderr || error.message)) : resolve());
+    });
+
+    return `Pose set for ${name}.`;
+
+  } catch (err) {
+    console.error('[set_entity_pose error]', err);
+    return `Failed to set pose: ${err.message || String(err)}`;
   }
 }
 
@@ -320,9 +362,10 @@ async function save_world(input) {
 module.exports = {
   launchSimulation,
   exitSimulation,
+  read_entity_info,
   sim_control,
-  entity_management,
-  save_world,
+  spawn_entity,
+  set_entity_pose,
   remove_entity,
-  read_entity_info
+  save_world
 };
