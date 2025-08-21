@@ -1,6 +1,7 @@
 const { spawn, exec } = require("child_process");
 const { resolveFilePath, saveFile } = require("../common/fileUtils");
 const path = require('path');
+const { deg2quat } = require("../common/deg2quat");
 
 let cachedWorldNames = [];
 
@@ -24,6 +25,64 @@ function detectWorldNames() {
       resolve(cachedWorldNames);
     });
   });
+}
+
+function get_world() {
+  const world = cachedWorldNames.length > 0 ? cachedWorldNames[0] : null;
+  if (!world) {
+    throw new Error('No active world.');
+  }
+  else {
+    return world;
+  }
+}
+
+async function getEntities() {
+  const world = get_world();
+
+  const cmd = `gz service -s /world/${world}/scene/info --reqtype gz.msgs.Empty --reptype gz.msgs.Scene --req ''`;
+
+  const stdout = await new Promise((resolve, reject) => {
+    exec(cmd, (error, out, stderr) => error ? reject(new Error(stderr || error.message)) : resolve(out));
+  });
+
+  // Parse in one pass using lightweight regexes
+  const models = [];
+  const blockRe = /model\s*{([\s\S]*?)\n}/g;
+  let block;
+  while ((block = blockRe.exec(stdout)) !== null) {
+    const t = block[1];
+
+    const name = (t.match(/name:\s*"([^"]+)"/) || [])[1];
+    if (!name) continue;
+
+    const id = parseInt((t.match(/\bid:\s*([0-9]+)/) || [])[1] || '0', 10) || undefined;
+
+    const pos = t.match(/position\s*{[\s\S]*?x:\s*([-+0-9.eE]+)[\s\S]*?y:\s*([-+0-9.eE]+)[\s\S]*?z:\s*([-+0-9.eE]+)/);
+    const position = pos ? { x: +pos[1], y: +pos[2], z: +pos[3] } : { x: 0, y: 0, z: 0 };
+
+    const ori = t.match(/orientation\s*{[\s\S]*?x:\s*([-+0-9.eE]+)[\s\S]*?y:\s*([-+0-9.eE]+)[\s\S]*?z:\s*([-+0-9.eE]+)[\s\S]*?w:\s*([-+0-9.eE]+)/);
+    const orientation = ori ? { x: +ori[1], y: +ori[2], z: +ori[3], w: +ori[4] } : { x: 0, y: 0, z: 0, w: 1 };
+
+    models.push({ name, id, pose: { position, orientation } });
+  }
+
+  return models;
+}
+
+async function read_entity_info() {
+  try {
+    const models = await getEntities();
+    return models;
+  } catch (err) {
+    console.error('[available_models read]', err);
+    return `Failed to read available models: ${err.message || String(err)}`;
+  }
+}
+
+async function entityExists(name) {
+  const models = await getEntities();
+  return models.some(m => m.name === name);
 }
 
 async function launchSimulation(input) {
@@ -78,6 +137,7 @@ async function exitSimulation() {
     }
     this.gzProcess = null;
     this.simPid = null;
+    cachedWorldNames = [];
     return "Simulation exited.";
   } else {
     return "No simulation is currently running.";
@@ -86,9 +146,8 @@ async function exitSimulation() {
 
 async function sim_control(input) {
   try {
+    const world = get_world();
     const { mode } = await input.value();
-    const world = cachedWorldNames.length > 0 ? cachedWorldNames[0] : null;
-    if (!world) throw new Error('No worldName available and none was cached');
 
     let req;
     switch (mode) {
@@ -119,30 +178,15 @@ async function sim_control(input) {
   }
 }
 
-async function getModelList() {
-  return new Promise((resolve, reject) => {
-    const world = cachedWorldNames.length > 0 ? cachedWorldNames[0] : null;
-    const cmd = `gz service -s /world/${world}/scene/info --reqtype gz.msgs.Empty --reptype gz.msgs.Scene --req ''`;
-
-    exec(cmd, (error, stdout, stderr) => {
-      if (error) return reject(stderr || error.message);
-
-      const models = [];
-      const modelRegex = /model\s*{\s*name:\s*"([^"]+)"[^}]*?id:\s*(\d+)/g;
-      let match;
-      while ((match = modelRegex.exec(stdout)) !== null) {
-        models.push({ name: match[1], id: parseInt(match[2]) });
-      }
-      resolve(models);
-    });
-  });
-}
-
 async function entity_management(params) {
-  const {
-    action, name, filename, x = 0.0, y = 0.0, z = 0.0,
-    zRot = 0.0, wRot = 1.0, world = cachedWorldNames.length > 0 ? cachedWorldNames[0] : null
-  } = await params.value();
+  const data = await params.value();
+
+  const action = data.action;
+  const name = data.name;
+  const filename = data.filename;
+  const { x, y, z } = data.position;
+  const { qx, qy, qz, qw } = deg2quat(data.orientation);
+  const world = cachedWorldNames.length > 0 ? cachedWorldNames[0] : null;
 
   const timeout = 1000;
   let cmd = '';
@@ -161,13 +205,13 @@ async function entity_management(params) {
 
       cmd = `gz service -s /world/${world}/create \
 --reqtype gz.msgs.EntityFactory --reptype gz.msgs.Boolean --timeout ${timeout} \
---req 'sdf_filename: "${fullPath}", name: "${name}", pose: { position: { x: ${x}, y: ${y}, z: ${z} } }'`;
+--req 'sdf_filename: "${fullPath}", name: "${name}", pose: { position: { x: ${x}, y: ${y}, z: ${z} }, orientation: { x: ${qx}, y: ${qy}, z: ${qz}, w: ${qw}} }'`;
     }
 
     else if (action === 'move') {
       cmd = `gz service -s /world/${world}/set_pose \
 --reqtype gz.msgs.Pose --reptype gz.msgs.Boolean --timeout ${timeout} \
---req 'name: "${name}", position: { x: ${x}, y: ${y}, z: ${z} }, orientation: { z: ${zRot}, w: ${wRot} }'`;
+--req 'name: "${name}", position: { x: ${x}, y: ${y}, z: ${z} }, orientation: { x: ${qx}, y: ${qy}, z: ${qz}, w: ${qw}}'`;
     }
 
     else if (action === 'remove') {
@@ -198,15 +242,36 @@ async function entity_management(params) {
   }
 }
 
+async function remove_entity(input) {
+  try {
+    const world = get_world();
+    const data = await input.value();
+    const name = data.name;
+
+    if (!name) return 'Entity name is required.';
+
+    const exists = await entityExists(name);
+    if (!exists) return `Entity ${name} not found.`;
+
+    const req = `name: "${name}", type: 2`;
+    const cmd = `gz service -s /world/${world}/remove --reqtype gz.msgs.Entity --reptype gz.msgs.Boolean --timeout 1000 --req '${req}'`;
+
+    await new Promise((resolve, reject) => {
+      exec(cmd, (error, stderr) => error ? reject(new Error(stderr || error.message)) : resolve());
+    });
+
+    return `${name} has been removed.`;
+
+  } catch (err) {
+    console.error('[remove_entity error]', err);
+    return `Failed to remove entity: ${err.message || String(err)}`;
+  }
+}
+
 async function save_world(input) {
+  const worldName = get_world();
   const { name } = await input.value();
 
-  if (!cachedWorldNames.length) {
-    console.error('[save_world] No active world');
-    throw new Error('No active Gazebo world found.');
-  }
-
-  const worldName = cachedWorldNames[0];
   const service = `/world/${worldName}/generate_world_sdf`;
 
   const gzCommand = [
@@ -252,13 +317,12 @@ async function save_world(input) {
   });
 }
 
-
-
 module.exports = {
   launchSimulation,
   exitSimulation,
   sim_control,
-  getModelList,
   entity_management,
-  save_world
+  save_world,
+  remove_entity,
+  read_entity_info
 };

@@ -129,20 +129,23 @@
           "filename": {
             "type": "string"
           },
-          "x": {
-            "type": "number"
+          "position": {
+            "type": "object",
+            "properties": {
+              "x": { "type": "number", "unit": "m" },
+              "y": { "type": "number", "unit": "m" },
+              "z": { "type": "number", "unit": "m" }
+            },
+            "default": { "x": 0, "y": 0, "z": 0 }
           },
-          "y": {
-            "type": "number"
-          },
-          "z": {
-            "type": "number"
-          },
-          "zRot": {
-            "type": "number"
-          },
-          "wRot": {
-            "type": "number"
+           "direction": {
+            "type": "object",
+            "properties": {
+              "roll":  { "type": "number", "unit": "degree" },
+              "pitch": { "type": "number", "unit": "degree" },
+              "yaw":   { "type": "number", "unit": "degree" }
+            },
+            "default": { "roll": 0, "pitch": 0, "yaw": 0 }
           }
         },
         "required": [
@@ -150,6 +153,15 @@
           "name"
         ]
       }
+    },
+    "remove_entity": {
+      "title": "Remove an entity",
+      "input": {
+        "type":"object",
+        "required":["name"],
+        "properties": { "name":{"type":"string"} }
+      },
+      "output": {"type":"string"}
     },
     "save_world": {
       "description": "Save the current world using the specified file name.",

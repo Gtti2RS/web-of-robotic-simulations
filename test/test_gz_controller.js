@@ -5,7 +5,7 @@ const { Servient } = require("@node-wot/core");
 const { HttpServer } = require("@node-wot/binding-http");
 
 const { handleUploadFile, readAvailableResources } = require("../library/common/fileUtils");
-const { launchSimulation, exitSimulation, sim_control, getModelList, entity_management, save_world } = require("../library/gazebo/gz_actions");
+const { launchSimulation, exitSimulation, sim_control, entity_management, remove_entity, save_world, read_entity_info} = require("../library/gazebo/gz_actions");
 const { publishMessage, sendRos2Cmd } = require("../library/common/ros2_utils");
 
 class WotPublisherServer {
@@ -41,14 +41,7 @@ class WotPublisherServer {
     this.thing.setPropertyReadHandler("availableResources", async () => {
       return await readAvailableResources();
     });
-    this.thing.setPropertyReadHandler('model_list', async () => {
-      try {
-        return await getModelList();
-      } catch (err) {
-        console.error('[model_list error]', err);
-        throw err;
-      }
-    });
+    this.thing.setPropertyReadHandler('model_list', read_entity_info);
     this.thing.setActionHandler("publishMessage", (input) =>
       publishMessage(input, this.node)
     );
@@ -58,6 +51,7 @@ class WotPublisherServer {
     this.thing.setActionHandler("send_ros2_cmd", sendRos2Cmd.bind(this));
     this.thing.setActionHandler('sim_control', sim_control);
     this.thing.setActionHandler('entity_management', entity_management);
+    this.thing.setActionHandler('remove_entity', remove_entity);
     this.thing.setActionHandler('save_world', save_world);
 
     await this.thing.expose();
