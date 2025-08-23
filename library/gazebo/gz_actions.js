@@ -4,6 +4,10 @@ const path = require('path');
 const { deg2quat } = require("../common/deg2quat");
 
 let cachedWorldNames = [];
+let vizState = false;
+const CAMERA_NAME = 'wot_camera';
+let bridgeProc = null;      // ros_gz_bridge process when visualization is on
+let webVideoProc = null;    // web_video_server process for browser streaming
 
 function detectWorldNames() {
   return new Promise((resolve, reject) => {
@@ -138,6 +142,10 @@ async function exitSimulation() {
     this.gzProcess = null;
     this.simPid = null;
     cachedWorldNames = [];
+    vizState = false;
+    await stopBridgeIfAny();
+    await stopWebVideoIfAny();
+
     return "Simulation exited.";
   } else {
     return "No simulation is currently running.";
@@ -181,16 +189,16 @@ async function sim_control(input) {
 async function spawn_entity(input) {
   try {
     const world = get_world();
-    const data = await input.value();          
+    const data = await input.value();
     const entity_name = data.entity_name;
     const file_name = data.file_name;
 
     if (!entity_name) return 'Entity name is required.';
     if (!file_name) throw new Error("Missing filename.");
-      fullPath = await resolveFilePath(file_name);
-      if (!fullPath) {
-        throw new Error(`File not found: ${file_name}`);
-      }
+    fullPath = await resolveFilePath(file_name);
+    if (!fullPath) {
+      throw new Error(`File not found: ${file_name}`);
+    }
 
     // Avoid name collision
     if (typeof entityExists === 'function') {
@@ -240,7 +248,7 @@ async function spawn_entity(input) {
 async function set_entity_pose(input) {
   try {
     const world = get_world();
-    const data = await input.value(); 
+    const data = await input.value();
     const name = data.name;
     if (!name) return 'Entity name is required.';
 
@@ -359,6 +367,104 @@ async function save_world(input) {
   });
 }
 
+/**
+ * Read handler for WoT Property `visualization`.
+ * Keeps state inside this module.
+ */
+async function visualizationRead() {
+  return vizState;
+}
+
+/**
+ * Write handler for WoT Property `visualization`.
+ * Expects WoT input; use await input.value() per your convention.
+ */
+async function set_visualization(input) {
+  const desired = await input.value(); // already boolean from TD
+  if (desired == vizState) {
+    console.log(`Visualization already ${vizState ? 'enabled' : 'disabled'}`);
+    return `Visualization already ${vizState ? 'enabled' : 'disabled'}`;
+  }
+  if (desired) {
+    await ensureCameraSpawned(CAMERA_NAME);
+    await ensureImageBridgeRunning();
+    await ensureWebVideoServerRunning();
+    vizState = true;
+    return 'Visualization enabled.';
+  } else {
+    await stopBridgeIfAny();
+    await stopWebVideoIfAny();
+    await removeCamera(CAMERA_NAME);
+    vizState = false;
+    return 'Visualization disabled.';
+  }
+}
+
+// ---- internal helpers ----
+async function ensureCameraSpawned(name) {
+  if (await entityExists(name)) return "[Enalbe visualization] wot_cam already exists.";
+  else return await spawn_entity({
+    value: async () => ({
+      entity_name: CAMERA_NAME,
+      file_name: "camera.sdf",
+      position: { x: -10, y: 0, z: 10 },
+      orientation: { row: 0, pitch: 40, yall: 0 }
+    })
+  });
+}
+
+async function removeCamera(name) {
+  if (await entityExists(name)) {
+    return await remove_entity({
+      value: async () => ({ name: CAMERA_NAME })
+    });
+  }
+  else return "[Disalbe visualization]: wot_cam doesn't exist"
+}
+
+async function ensureImageBridgeRunning() {
+  if (bridgeProc && !bridgeProc.killed) return;
+  const world = get_world();
+  const gzTopic = `/world/${world}/model/${CAMERA_NAME}/link/link/sensor/camera/image`;
+  const args = [
+  'run', 'ros_gz_bridge', 'parameter_bridge',
+  `${gzTopic}@sensor_msgs/msg/Image[gz.msgs.Image`,
+  '--ros-args', '-r', `${gzTopic}:=/viz_cam`
+];
+  bridgeProc = spawn('ros2', args, { stdio: 'inherit' });
+  bridgeProc.on('exit', () => { bridgeProc = null; });
+}
+
+async function stopBridgeIfAny() {
+  if (bridgeProc && !bridgeProc.killed) {
+    try { process.kill(-bridgeProc.pid, 'SIGTERM'); } catch { }
+    bridgeProc = null;
+  }
+}
+
+async function ensureWebVideoServerRunning() {
+  if (webVideoProc && !webVideoProc.killed) return;
+  // Exposes MJPEG at http://<host>:8081/stream?topic=<ros_image_topic>
+  webVideoProc = spawn('ros2', [
+    'run', 'web_video_server', 'web_video_server',
+    '--ros-args',
+    '-p', 'port:=8081',
+    '-p', 'address:=0.0.0.0',
+    '-p', 'server_threads:=2',
+    '-p', 'ros_threads:=3',
+    '-p', 'default_stream_type:=mjpeg'
+  ], { stdio: 'ignore', detached: true });
+
+  webVideoProc.on('exit', () => { webVideoProc = null; });
+}
+
+async function stopWebVideoIfAny() {
+  if (webVideoProc && !webVideoProc.killed) {
+    try { process.kill(-webVideoProc.pid, 'SIGTERM'); } catch { }
+    webVideoProc = null;
+  }
+}
+
 module.exports = {
   launchSimulation,
   exitSimulation,
@@ -367,5 +473,7 @@ module.exports = {
   spawn_entity,
   set_entity_pose,
   remove_entity,
-  save_world
+  save_world,
+  visualizationRead,
+  set_visualization
 };

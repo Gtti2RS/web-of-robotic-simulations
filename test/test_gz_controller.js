@@ -5,7 +5,7 @@ const { Servient } = require("@node-wot/core");
 const { HttpServer } = require("@node-wot/binding-http");
 
 const { handleUploadFile, readAvailableResources } = require("../library/common/fileUtils");
-const { launchSimulation, exitSimulation, read_entity_info, sim_control, spawn_entity, set_entity_pose, remove_entity, save_world} = require("../library/gazebo/gz_actions");
+const { launchSimulation, exitSimulation, read_entity_info, sim_control, spawn_entity, set_entity_pose, remove_entity, save_world, visualizationRead, set_visualization} = require("../library/gazebo/gz_actions");
 const { publishMessage, sendRos2Cmd } = require("../library/common/ros2_utils");
 
 class WotPublisherServer {
@@ -40,6 +40,7 @@ class WotPublisherServer {
 
     this.thing.setPropertyReadHandler("availableResources", readAvailableResources);
     this.thing.setPropertyReadHandler('model_list', read_entity_info);
+    this.thing.setPropertyReadHandler('visualization', visualizationRead);
     this.thing.setActionHandler("publishMessage", (input) =>
       publishMessage(input, this.node)
     );
@@ -52,6 +53,7 @@ class WotPublisherServer {
     this.thing.setActionHandler('set_entity_pose', set_entity_pose);
     this.thing.setActionHandler('remove_entity', remove_entity);
     this.thing.setActionHandler('save_world', save_world);
+    this.thing.setActionHandler('set_visualization', set_visualization);
 
     await this.thing.expose();
     console.log(`Thing exposed at http://localhost:${this.port}/`);
