@@ -257,6 +257,26 @@
       "output": {
         "type": "string"
       }
+    },
+    "setRtf": {
+      "title": "Set Real-Time Factor",
+      "input": {
+        "type": "object",
+        "required": [
+          "rtf"
+        ],
+        "properties": {
+          "rtf": {
+            "type": "number",
+            "minimum": 0.1,
+            "maximum": 10.0
+          },
+          "maxStep": {
+            "type": "number",
+            "exclusiveMinimum": 0
+          }
+        }
+      }
     }
   },
   "properties": {

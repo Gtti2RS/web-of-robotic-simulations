@@ -475,5 +475,6 @@ module.exports = {
   remove_entity,
   save_world,
   visualizationRead,
-  set_visualization
+  set_visualization,
+  get_world
 };

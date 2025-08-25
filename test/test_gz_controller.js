@@ -7,6 +7,8 @@ const { HttpServer } = require("@node-wot/binding-http");
 const { handleUploadFile, readAvailableResources } = require("../library/common/fileUtils");
 const { launchSimulation, exitSimulation, read_entity_info, sim_control, spawn_entity, set_entity_pose, remove_entity, save_world, visualizationRead, set_visualization} = require("../library/gazebo/gz_actions");
 const { publishMessage, sendRos2Cmd } = require("../library/common/ros2_utils");
+const {makeSetRtf} = require("./test_ros2_serviceCall");
+//const {setRosNode} = require("../library/common/ros2_service_helper");
 
 class WotPublisherServer {
   constructor(tdPath = "./gz_controller.json", rosTopic = "wot_topic", port = 8080) {
@@ -27,6 +29,7 @@ class WotPublisherServer {
   async init() {
     await rclnodejs.init();
     this.node = new rclnodejs.Node("wot_pub_node");
+    //setRosNode(this.node);
     this.publisher = this.node.createPublisher("std_msgs/msg/String", this.rosTopic);
     this.startSpin();
 
@@ -54,6 +57,7 @@ class WotPublisherServer {
     this.thing.setActionHandler('remove_entity', remove_entity);
     this.thing.setActionHandler('save_world', save_world);
     this.thing.setActionHandler('set_visualization', set_visualization);
+    this.thing.setActionHandler('setRtf', makeSetRtf(this.node, { debug: false, timeoutMs: 1500 }));
 
     await this.thing.expose();
     console.log(`Thing exposed at http://localhost:${this.port}/`);

@@ -1,0 +1,28 @@
+services:
+  gazebo:
+    image: osrf/ros:jazzy-desktop-noble
+    container_name: gz_sim
+    network_mode: host
+    ipc: host
+    runtime: nvidia   # relies on host setup (already present)
+    environment:
+      - NVIDIA_VISIBLE_DEVICES=all
+      - NVIDIA_DRIVER_CAPABILITIES=compute,utility,graphics
+      - ROS_DOMAIN_ID=0
+    volumes:
+      - ./worlds:/home/dev/worlds
+    tty: true
+    stdin_open: true
+    command: bash -lc "source /opt/ros/jazzy/setup.bash && exec bash"
+
+  dev:
+    image: node:22-bookworm
+    container_name: wot_dev
+    network_mode: host
+    working_dir: /app
+    volumes:
+      - ./src:/app/src
+      - ./package.json:/app/package.json
+    tty: true
+    stdin_open: true
+    command: bash
