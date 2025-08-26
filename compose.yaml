@@ -1,28 +1,58 @@
 services:
-  gazebo:
-    image: osrf/ros:jazzy-desktop-noble
-    container_name: gz_sim
-    network_mode: host
-    ipc: host
-    runtime: nvidia   # relies on host setup (already present)
-    environment:
-      - NVIDIA_VISIBLE_DEVICES=all
-      - NVIDIA_DRIVER_CAPABILITIES=compute,utility,graphics
-      - ROS_DOMAIN_ID=0
-    volumes:
-      - ./worlds:/home/dev/worlds
+  discovery:
+    image: wos/fastdds-discovery:latest
+    networks:
+      wos_net:
+        ipv4_address: 172.28.0.10
+    restart: unless-stopped
     tty: true
-    stdin_open: true
-    command: bash -lc "source /opt/ros/jazzy/setup.bash && exec bash"
 
-  dev:
-    image: node:22-bookworm
-    container_name: wot_dev
-    network_mode: host
-    working_dir: /app
+  gz_sim:
+    image: evan/gz-jazzy
+    container_name: sim
+    # Simplest discovery on Linux
+    networks: [wos_net]
+    environment:
+      - ROS_DISCOVERY_SERVER=172.28.0.10:11811
+      - ROS_DOMAIN_ID=21
+      # Let gz find models/worlds in both resource and upload:
+      - GZ_SIM_RESOURCE_PATH=/project-root/resource/models:/project-root/resource/worlds:/project-root/upload
+      # If you use plugins:
+      - GZ_PLUGIN_PATH=/project-root/resource/plugins:${GZ_PLUGIN_PATH:-}
+      # Headless defaults (since you're headless)
+      - QT_QPA_PLATFORM=offscreen
+    working_dir: /project-root
     volumes:
-      - ./src:/app/src
-      - ./package.json:/app/package.json
-    tty: true
-    stdin_open: true
-    command: bash
+      # read-only assets
+      - ./resource:/project-root/resource:ro
+      # user-provided content (WoT writes; sim reads)
+      - ./upload:/project-root/upload:ro
+      # saved worlds back to host (sim writes)
+      - ./resource/saved_world:/project-root/resource/saved_world:rw
+      # optional logs
+      - ./saved:/project-root/saved:rw
+    command: bash -lc "source /opt/ros/jazzy/setup.bash && exec tail -f /dev/null"
+
+  wot_server:
+    image: evan/wot-server
+    container_name: wot
+    networks: [wos_net]
+    environment:
+      - ROS_DOMAIN_ID=21
+    working_dir: /project-root
+    volumes:
+      # WoT reads canonical assets to validate inputs, etc.
+      - ./resource:/project-root/resource:ro
+      # WoT receives uploads here (write)
+      - ./upload:/project-root/upload:rw
+      # WoT may also write snapshots/exports if your actions do it from server-side
+      - ./resource/saved_world:/project-root/resource/saved_world:rw
+      - ./saved:/project-root/saved:rw
+    command: node server.js
+
+networks:
+  wos_net:
+    driver: bridge
+    ipam:
+      config:
+        - subnet: 172.28.0.0/16
