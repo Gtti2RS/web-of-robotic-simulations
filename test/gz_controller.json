@@ -279,43 +279,6 @@
           }
         }
       }
-    },
-    "deleteEntity": {
-      "title": "Delete Entity",
-      "description": "Delete an entity (e.g. a model such as 'box') from the Gazebo world via ROS 2 /world/shapes/remove service.",
-      "input": {
-        "type": "object",
-        "properties": {
-          "id": {
-            "type": "integer",
-            "description": "Entity ID (uint64). If provided, takes precedence over name."
-          },
-          "name": {
-            "type": "string",
-            "description": "Entity name, e.g. 'box'."
-          },
-          "type": {
-            "type": "integer",
-            "description": "Entity type code (e.g. 2 = MODEL)."
-          }
-        },
-        "additionalProperties": false
-      },
-      "output": {
-        "type": "object",
-        "properties": {
-          "success": {
-            "type": "boolean"
-          }
-        }
-      },
-      "forms": [
-        {
-          "op": "invokeaction",
-          "href": "http://localhost:8080/gz_controller/actions/deleteEntity",
-          "contentType": "application/json"
-        }
-      ]
     }
   },
   "properties": {

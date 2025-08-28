@@ -232,9 +232,54 @@ function makeSpawnEntity(node, { timeoutMs = 1000 } = {}) {
   };
 }
 
+/**
+ * Control simulation via ROS 2 bridged service (ros_gz_interfaces/ControlWorld)
+ * Input: { mode: 'pause' | 'run' | 'resume' | 'reset' }
+ */
+function makeSimControl(node, { timeoutMs = 1000 } = {}) {
+  return async function simControlAction(input) {
+    const { mode } = await input.value();
+
+    const world = await get_world();
+    if (!world) throw new Error('Active world not found');
+
+    let world_control;
+    switch (mode) {
+      case 'pause':
+        world_control = { pause: true };
+        break;
+      case 'run':
+      case 'resume':
+        world_control = { pause: false };
+        break;
+      case 'reset':
+        world_control = { reset: { all: true }, pause: true };
+        break;
+      default:
+        throw new Error(`Invalid mode: ${mode}`);
+    }
+
+    const { resp } = await callService(
+      node,
+      {
+        srvType: 'ros_gz_interfaces/srv/ControlWorld',
+        serviceName: `/world/${world}/control`,
+        payload: { world_control }
+      },
+      { timeoutMs }
+    );
+
+    if (resp?.success ?? resp?.ok ?? resp?.boolean) {
+      return `Simulation "${world}" successfully ${mode}d.`;
+    }
+    throw new Error(resp?.message ? `SimControl failed: ${resp.message}` : 'SimControl failed');
+  };
+}
+
 module.exports = {
   makeSetRtf,
   makeDeleteEntity,
   makeSetEntityPose,
   makeSpawnEntity,
+  makeSimControl,
 };
