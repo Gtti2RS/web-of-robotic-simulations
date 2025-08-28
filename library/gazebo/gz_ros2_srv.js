@@ -4,6 +4,11 @@ const { callService } = require('../common/ros2_service_helper');
 const { resolveFilePath } = require('../common/fileUtils');
 const { deg2quat } = require('../common/deg2quat');
 const { get_world, entityExists } = require('./gz_actions'); 
+const { spawn } = require('child_process');
+
+const CAMERA_NAME = 'wot_camera';
+let bridgeProc = null;
+let webVideoProc = null;
 
 /**
  * Set real-time factor (RTF) for the active world.
@@ -276,10 +281,77 @@ function makeSimControl(node, { timeoutMs = 1000 } = {}) {
   };
 }
 
+/**
+ * Toggle visualization by spawning/removing camera model via ROS 2 services.
+ * Input: boolean (true to enable, false to disable)
+ */
+function makeSetVisualization(node, { timeoutMs = 1000 } = {}) {
+  return async function setVisualizationAction(input) {
+    const desired = await input.value();
+
+    if (desired) {
+      // Spawn camera if not exists
+      if (!(await entityExists(CAMERA_NAME))) {
+        const spawn_camera = makeSpawnEntity(node, { timeoutMs });
+        await spawn_camera({ value: async () => ({
+          entity_name: CAMERA_NAME,
+          file_name: 'camera.sdf',
+          position: { x: -10, y: 0, z: 10 },
+          orientation: { roll: 0, pitch: 40, yaw: 0 }
+        }) });
+      }
+      // Start bridge if not running
+      if (!bridgeProc || bridgeProc.killed) {
+        const world = await get_world();
+        const gzTopic = `/world/${world}/model/${CAMERA_NAME}/link/link/sensor/camera/image`;
+        const args = [
+          'run', 'ros_gz_bridge', 'parameter_bridge',
+          `${gzTopic}@sensor_msgs/msg/Image[gz.msgs.Image`,
+          '--ros-args', '-r', `${gzTopic}:=/viz_cam`
+        ];
+        bridgeProc = spawn('ros2', args, { stdio: 'inherit' });
+        bridgeProc.on('exit', () => { bridgeProc = null; });
+      }
+      // Start web_video_server if not running
+      if (!webVideoProc || webVideoProc.killed) {
+        webVideoProc = spawn('ros2', [
+          'run', 'web_video_server', 'web_video_server',
+          '--ros-args',
+          '-p', 'port:=8081',
+          '-p', 'address:=0.0.0.0',
+          '-p', 'server_threads:=2',
+          '-p', 'ros_threads:=3',
+          '-p', 'default_stream_type:=mjpeg'
+        ], { stdio: 'ignore', detached: true });
+        webVideoProc.on('exit', () => { webVideoProc = null; });
+      }
+      return 'Visualization enabled (camera and streams ensured).';
+    } else {
+      // Remove camera if exists
+      if (await entityExists(CAMERA_NAME)) {
+        const remove_camera = makeDeleteEntity(node, { timeoutMs });
+        await remove_camera({ value: async () => ({ name: CAMERA_NAME }) });
+      }
+      // Stop bridge if any
+      if (bridgeProc && !bridgeProc.killed) {
+        try { process.kill(-bridgeProc.pid, 'SIGTERM'); } catch {}
+        bridgeProc = null;
+      }
+      // Stop web video if any
+      if (webVideoProc && !webVideoProc.killed) {
+        try { process.kill(-webVideoProc.pid, 'SIGTERM'); } catch {}
+        webVideoProc = null;
+      }
+      return 'Visualization disabled (camera removed if present).';
+    }
+  };
+}
+
 module.exports = {
   makeSetRtf,
   makeDeleteEntity,
   makeSetEntityPose,
   makeSpawnEntity,
   makeSimControl,
+  makeSetVisualization,
 };
