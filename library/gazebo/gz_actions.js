@@ -92,9 +92,21 @@ async function read_entity_info() {
   }
 }
 
-async function entityExists(name) {
+async function entityExists(idOrName) {
   const models = await getEntities();
-  return models.some(m => m.name === name);
+  if (idOrName == null) return false;
+
+  const isId =
+    typeof idOrName === 'bigint' ||
+    typeof idOrName === 'number' ||
+    (typeof idOrName === 'string' && /^\d+$/.test(idOrName));
+
+  if (isId) {
+    const targetId = typeof idOrName === 'bigint' ? idOrName : BigInt(idOrName);
+    return models.some(m => m.id !== undefined && BigInt(m.id) === targetId);
+  }
+
+  return models.some(m => m.name === idOrName);
 }
 
 async function launchSimulation(input) {

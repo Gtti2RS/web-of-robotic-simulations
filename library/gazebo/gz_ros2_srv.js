@@ -53,12 +53,13 @@ function makeDeleteEntity(node, { timeoutMs = 1000 } = {}) {
     const world = await get_world();
     if (!world) throw new Error('Active world not found');
 
-    // If deleting by name (no id), verify the entity exists first
-    if (name && id == null) {
+    // Verify the entity exists before attempting deletion
+    if (id != null) {
+      const exists = await entityExists(id);
+      if (!exists) throw new Error(`Entity id ${id} not found.`);
+    } else if (name) {
       const exists = await entityExists(name);
-      if (!exists) {
-        throw new Error(`Entity ${name} not found.`);
-      }
+      if (!exists) throw new Error(`Entity ${name} not found.`);
     }
 
     const entity = {};
