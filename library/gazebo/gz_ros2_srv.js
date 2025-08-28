@@ -1,6 +1,7 @@
 // Export WoT action handlers as factories that capture your already-created rclnodejs node.
 
 const { callService } = require('../common/ros2_service_helper');
+const { deg2quat } = require('../common/deg2quat');
 const { get_world, entityExists } = require('./gz_actions'); 
 
 /**
@@ -91,7 +92,75 @@ function makeDeleteEntity(node, { timeoutMs = 1000 } = {}) {
 
 
 
+/**
+ * Set entity pose via ROS 2 bridged service (ros_gz_interfaces/SetEntityPose)
+ */
+function makeSetEntityPose(node, { timeoutMs = 1000 } = {}) {
+  return async function setEntityPoseAction(input) {
+    const data = await input.value();
+
+    const { id, name } = data ?? {};
+    if (id == null && !name) throw new Error('SetEntityPose requires either "id" or "name".');
+
+    const world = await get_world();
+    if (!world) throw new Error('Active world not found');
+
+    // Existence check (supports id or name)
+    const exists = await entityExists(id != null ? id : name);
+    if (!exists) {
+      throw new Error(id != null ? `Entity id ${id} not found.` : `Entity ${name} not found.`);
+    }
+
+    // Position defaults
+    const p = data.position || {};
+    const position = {
+      x: Number.isFinite(p.x) ? p.x : 0,
+      y: Number.isFinite(p.y) ? p.y : 0,
+      z: Number.isFinite(p.z) ? p.z : 0
+    };
+
+    // Orientation: roll, pitch, yaw (deg) -> quaternion
+    const rpy = data.orientation || {};
+    const { qx, qy, qz, qw } = deg2quat({
+      roll: Number.isFinite(rpy.roll) ? rpy.roll : 0,
+      pitch: Number.isFinite(rpy.pitch) ? rpy.pitch : 0,
+      yaw: Number.isFinite(rpy.yaw) ? rpy.yaw : 0
+    });
+
+    // Build request according to ros_gz_interfaces/srv/SetEntityPose
+    const entity = {};
+    if (id != null) entity.id = (typeof id === 'bigint') ? id : BigInt(id);
+    if (name) entity.name = name;
+    if (id == null && name) entity.type = 2; // MODEL when targeting by name
+
+    const payload = {
+      entity,
+      pose: {
+        position,
+        orientation: { x: qx, y: qy, z: qz, w: qw }
+      }
+    };
+
+    const { resp } = await callService(
+      node,
+      {
+        srvType: 'ros_gz_interfaces/srv/SetEntityPose',
+        serviceName: `/world/${world}/set_pose`,
+        payload
+      },
+      { timeoutMs }
+    );
+
+    if (resp?.success ?? resp?.ok ?? resp?.boolean) {
+      const identifier = name ? `name=${name}` : `id=${id}`;
+      return `Pose set for entity (${identifier}).`;
+    }
+    throw new Error(resp?.message ? `SetEntityPose failed: ${resp.message}` : 'SetEntityPose failed');
+  };
+}
+
 module.exports = {
   makeSetRtf,
   makeDeleteEntity,
+  makeSetEntityPose,
 };

@@ -169,10 +169,12 @@
       "title": "Set entity pose to the given location and orientation ",
       "input": {
         "type": "object",
-        "required": [
-          "name"
-        ],
+        "required": [],
         "properties": {
+          "id": {
+            "type": "integer",
+            "description": "Entity ID (uint64). If provided, takes precedence over name."
+          },
           "name": {
             "type": "string"
           },
