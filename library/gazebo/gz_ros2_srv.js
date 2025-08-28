@@ -1,6 +1,7 @@
 // Export WoT action handlers as factories that capture your already-created rclnodejs node.
 
 const { callService } = require('../common/ros2_service_helper');
+const { resolveFilePath } = require('../common/fileUtils');
 const { deg2quat } = require('../common/deg2quat');
 const { get_world, entityExists } = require('./gz_actions'); 
 
@@ -159,8 +160,81 @@ function makeSetEntityPose(node, { timeoutMs = 1000 } = {}) {
   };
 }
 
+/**
+ * Spawn entity via ROS 2 bridged service (ros_gz_interfaces/EntityFactory on /world/<world>/create)
+ * Input mirrors existing spawn_entity action: { entity_name, file_name, position, orientation }
+ */
+function makeSpawnEntity(node, { timeoutMs = 1000 } = {}) {
+  return async function spawnEntityAction(input) {
+    const data = await input.value();
+
+    const entity_name = data?.entity_name;
+    const file_name = data?.file_name;
+    if (!entity_name) throw new Error('SpawnEntity requires "entity_name".');
+    if (!file_name) throw new Error('SpawnEntity requires "file_name".');
+
+    const world = await get_world();
+    if (!world) throw new Error('Active world not found');
+
+    // Avoid name collision
+    const exists = await entityExists(entity_name);
+    if (exists) return `Entity ${entity_name} already exists.`;
+
+    const fullPath = await resolveFilePath(file_name);
+    if (!fullPath) throw new Error(`File not found: ${file_name}`);
+
+    // Position defaults
+    const p = data.position || {};
+    const position = {
+      x: Number.isFinite(p.x) ? p.x : 0,
+      y: Number.isFinite(p.y) ? p.y : 0,
+      z: Number.isFinite(p.z) ? p.z : 0
+    };
+
+    // Orientation: roll/pitch/yaw (deg) -> quaternion
+    const rpy = data.orientation || {};
+    const { qx, qy, qz, qw } = deg2quat({
+      roll: Number.isFinite(rpy.roll) ? rpy.roll : 0,
+      pitch: Number.isFinite(rpy.pitch) ? rpy.pitch : 0,
+      yaw: Number.isFinite(rpy.yaw) ? rpy.yaw : 0
+    });
+
+    // ros_gz_interfaces/srv/SpawnEntity expects an EntityFactory inside `entity_factory`
+    const payload = {
+      entity_factory: {
+        name: entity_name,
+        allow_renaming: false,
+        sdf: undefined,
+        sdf_filename: fullPath,
+        clone_name: undefined,
+        pose: {
+          position,
+          orientation: { x: qx, y: qy, z: qz, w: qw }
+        },
+        relative_to: 'world'
+      }
+    };
+
+    const { resp } = await callService(
+      node,
+      {
+        srvType: 'ros_gz_interfaces/srv/SpawnEntity',
+        serviceName: `/world/${world}/create`,
+        payload
+      },
+      { timeoutMs }
+    );
+
+    if (resp?.success ?? resp?.ok ?? resp?.boolean) {
+      return `${entity_name} is spawned to current world.`;
+    }
+    throw new Error(resp?.message ? `SpawnEntity failed: ${resp.message}` : 'SpawnEntity failed');
+  };
+}
+
 module.exports = {
   makeSetRtf,
   makeDeleteEntity,
   makeSetEntityPose,
+  makeSpawnEntity,
 };
