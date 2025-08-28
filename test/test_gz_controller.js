@@ -7,7 +7,7 @@ const { HttpServer } = require("@node-wot/binding-http");
 const { handleUploadFile, readAvailableResources } = require("../library/common/fileUtils");
 const { launchSimulation, exitSimulation, read_entity_info, sim_control, spawn_entity, set_entity_pose, remove_entity, save_world, visualizationRead, set_visualization} = require("../library/gazebo/gz_actions");
 const { publishMessage, sendRos2Cmd } = require("../library/common/ros2_utils");
-const {makeSetRtf} = require("../library/common/ros2_service_call");
+const {makeSetRtf, makeDeleteEntity} = require("../library/gazebo/gz_ros2_srv");
 
 class WotPublisherServer {
   constructor(tdPath = "./gz_controller.json", rosTopic = "wot_topic", port = 8080) {
@@ -57,6 +57,7 @@ class WotPublisherServer {
     this.thing.setActionHandler('save_world', save_world);
     this.thing.setActionHandler('set_visualization', set_visualization);
     this.thing.setActionHandler('setRtf', makeSetRtf(this.node, { debug: false, timeoutMs: 1500 }));
+    this.thing.setActionHandler("deleteEntity", makeDeleteEntity(this.node));
 
     await this.thing.expose();
     console.log(`Thing exposed at http://localhost:${this.port}/`);

@@ -31,7 +31,15 @@ function detectWorldNames() {
   });
 }
 
-function get_world() {
+async function get_world() {
+  if (cachedWorldNames.length === 0) {
+    try {
+      await detectWorldNames();
+    } catch (error) {
+      throw new Error('No active world.');
+    }
+  }
+  
   const world = cachedWorldNames.length > 0 ? cachedWorldNames[0] : null;
   if (!world) {
     throw new Error('No active world.');
@@ -42,7 +50,7 @@ function get_world() {
 }
 
 async function getEntities() {
-  const world = get_world();
+  const world = await get_world();
 
   const cmd = `gz service -s /world/${world}/scene/info --reqtype gz.msgs.Empty --reptype gz.msgs.Scene --req ''`;
 
@@ -154,7 +162,7 @@ async function exitSimulation() {
 
 async function sim_control(input) {
   try {
-    const world = get_world();
+    const world = await get_world();
     const { mode } = await input.value();
 
     let req;
@@ -188,7 +196,7 @@ async function sim_control(input) {
 
 async function spawn_entity(input) {
   try {
-    const world = get_world();
+    const world = await get_world();
     const data = await input.value();
     const entity_name = data.entity_name;
     const file_name = data.file_name;
@@ -247,7 +255,7 @@ async function spawn_entity(input) {
 
 async function set_entity_pose(input) {
   try {
-    const world = get_world();
+    const world = await get_world();
     const data = await input.value();
     const name = data.name;
     if (!name) return 'Entity name is required.';
@@ -294,7 +302,7 @@ async function set_entity_pose(input) {
 
 async function remove_entity(input) {
   try {
-    const world = get_world();
+    const world = await get_world();
     const data = await input.value();
     const name = data.name;
 
@@ -319,7 +327,7 @@ async function remove_entity(input) {
 }
 
 async function save_world(input) {
-  const worldName = get_world();
+  const worldName = await get_world();
   const { name } = await input.value();
 
   const service = `/world/${worldName}/generate_world_sdf`;
@@ -424,7 +432,7 @@ async function removeCamera(name) {
 
 async function ensureImageBridgeRunning() {
   if (bridgeProc && !bridgeProc.killed) return;
-  const world = get_world();
+  const world = await get_world();
   const gzTopic = `/world/${world}/model/${CAMERA_NAME}/link/link/sensor/camera/image`;
   const args = [
   'run', 'ros_gz_bridge', 'parameter_bridge',
@@ -476,5 +484,6 @@ module.exports = {
   save_world,
   visualizationRead,
   set_visualization,
-  get_world
+  get_world,
+  entityExists
 };
