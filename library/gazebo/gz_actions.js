@@ -4,7 +4,6 @@ const path = require('path');
 const { deg2quat } = require("../common/deg2quat");
 
 let cachedWorldNames = [];
-let vizState = false;
 const CAMERA_NAME = 'wot_camera';
 let bridgeProc = null;      // ros_gz_bridge process when visualization is on
 let webVideoProc = null;    // web_video_server process for browser streaming
@@ -388,34 +387,20 @@ async function save_world(input) {
 }
 
 /**
- * Read handler for WoT Property `visualization`.
- * Keeps state inside this module.
- */
-async function visualizationRead() {
-  return vizState;
-}
-
-/**
  * Write handler for WoT Property `visualization`.
  * Expects WoT input; use await input.value() per your convention.
  */
 async function set_visualization(input) {
   const desired = await input.value(); // already boolean from TD
-  if (desired == vizState) {
-    console.log(`Visualization already ${vizState ? 'enabled' : 'disabled'}`);
-    return `Visualization already ${vizState ? 'enabled' : 'disabled'}`;
-  }
   if (desired) {
     await ensureCameraSpawned(CAMERA_NAME);
     await ensureImageBridgeRunning();
     await ensureWebVideoServerRunning();
-    vizState = true;
     return 'Visualization enabled.';
   } else {
     await stopBridgeIfAny();
     await stopWebVideoIfAny();
     await removeCamera(CAMERA_NAME);
-    vizState = false;
     return 'Visualization disabled.';
   }
 }
@@ -494,7 +479,6 @@ module.exports = {
   set_entity_pose,
   remove_entity,
   save_world,
-  visualizationRead,
   set_visualization,
   get_world,
   entityExists

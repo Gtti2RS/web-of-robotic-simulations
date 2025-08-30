@@ -9,6 +9,7 @@ const path = require('path'); // Added for makeSaveWorld
 const fs = require('fs'); // Added for makeSaveWorld
 
 const CAMERA_NAME = 'wot_camera';
+let vizState = false;
 let bridgeProc = null;
 let webVideoProc = null;
 
@@ -284,12 +285,25 @@ function makeSimControl(node, { timeoutMs = 1000 } = {}) {
 }
 
 /**
+ * Read handler for WoT Property `visualization`.
+ * Keeps state inside this module.
+ */
+function visualizationRead() {
+  return vizState;
+}
+
+/**
  * Toggle visualization by spawning/removing camera model via ROS 2 services.
  * Input: boolean (true to enable, false to disable)
  */
 function makeSetVisualization(node, { timeoutMs = 1000 } = {}) {
   return async function setVisualizationAction(input) {
     const desired = await input.value();
+    
+    if (desired == vizState) {
+      console.log(`Visualization already ${vizState ? 'enabled' : 'disabled'}`);
+      return `Visualization already ${vizState ? 'enabled' : 'disabled'}`;
+    }
 
     if (desired) {
       // Spawn camera if not exists
@@ -327,6 +341,7 @@ function makeSetVisualization(node, { timeoutMs = 1000 } = {}) {
         ], { stdio: 'ignore', detached: true });
         webVideoProc.on('exit', () => { webVideoProc = null; });
       }
+      vizState = true;
       return 'Visualization enabled (camera and streams ensured).';
     } else {
       // Remove camera if exists
@@ -344,6 +359,7 @@ function makeSetVisualization(node, { timeoutMs = 1000 } = {}) {
         try { process.kill(-webVideoProc.pid, 'SIGTERM'); } catch {}
         webVideoProc = null;
       }
+      vizState = false;
       return 'Visualization disabled (camera removed if present).';
     }
   };
@@ -402,4 +418,5 @@ module.exports = {
   makeSimControl,
   makeSetVisualization,
   makeSaveWorld,
+  visualizationRead,
 };
