@@ -1,4 +1,5 @@
 const { spawn } = require("child_process");
+const { callService } = require('./ros2_service_helper');
 
 let ros2Publisher = null;
 
@@ -36,47 +37,55 @@ function parseCommand(cmdStr) {
   }) || [];
 }
 
-async function sendRos2Cmd(input) {
-  const commandStr = await input.value();
+function makeSendRos2Cmd(node, { timeoutMs = 10000 } = {}) {
+  return async function sendRos2CmdAction(input) {
+    const commandStr = await input.value();
 
-  if (typeof commandStr !== "string" || !commandStr.trim().startsWith("ros2 ")) {
-    throw new Error("Only 'ros2' commands are allowed.");
-  }
+    if (typeof commandStr !== "string" || !commandStr.trim().startsWith("ros2 ")) {
+      throw new Error("Only 'ros2' commands are allowed.");
+    }
 
-  const forbidden = [";", "&&", "|", "`", "$(", "<", ">", "\\"];
-  if (forbidden.some(f => commandStr.includes(f))) {
-    throw new Error("Unsafe characters detected in command.");
-  }
+    const forbidden = [";", "&&", "|", "`", "$(", "<", ">", "\\"];
+    if (forbidden.some(f => commandStr.includes(f))) {
+      throw new Error("Unsafe characters detected in command.");
+    }
 
-  const parts = parseCommand(commandStr);
-  if (parts[0] !== "ros2") {
-    throw new Error("Command must start with 'ros2'.");
-  }
-  
-  return new Promise((resolve, reject) => {
-    const proc = spawn(parts[0], parts.slice(1));
+    const parts = parseCommand(commandStr);
+    if (parts[0] !== "ros2") {
+      throw new Error("Command must start with 'ros2'.");
+    }
 
-    let stdout = "", stderr = "";
+    try {
+      const { resp } = await callService(
+        node,
+        {
+          srvType: 'sim_process_supervisor_interfaces/srv/ExecCmd',
+          serviceName: '/sim/exec_cmd',
+          payload: {
+            cmd: commandStr
+          }
+        },
+        { timeoutMs }
+      );
 
-    proc.stdout.on("data", (data) => stdout += data.toString());
-    proc.stderr.on("data", (data) => stderr += data.toString());
-
-    proc.on("close", (code) => {
-    console.log("[WoT Action] Sending ros2 cmd: ", commandStr);
-      const cleanOutput = stdout.trim();
-      const lines = cleanOutput.split("\n");
-
-      if (code === 0) {
-        resolve({ lines, raw: cleanOutput });
+      if (resp?.return_code === 0) {
+        console.log(`[WoT Action] Executed ros2 command: ${commandStr}`);
+        const cleanOutput = resp.stdout?.trim() || '';
+        const lines = cleanOutput ? cleanOutput.split("\n") : [];
+        return { lines, raw: cleanOutput };
       } else {
-        reject(new Error(`❌ ROS 2 command failed:\n${stderr || cleanOutput}`));
+        const errorMsg = resp?.stderr || resp?.error || resp?.message || 'Unknown error occurred';
+        console.error(`[WoT Action] ROS 2 command failed: ${errorMsg}`);
+        throw new Error(` ROS 2 command failed: ${errorMsg}`);
       }
-    });
-
-  });
+    } catch (error) {
+      console.error(`[WoT Action] Service call failed: ${error.message}`);
+      throw new Error(` Service call failed: ${error.message}`);
+    }
+  };
 }
 
 module.exports = {
   publishMessage,
-  sendRos2Cmd
+  makeSendRos2Cmd
 };

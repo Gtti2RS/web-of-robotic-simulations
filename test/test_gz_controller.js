@@ -6,7 +6,7 @@ const { HttpServer } = require("@node-wot/binding-http");
 
 const { handleUploadFile, readAvailableResources } = require("../library/common/fileUtils");
 const { launchSimulation, exitSimulation, read_entity_info, sim_control, spawn_entity, set_entity_pose, remove_entity, set_visualization} = require("../library/gazebo/gz_actions");
-const { publishMessage, sendRos2Cmd } = require("../library/common/ros2_utils");
+const { publishMessage, makeSendRos2Cmd } = require("../library/common/ros2_utils");
 const {makeSetRtf, makeDeleteEntity, makeSetEntityPose, makeSpawnEntity, makeSimControl, makeSetVisualization, makeSaveWorld, visualizationRead} = require("../library/gazebo/gz_ros2_srv");
 const { readSimStats, readPoses, readModels, combinedSSEMiddleware, setupAllObservableProperties, cleanupSubscriptions } = require("../library/gazebo/gz_topics");
 
@@ -54,7 +54,7 @@ class WotPublisherServer {
     this.thing.setActionHandler("launchSimulation", launchSimulation.bind(this));
     this.thing.setActionHandler("exitSimulation", exitSimulation.bind(this));
     this.thing.setActionHandler("uploadFile", handleUploadFile.bind(this));
-    this.thing.setActionHandler("send_ros2_cmd", sendRos2Cmd.bind(this));
+    this.thing.setActionHandler("send_ros2_cmd", makeSendRos2Cmd(this.node));
     this.thing.setActionHandler('sim_control', makeSimControl(this.node));
     this.thing.setActionHandler('spawn_entity', makeSpawnEntity(this.node));
     this.thing.setActionHandler('set_entity_pose', makeSetEntityPose(this.node));
