@@ -335,21 +335,6 @@
         }
       }
     },
-    "model_list": {
-      "type": "array",
-      "items": {
-        "type": "object",
-        "properties": {
-          "name": {
-            "type": "string"
-          },
-          "id": {
-            "type": "integer"
-          }
-        }
-      },
-      "readOnly": true
-    },
     "visualization": {
       "type": "boolean",
       "readOnly": true,
@@ -485,6 +470,47 @@
         },
         {
           "href": "http://localhost:8080/gz_controller/properties/poses/observable",
+          "op": ["observeproperty"],
+          "subprotocol": "sse",
+          "contentType": "text/event-stream"
+        }
+      ]
+    },
+    "models": {
+      "type": "object",
+      "readOnly": true,
+      "observable": true,
+      "description": "Available models extracted from pose data",
+      "properties": {
+        "timestamp": {
+          "type": "string",
+          "format": "date-time",
+          "description": "Timestamp when the message was received"
+        },
+        "models": {
+          "type": "array",
+          "description": "Array of available models",
+          "items": {
+            "type": "object",
+            "properties": {
+              "name": { "type": "string" },
+              "id": { "type": "integer" }
+            }
+          }
+        },
+        "total_count": {
+          "type": "integer",
+          "description": "Total number of available models"
+        }
+      },
+      "forms": [
+        {
+          "href": "http://localhost:8080/gz_controller/properties/models",
+          "op": ["readproperty"],
+          "contentType": "application/json"
+        },
+        {
+          "href": "http://localhost:8080/gz_controller/properties/models/observable",
           "op": ["observeproperty"],
           "subprotocol": "sse",
           "contentType": "text/event-stream"

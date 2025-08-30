@@ -100,8 +100,17 @@ const PROPERTIES = {
     messageType: "std_msgs/msg/String",
     initialData: { timestamp: new Date().toISOString(), message: "No poses received yet" },
     ssePath: "/gz_controller/properties/poses/observable"
+  },
+  models: {
+    topic: "/pose/info_json",
+    messageType: "std_msgs/msg/String", 
+    initialData: { timestamp: new Date().toISOString(), message: "No models received yet" },
+    ssePath: "/gz_controller/properties/models/observable"
   }
 };
+
+// Shared pose data for poses and models properties
+let sharedPoseData = null;
 
 // Initialize all properties
 Object.entries(PROPERTIES).forEach(([name, config]) => {
@@ -150,17 +159,95 @@ const jsonMessageHandler = (msg) => {
   }
 };
 
+// Shared pose message handler - processes pose data for both poses and models properties
+const sharedPoseMessageHandler = (msg) => {
+  try {
+    const data = JSON.parse(msg.data);
+    sharedPoseData = data;
+    
+    // Update poses property with full pose data
+    sseManager.updateData("poses", {
+      ...data,
+      timestamp: new Date().toISOString()
+    });
+    
+    // Extract and update models property
+    const poses = data.pose || [];
+    
+    // Find the first "link" entity (this marks the boundary between models and links)
+    let linkIndex = -1;
+    for (let i = 0; i < poses.length; i++) {
+      if (poses[i].name === "link") {
+        linkIndex = i;
+        break;
+      }
+    }
+    
+    // Extract models (entities before the first "link")
+    const models = [];
+    const endIndex = linkIndex > 0 ? linkIndex : poses.length;
+    
+    // System entities to exclude
+    const systemEntities = new Set([
+      "ground_plane", "sun", "link", "visual", "collision", 
+      "sunVisual", "base", "shoulder", "upperarm", "forearm", 
+      "wrist1", "wrist2", "wrist3"
+    ]);
+    
+    for (let i = 0; i < endIndex; i++) {
+      const entity = poses[i];
+      const name = entity.name;
+      
+      // Skip system entities
+      if (name && !systemEntities.has(name)) {
+        // Include all non-system entities, including those with underscores (like box_0, cylinder_0)
+        models.push({
+          name: name,
+          id: entity.id
+        });
+      }
+    }
+    
+    // Update models property
+    sseManager.updateData("models", {
+      models: models,
+      total_count: models.length,
+      timestamp: new Date().toISOString()
+    });
+    
+    return data; // Return original data for poses property
+  } catch (error) {
+    throw new Error(`Failed to process pose data: ${error.message}`);
+  }
+};
+
 // Setup all observable properties with ROS2 subscriptions
 function setupAllObservableProperties(node) {
   const subscriptions = [];
+  const processedTopics = new Set();
   
   Object.entries(PROPERTIES).forEach(([propertyName, config]) => {
+    // Skip if we already processed this topic (for shared subscriptions)
+    if (processedTopics.has(config.topic)) {
+      return;
+    }
+    
+    let messageHandler;
+    if (config.topic === "/pose/info_json") {
+      // Use shared handler for pose data
+      messageHandler = sharedPoseMessageHandler;
+      processedTopics.add(config.topic);
+    } else {
+      // Use default JSON handler for other topics
+      messageHandler = jsonMessageHandler;
+    }
+    
     const subscriber = createROS2TopicSubscription(
       node, 
       config.topic, 
       config.messageType, 
       propertyName, 
-      jsonMessageHandler
+      messageHandler
     );
     if (subscriber) subscriptions.push(subscriber);
   });
@@ -217,6 +304,7 @@ module.exports = {
   // Read handlers
   readSimStats: readHandlers.sim_stats,
   readPoses: readHandlers.poses,
+  readModels: readHandlers.models,
   
   // Middleware
   combinedSSEMiddleware,
