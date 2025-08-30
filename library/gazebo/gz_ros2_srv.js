@@ -301,7 +301,6 @@ function makeSetVisualization(node, { timeoutMs = 1000 } = {}) {
     const desired = await input.value();
     
     if (desired == vizState) {
-      console.log(`Visualization already ${vizState ? 'enabled' : 'disabled'}`);
       return `Visualization already ${vizState ? 'enabled' : 'disabled'}`;
     }
 
@@ -327,6 +326,12 @@ function makeSetVisualization(node, { timeoutMs = 1000 } = {}) {
         ];
         bridgeProc = spawn('ros2', args, { stdio: 'inherit' });
         bridgeProc.on('exit', () => { bridgeProc = null; });
+        bridgeProc.stdout?.on('data', (data) => {
+          console.log(`[ros_gz_bridge] ${data.toString().trim()}`);
+        });
+        bridgeProc.stderr?.on('data', (data) => {
+          console.error(`[ros_gz_bridge] ${data.toString().trim()}`);
+        });
       }
       // Start web_video_server if not running
       if (!webVideoProc || webVideoProc.killed) {
@@ -338,10 +343,17 @@ function makeSetVisualization(node, { timeoutMs = 1000 } = {}) {
           '-p', 'server_threads:=2',
           '-p', 'ros_threads:=3',
           '-p', 'default_stream_type:=mjpeg'
-        ], { stdio: 'ignore', detached: true });
+        ], { stdio: 'inherit', detached: false });
         webVideoProc.on('exit', () => { webVideoProc = null; });
+        webVideoProc.stdout?.on('data', (data) => {
+          console.log(`[web_video_server] ${data.toString().trim()}`);
+        });
+        webVideoProc.stderr?.on('data', (data) => {
+          console.error(`[web_video_server] ${data.toString().trim()}`);
+        });
       }
       vizState = true;
+      console.log(`[makeSetVisualization] Visualization enabled`);
       return 'Visualization enabled (camera and streams ensured).';
     } else {
       // Remove camera if exists
@@ -360,6 +372,7 @@ function makeSetVisualization(node, { timeoutMs = 1000 } = {}) {
         webVideoProc = null;
       }
       vizState = false;
+      console.log(`[makeSetVisualization] Visualization disabled`);
       return 'Visualization disabled (camera removed if present).';
     }
   };
