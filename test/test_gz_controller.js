@@ -5,9 +5,9 @@ const { Servient } = require("@node-wot/core");
 const { HttpServer } = require("@node-wot/binding-http");
 
 const { handleUploadFile, readAvailableResources } = require("../library/common/fileUtils");
-const { launchSimulation, exitSimulation, read_entity_info, sim_control, spawn_entity, set_entity_pose, remove_entity, save_world, visualizationRead, set_visualization} = require("../library/gazebo/gz_actions");
+const { launchSimulation, exitSimulation, read_entity_info, sim_control, spawn_entity, set_entity_pose, remove_entity, visualizationRead, set_visualization} = require("../library/gazebo/gz_actions");
 const { publishMessage, sendRos2Cmd } = require("../library/common/ros2_utils");
-const {makeSetRtf, makeDeleteEntity, makeSetEntityPose, makeSpawnEntity, makeSimControl, makeSetVisualization} = require("../library/gazebo/gz_ros2_srv");
+const {makeSetRtf, makeDeleteEntity, makeSetEntityPose, makeSpawnEntity, makeSimControl, makeSetVisualization, makeSaveWorld} = require("../library/gazebo/gz_ros2_srv");
 const { readSimStats, readPoses, readModels, combinedSSEMiddleware, setupAllObservableProperties, cleanupSubscriptions } = require("../library/gazebo/gz_topics");
 
 class WotPublisherServer {
@@ -59,7 +59,7 @@ class WotPublisherServer {
     this.thing.setActionHandler('spawn_entity', makeSpawnEntity(this.node));
     this.thing.setActionHandler('set_entity_pose', makeSetEntityPose(this.node));
     this.thing.setActionHandler('remove_entity', makeDeleteEntity(this.node));
-    this.thing.setActionHandler('save_world', save_world);
+    this.thing.setActionHandler('save_world', makeSaveWorld(this.node));
     this.thing.setActionHandler('set_visualization', makeSetVisualization(this.node));
     this.thing.setActionHandler('setRtf', makeSetRtf(this.node));
 

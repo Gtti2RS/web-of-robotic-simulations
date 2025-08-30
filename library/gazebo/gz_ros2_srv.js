@@ -5,6 +5,8 @@ const { resolveFilePath } = require('../common/fileUtils');
 const { deg2quat } = require('../common/deg2quat');
 const { get_world, entityExists } = require('./gz_actions'); 
 const { spawn } = require('child_process');
+const path = require('path'); // Added for makeSaveWorld
+const fs = require('fs'); // Added for makeSaveWorld
 
 const CAMERA_NAME = 'wot_camera';
 let bridgeProc = null;
@@ -347,6 +349,51 @@ function makeSetVisualization(node, { timeoutMs = 1000 } = {}) {
   };
 }
 
+/**
+ * Save world SDF via ROS 2 bridged service (gz_physics_bridge/srv/GenerateWorldSdf)
+ * Input: { name: string } - optional filename for the saved world
+ */
+function makeSaveWorld(node, { timeoutMs = 1000 } = {}) {
+  return async function saveWorldAction(input) {
+    const { name } = await input.value();
+    const world = await get_world();
+    if (!world) throw new Error('Active world not found');
+
+    const { resp } = await callService(
+      node,
+      {
+        srvType: 'gz_physics_bridge/srv/GenerateWorldSdf',
+        serviceName: `/world/${world}/generate_world_sdf`,
+        payload: {} // Empty payload as per the service definition
+      },
+      { timeoutMs }
+    );
+
+    if (resp?.sdf) {
+      const sdfString = resp.sdf;
+      
+      // Generate safe filename
+      const safeName = name && name.trim() !== ''
+        ? name.trim().replace(/[^a-zA-Z0-9_\-]/g, '_') + '.sdf'
+        : `world_${world}_${new Date().toISOString().replace(/[:.]/g, '-')}.sdf`;
+
+      const filePath = path.join(__dirname, '../../saved/world', safeName);
+      const finalSdf = `<?xml version="1.0" ?>\n${sdfString}`;
+      
+      // Use fs to save the file
+      const dir = path.dirname(filePath);
+      if (!fs.existsSync(dir)) {
+        fs.mkdirSync(dir, { recursive: true });
+      }
+      fs.writeFileSync(filePath, finalSdf);
+
+      console.log(`World '${world}' saved to '${safeName}'`);
+      return `World saved to '${filePath}'`;
+    }
+    throw new Error('Failed to generate world SDF');
+  };
+}
+
 module.exports = {
   makeSetRtf,
   makeDeleteEntity,
@@ -354,4 +401,5 @@ module.exports = {
   makeSpawnEntity,
   makeSimControl,
   makeSetVisualization,
+  makeSaveWorld,
 };

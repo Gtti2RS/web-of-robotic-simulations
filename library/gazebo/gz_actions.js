@@ -378,7 +378,7 @@ async function save_world(input) {
         await saveFile(filePath, finalSdf);
 
         console.log(`World '${worldName}' saved to '${safeName}'`);
-        resolve(`World saved as '${safeName}'`);
+        resolve(`World saved to '${filePath}'`);
       } catch (parseErr) {
         console.error('[save_world] JSON parse error:', parseErr.message);
         reject(new Error('Failed to parse Gazebo service response'));
