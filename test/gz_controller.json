@@ -361,6 +361,68 @@
           "type": "text/html"
         }
       ]
+    },
+    "sim_stats": {
+      "type": "object",
+      "readOnly": true,
+      "observable": true,
+      "description": "Current simulation statistics from ROS2 /stats_json topic",
+      "properties": {
+        "timestamp": {
+          "type": "string",
+          "format": "date-time",
+          "description": "Timestamp when the message was received"
+        },
+        "sim_time": {
+          "type": "object",
+          "description": "Simulation time",
+          "properties": {
+            "sec": { "type": "integer" },
+            "nsec": { "type": "integer" }
+          }
+        },
+        "real_time": {
+          "type": "object",
+          "description": "Real time",
+          "properties": {
+            "sec": { "type": "integer" },
+            "nsec": { "type": "integer" }
+          }
+        },
+        "paused": {
+          "type": "boolean",
+          "description": "Whether simulation is paused"
+        },
+        "iterations": {
+          "type": "integer",
+          "description": "Number of simulation iterations"
+        },
+        "real_time_factor": {
+          "type": "number",
+          "description": "Real-time factor"
+        },
+        "step_size": {
+          "type": "object",
+          "description": "Simulation step size",
+          "properties": {
+            "sec": { "type": "integer" },
+            "nsec": { "type": "integer" }
+          }
+        }
+      },
+      "forms": [
+        {
+          "href": "http://localhost:8080/gz_controller/properties/sim_stats",
+          "op": ["readproperty"],
+          "contentType": "application/json"
+        },
+        {
+          "href": "http://localhost:8080/gz_controller/properties/sim_stats/observable",
+          "op": ["observeproperty"],
+          "subprotocol": "sse",
+          "contentType": "text/event-stream"
+        }
+      ]
     }
   }
 }

@@ -8,6 +8,7 @@ const { handleUploadFile, readAvailableResources } = require("../library/common/
 const { launchSimulation, exitSimulation, read_entity_info, sim_control, spawn_entity, set_entity_pose, remove_entity, save_world, visualizationRead, set_visualization} = require("../library/gazebo/gz_actions");
 const { publishMessage, sendRos2Cmd } = require("../library/common/ros2_utils");
 const {makeSetRtf, makeDeleteEntity, makeSetEntityPose, makeSpawnEntity, makeSimControl, makeSetVisualization} = require("../library/gazebo/gz_ros2_srv");
+const { readSimStats, simStatsSSEMiddleware, setupAllObservableProperties, cleanupSubscriptions } = require("../library/gazebo/gz_topics");
 
 class WotPublisherServer {
   constructor(tdPath = "./gz_controller.json", rosTopic = "wot_topic", port = 8080) {
@@ -17,6 +18,7 @@ class WotPublisherServer {
     this.spinInterval = null;
     this.gzProcess = null;
     this.simPid = null;
+    this.observableSubscriptions = [];
     this.uploadDirs = {
       world: path.join(process.env.HOME, "wos/upload", "world"),
       model: path.join(process.env.HOME, "wos/upload", "model"),
@@ -30,10 +32,11 @@ class WotPublisherServer {
     this.node = new rclnodejs.Node("wot_pub_node");
     //setRosNode(this.node);
     this.publisher = this.node.createPublisher("std_msgs/msg/String", this.rosTopic);
+    this.observableSubscriptions = setupAllObservableProperties(this.node);
     this.startSpin();
 
     this.servient = new Servient();
-    this.servient.addServer(new HttpServer({ port: this.port }));
+    this.servient.addServer(new HttpServer({ port: this.port, middleware: simStatsSSEMiddleware }));
 
     const td = JSON.parse(fs.readFileSync(this.tdPath, "utf8"));
 
@@ -43,6 +46,7 @@ class WotPublisherServer {
     this.thing.setPropertyReadHandler("availableResources", readAvailableResources);
     this.thing.setPropertyReadHandler('model_list', read_entity_info);
     this.thing.setPropertyReadHandler('visualization', visualizationRead);
+    this.thing.setPropertyReadHandler('sim_stats', readSimStats);
     this.thing.setActionHandler("publishMessage", (input) =>
       publishMessage(input, this.node)
     );
@@ -72,6 +76,11 @@ class WotPublisherServer {
     if (this.spinInterval) {
       clearInterval(this.spinInterval);
     }
+    
+    // Cleanup observable property subscriptions
+    cleanupSubscriptions(this.observableSubscriptions);
+    this.observableSubscriptions = [];
+    
     if (this.node) {
       this.node.destroy();
     }
