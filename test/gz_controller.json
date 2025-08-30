@@ -423,6 +423,73 @@
           "contentType": "text/event-stream"
         }
       ]
+    },
+    "poses": {
+      "type": "object",
+      "readOnly": true,
+      "observable": true,
+      "description": "Current entity poses from ROS2 /pose/info_json topic",
+      "properties": {
+        "timestamp": {
+          "type": "string",
+          "format": "date-time",
+          "description": "Timestamp when the message was received"
+        },
+        "header": {
+          "type": "object",
+          "description": "Message header with timestamp",
+          "properties": {
+            "stamp": {
+              "type": "object",
+              "properties": {
+                "sec": { "type": "integer" },
+                "nsec": { "type": "integer" }
+              }
+            }
+          }
+        },
+        "pose": {
+          "type": "array",
+          "description": "Array of entity poses",
+          "items": {
+            "type": "object",
+            "properties": {
+              "name": { "type": "string" },
+              "id": { "type": "integer" },
+              "position": {
+                "type": "object",
+                "properties": {
+                  "x": { "type": "number" },
+                  "y": { "type": "number" },
+                  "z": { "type": "number" }
+                }
+              },
+              "orientation": {
+                "type": "object",
+                "properties": {
+                  "x": { "type": "number" },
+                  "y": { "type": "number" },
+                  "z": { "type": "number" },
+                  "w": { "type": "number" }
+                }
+              }
+            }
+          }
+        }
+      },
+      "forms": [
+        {
+          "href": "http://localhost:8080/gz_controller/properties/poses",
+          "op": ["readproperty"],
+          "contentType": "application/json"
+        },
+        {
+          "href": "http://localhost:8080/gz_controller/properties/poses/observable",
+          "op": ["observeproperty"],
+          "subprotocol": "sse",
+          "contentType": "text/event-stream"
+        }
+      ]
     }
   }
 }
