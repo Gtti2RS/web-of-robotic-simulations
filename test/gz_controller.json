@@ -351,7 +351,7 @@
       "type": "object",
       "readOnly": true,
       "observable": true,
-      "description": "Current simulation statistics from ROS2 /stats_json topic",
+      "description": "Current simulation statistics from ROS2 /world/${world}/stats_json topic",
       "properties": {
         "timestamp": {
           "type": "string",
@@ -413,7 +413,7 @@
       "type": "object",
       "readOnly": true,
       "observable": true,
-      "description": "Current entity poses from ROS2 /pose/info_json topic",
+      "description": "Current entity poses from ROS2 /world/${world}/pose/info_json topic",
       "properties": {
         "timestamp": {
           "type": "string",

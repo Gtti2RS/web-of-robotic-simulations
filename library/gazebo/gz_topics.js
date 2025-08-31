@@ -1,4 +1,5 @@
 const rclnodejs = require("rclnodejs");
+const { get_world } = require('./gz_actions');
 
 // Generic SSE manager for observable properties
 class SSEManager {
@@ -87,22 +88,40 @@ class SSEManager {
 // Global SSE manager instance
 const sseManager = new SSEManager();
 
-// Property configurations
+// Function to update topics with world name
+async function updateTopicsWithWorld() {
+  try {
+    const world = await get_world();
+    
+    // Update topics to include world name
+    PROPERTIES.sim_stats.topic = `/world/${world}/stats_json`;
+    PROPERTIES.poses.topic = `/world/${world}/pose/info_json`;
+    PROPERTIES.models.topic = `/world/${world}/pose/info_json`;
+    
+    console.log(`Updated topics with world name: ${world}`);
+    return true;
+  } catch (error) {
+    console.warn(`Failed to update topics with world name: ${error.message}`);
+    return false;
+  }
+}
+
+// Property configurations - topics will be dynamically updated with world name
 const PROPERTIES = {
   sim_stats: {
-    topic: "/stats_json",
+    topic: "/stats_json", // Will be updated to /world/${world}/stats_json
     messageType: "std_msgs/msg/String",
     initialData: { timestamp: new Date().toISOString(), message: "No stats received yet" },
     ssePath: "/gz_controller/properties/sim_stats/observable"
   },
   poses: {
-    topic: "/pose/info_json", 
+    topic: "/pose/info_json", // Will be updated to /world/${world}/pose/info_json
     messageType: "std_msgs/msg/String",
     initialData: { timestamp: new Date().toISOString(), message: "No poses received yet" },
     ssePath: "/gz_controller/properties/poses/observable"
   },
   models: {
-    topic: "/pose/info_json",
+    topic: "/pose/info_json", // Will be updated to /world/${world}/pose/info_json
     messageType: "std_msgs/msg/String", 
     initialData: { timestamp: new Date().toISOString(), message: "No models received yet" },
     ssePath: "/gz_controller/properties/models/observable"
@@ -222,9 +241,12 @@ const sharedPoseMessageHandler = (msg) => {
 };
 
 // Setup all observable properties with ROS2 subscriptions
-function setupAllObservableProperties(node) {
+async function setupAllObservableProperties(node) {
   const subscriptions = [];
   const processedTopics = new Set();
+  
+  // Update topics with world name before setting up subscriptions
+  await updateTopicsWithWorld();
   
   Object.entries(PROPERTIES).forEach(([propertyName, config]) => {
     // Skip if we already processed this topic (for shared subscriptions)
@@ -233,7 +255,7 @@ function setupAllObservableProperties(node) {
     }
     
     let messageHandler;
-    if (config.topic === "/pose/info_json") {
+    if (config.topic.includes("/pose/info_json")) {
       // Use shared handler for pose data
       messageHandler = sharedPoseMessageHandler;
       processedTopics.add(config.topic);

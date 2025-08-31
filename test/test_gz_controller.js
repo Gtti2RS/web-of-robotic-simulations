@@ -32,7 +32,7 @@ class WotPublisherServer {
     this.node = new rclnodejs.Node("wot_pub_node");
     //setRosNode(this.node);
     this.publisher = this.node.createPublisher("std_msgs/msg/String", this.rosTopic);
-    this.observableSubscriptions = setupAllObservableProperties(this.node);
+    this.observableSubscriptions = await setupAllObservableProperties(this.node);
     this.startSpin();
 
     this.servient = new Servient();
@@ -64,7 +64,7 @@ class WotPublisherServer {
     this.thing.setActionHandler('setRtf', makeSetRtf(this.node));
 
     await this.thing.expose();
-    console.log(`Thing exposed at http://localhost:${this.port}/`);
+    console.log(`Thing exposed at http://localhost:${this.port}/gz_controller`);
   }
 
   startSpin() {
