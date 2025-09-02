@@ -563,31 +563,34 @@ function makeExitSimulation(node, { timeoutMs = 1000 } = {}) {
           } catch (cleanupErr) {
             console.warn(`[${new Date().toISOString()}] [makeExitSimulation] Topic subscription cleanup failed:`, cleanupErr.message);
           }
-          
-          // Reset simulation process name
-          simProcessName = null;
-          
-          // Clean up all bridges (including image_bridge when simulation exits)
-          await stopAllBridges(node, { timeoutMs });
-          
-          // Clean up web video server
-          await stopWebVideoServer(node, { timeoutMs });
-          vizState = false;
-          clear_world();
-          return `Simulation exited successfully. Process: ${simProcessName}`;
         }
+        
+        // Reset simulation process name
+        simProcessName = null;
+        
+        // Clean up all bridges (including image_bridge when simulation exits)
+        await stopAllBridges(node, { timeoutMs });
+        
+        // Clean up web video server
+        await stopWebVideoServer(node, { timeoutMs });
+        
+        // Reset state
+        vizState = false;
+        clear_world();
+        
+        return `Simulation exited successfully. Process: ${simProcessName}`;
       } else {
         console.warn(`[${new Date().toISOString()}] [makeExitSimulation] Failed to stop simulation process: ${resp?.message || 'Unknown error'}`);
         throw new Error(`Failed to stop simulation: ${resp?.message || 'Unknown error'}`);
       }
     } catch (error) {
       console.error(`[${new Date().toISOString()}] [makeExitSimulation] Error stopping simulation process: ${error.message}`);
+      
+      // Fallback cleanup in case of error
+      simProcessName = null;
+      vizState = false;
+      clear_world();
     }
-
-    // Clean up state
-    simProcessName = null;
-    clear_world(); // Clear the module's stored world name
-    vizState = false;
 
     console.log(`[${new Date().toISOString()}] [makeExitSimulation] Simulation exit completed`);
     return "Simulation exited.";
