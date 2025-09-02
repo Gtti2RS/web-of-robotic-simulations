@@ -6,8 +6,26 @@ const { deg2quat } = require('../common/deg2quat');
 const { get_world, extract_world, clear_world } = require('./gz_world_utils');
 const { entityExists } = require('./gz_world_utils'); 
 const { setupAllObservableProperties, cleanupSubscriptions } = require('./gz_topics');
+const { setupBridge, stopBridge, setupBridges, stopAllBridges } = require('./gz_bridge_manager');
 const path = require('path'); // Added for makeSaveWorld
 const fs = require('fs'); // Added for makeSaveWorld
+
+// Helper function to stop web video server
+async function stopWebVideoServer(node, { timeoutMs = 1000 } = {}) {
+  try {
+    const { resp } = await callService(
+      node,
+      {
+        srvType: 'sim_process_supervisor_interfaces/srv/ManagedStop',
+        serviceName: '/process/managed/stop',
+        payload: { name: 'web_video_server' }
+      },
+      { timeoutMs }
+    );
+  } catch (error) {
+    // Ignore errors when stopping web video server
+  }
+}
 
 const CAMERA_NAME = 'wot_camera';
 let vizState = false;
@@ -21,8 +39,8 @@ let topicSubscriptions = []; // Track topic subscriptions
 function makeSetRtf(node, { timeoutMs = 1000 } = {}) {
   return async function setRtf(input) {
     const { rtf, maxStep } = await input.value();
-    const world = await get_world();
-    if (!world) throw new Error('Active world not found');
+    const world = get_world();
+    if (!world) throw new Error('No active world found');
 
     const { req, resp } = await callService(
       node,
@@ -61,8 +79,8 @@ function makeDeleteEntity(node, { timeoutMs = 1000 } = {}) {
       throw new Error('DeleteEntity requires either "id" or "name".');
     }
 
-    const world = await get_world();
-    if (!world) throw new Error('Active world not found');
+    const world = get_world();
+    if (!world) throw new Error('No active world found');
 
     // Verify the entity exists before attempting deletion
     if (id != null) {
@@ -112,8 +130,8 @@ function makeSetEntityPose(node, { timeoutMs = 1000 } = {}) {
     const { id, name } = data ?? {};
     if (id == null && !name) throw new Error('SetEntityPose requires either "id" or "name".');
 
-    const world = await get_world();
-    if (!world) throw new Error('Active world not found');
+    const world = get_world();
+    if (!world) throw new Error('No active world found');
 
     // Existence check (supports id or name)
     const exists = await entityExists(id != null ? id : name);
@@ -182,8 +200,8 @@ function makeSpawnEntity(node, { timeoutMs = 1000 } = {}) {
     if (!entity_name) throw new Error('SpawnEntity requires "entity_name".');
     if (!file_name) throw new Error('SpawnEntity requires "file_name".');
 
-    const world = await get_world();
-    if (!world) throw new Error('Active world not found');
+    const world = get_world();
+    if (!world) throw new Error('No active world found');
 
     // Avoid name collision
     const exists = await entityExists(entity_name);
@@ -249,8 +267,8 @@ function makeSimControl(node, { timeoutMs = 1000 } = {}) {
   return async function simControlAction(input) {
     const { mode } = await input.value();
 
-    const world = await get_world();
-    if (!world) throw new Error('Active world not found');
+    const world = get_world();
+    if (!world) throw new Error('No active world found');
 
     let world_control;
     switch (mode) {
@@ -300,10 +318,13 @@ function visualizationRead() {
 function makeSetVisualization(node, { timeoutMs = 1000 } = {}) {
   return async function setVisualizationAction(input) {
     const desired = await input.value();
-    
+        
     if (desired == vizState) {
       return `Visualization already ${vizState ? 'enabled' : 'disabled'}`;
     }
+
+    const world = get_world();
+    if (!world) throw new Error('No active world found');
 
     if (desired) {
       // Spawn camera if not exists
@@ -317,32 +338,9 @@ function makeSetVisualization(node, { timeoutMs = 1000 } = {}) {
         }) });
       }
       
-      // Start bridge using ROS2 process management service
-      try {
-        const world = get_world();
-        const gzTopic = `/world/${world}/model/${CAMERA_NAME}/link/link/sensor/camera/image`;
-        const bridgeCmd = `ros2 run ros_gz_bridge parameter_bridge ${gzTopic}@sensor_msgs/msg/Image[gz.msgs.Image --ros-args -r ${gzTopic}:=/viz_cam`;
-        
-        const { resp: bridgeResp } = await callService(
-          node,
-          {
-            srvType: 'sim_process_supervisor_interfaces/srv/ManagedStart',
-            serviceName: '/process/managed/start',
-            payload: {
-              name: 'camera_bridge',
-              cmd: bridgeCmd
-            }
-          },
-          { timeoutMs }
-        );
-        
-        if (bridgeResp?.success ?? bridgeResp?.ok ?? bridgeResp?.boolean) {
-          console.log(`[makeSetVisualization] Bridge process started via ROS2 service`);
-        } else {
-          console.warn(`[makeSetVisualization] Failed to start bridge process: ${bridgeResp?.message || 'Unknown error'}`);
-        }
-      } catch (error) {
-        console.error(`[makeSetVisualization] Error starting bridge process: ${error.message}`);
+      // Start image bridge using bridge manager
+      if (world) {
+        await setupBridge(node, 'image_bridge', world, { timeoutMs });
       }
       
       // Start web_video_server using ROS2 process management service
@@ -381,51 +379,11 @@ function makeSetVisualization(node, { timeoutMs = 1000 } = {}) {
         await remove_camera({ value: async () => ({ name: CAMERA_NAME }) });
       }
       
-      // Stop bridge process using ROS2 process management service
-      try {
-        const { resp: bridgeResp } = await callService(
-          node,
-          {
-            srvType: 'sim_process_supervisor_interfaces/srv/ManagedStop',
-            serviceName: '/process/managed/stop',
-            payload: {
-              name: 'camera_bridge'
-            }
-          },
-          { timeoutMs }
-        );
-        
-        if (bridgeResp?.success ?? bridgeResp?.ok ?? bridgeResp?.boolean) {
-          console.log(`[makeSetVisualization] Bridge process stopped via ROS2 service`);
-        } else {
-          console.warn(`[makeSetVisualization] Failed to stop bridge process: ${bridgeResp?.message || 'Unknown error'}`);
-        }
-      } catch (error) {
-        console.error(`[makeSetVisualization] Error stopping bridge process: ${error.message}`);
-      }
+      // Stop image bridge using bridge manager
+      await stopBridge(node, 'image_bridge', { timeoutMs });
       
-      // Stop web video server process using ROS2 process management service
-      try {
-        const { resp: webVideoResp } = await callService(
-          node,
-          {
-            srvType: 'sim_process_supervisor_interfaces/srv/ManagedStop',
-            serviceName: '/process/managed/stop',
-            payload: {
-              name: 'web_video_server'
-            }
-          },
-          { timeoutMs }
-        );
-        
-        if (webVideoResp?.success ?? webVideoResp?.ok ?? webVideoResp?.boolean) {
-          console.log(`[makeSetVisualization] Web video server process stopped via ROS2 service`);
-        } else {
-          console.warn(`[makeSetVisualization] Failed to stop web video server process: ${webVideoResp?.message || 'Unknown error'}`);
-        }
-      } catch (error) {
-        console.error(`[makeSetVisualization] Error stopping web video server process: ${error.message}`);
-      }
+      // Stop web video server
+      await stopWebVideoServer(node, { timeoutMs });
       
       vizState = false;
       console.log(`[makeSetVisualization] Visualization disabled`);
@@ -534,7 +492,10 @@ function makeLaunchSimulation(node, { timeoutMs = 1000 } = {}) {
           const worldName = await extract_world(fullPath);
           console.log(`[${new Date().toISOString()}] [makeLaunchSimulation] World name extracted: ${worldName}`);
           
-          // Set up topic subscriptions after simulation starts
+          // Set up bridges after simulation starts (excluding image_bridge which is managed by visualization)
+          await setupBridges(node, worldName, ['world_services', 'physics_bridge'], { timeoutMs });
+          
+          // Set up topic subscriptions after bridges are set up
           try {
             console.log(`[${new Date().toISOString()}] [makeLaunchSimulation] Setting up topic subscriptions...`);
             const subscriptions = await setupAllObservableProperties(node);
@@ -606,6 +567,13 @@ function makeExitSimulation(node, { timeoutMs = 1000 } = {}) {
           // Reset simulation process name
           simProcessName = null;
           
+          // Clean up all bridges (including image_bridge when simulation exits)
+          await stopAllBridges(node, { timeoutMs });
+          
+          // Clean up web video server
+          await stopWebVideoServer(node, { timeoutMs });
+          vizState = false;
+          clear_world();
           return `Simulation exited successfully. Process: ${simProcessName}`;
         }
       } else {
@@ -620,49 +588,6 @@ function makeExitSimulation(node, { timeoutMs = 1000 } = {}) {
     simProcessName = null;
     clear_world(); // Clear the module's stored world name
     vizState = false;
-
-    // Stop any visualization processes if they're running
-    try {
-      // Stop bridge process
-      const { resp: bridgeResp } = await callService(
-        node,
-        {
-          srvType: 'sim_process_supervisor_interfaces/srv/ManagedStop',
-          serviceName: '/process/managed/stop',
-          payload: {
-            name: 'camera_bridge'
-          }
-        },
-        { timeoutMs }
-      );
-      
-      if (bridgeResp?.success ?? bridgeResp?.ok ?? bridgeResp?.boolean) {
-        console.log(`[makeExitSimulation] Bridge process stopped via ROS2 service`);
-      }
-    } catch (error) {
-      console.error(`[makeExitSimulation] Error stopping bridge process: ${error.message}`);
-    }
-
-    try {
-      // Stop web video server process
-      const { resp: webVideoResp } = await callService(
-        node,
-        {
-          srvType: 'sim_process_supervisor_interfaces/srv/ManagedStop',
-          serviceName: '/process/managed/stop',
-          payload: {
-            name: 'web_video_server'
-          }
-        },
-        { timeoutMs }
-      );
-      
-      if (webVideoResp?.success ?? webVideoResp?.ok ?? webVideoResp?.boolean) {
-        console.log(`[makeExitSimulation] Web video server process stopped via ROS2 service`);
-      }
-    } catch (error) {
-      console.error(`[makeExitSimulation] Error stopping web video server process: ${error.message}`);
-    }
 
     console.log(`[${new Date().toISOString()}] [makeExitSimulation] Simulation exit completed`);
     return "Simulation exited.";
