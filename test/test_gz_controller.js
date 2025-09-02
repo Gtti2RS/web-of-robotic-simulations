@@ -5,7 +5,7 @@ const { Servient } = require("@node-wot/core");
 const { HttpServer } = require("@node-wot/binding-http");
 
 const { handleUploadFile, readAvailableResources } = require("../library/common/fileUtils");
-const { launchSimulation, exitSimulation, read_entity_info, sim_control, spawn_entity, set_entity_pose, remove_entity, set_visualization} = require("../library/gazebo/gz_actions");
+const { launchSimulation, exitSimulation} = require("../library/gazebo/gz_actions");
 const { publishMessage, makeSendRos2Cmd } = require("../library/common/ros2_utils");
 const {makeSetRtf, makeDeleteEntity, makeSetEntityPose, makeSpawnEntity, makeSimControl, makeSetVisualization, makeSaveWorld, visualizationRead} = require("../library/gazebo/gz_ros2_srv");
 const { readSimStats, readPoses, readModels, combinedSSEMiddleware, setupAllObservableProperties, cleanupSubscriptions } = require("../library/gazebo/gz_topics");
@@ -32,7 +32,7 @@ class WotPublisherServer {
     this.node = new rclnodejs.Node("wot_pub_node");
     //setRosNode(this.node);
     this.publisher = this.node.createPublisher("std_msgs/msg/String", this.rosTopic);
-    this.observableSubscriptions = await setupAllObservableProperties(this.node);
+    this.observableSubscriptions = []; // Will be set up when simulation is launched
     this.startSpin();
 
     this.servient = new Servient();

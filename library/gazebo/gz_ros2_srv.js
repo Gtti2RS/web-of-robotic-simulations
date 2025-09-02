@@ -3,7 +3,8 @@
 const { callService } = require('../common/ros2_service_helper');
 const { resolveFilePath } = require('../common/fileUtils');
 const { deg2quat } = require('../common/deg2quat');
-const { get_world, entityExists } = require('./gz_actions'); 
+const { get_world } = require('./gz_get_world');
+const { entityExists } = require('./gz_actions'); 
 const { spawn } = require('child_process');
 const path = require('path'); // Added for makeSaveWorld
 const fs = require('fs'); // Added for makeSaveWorld

@@ -2,8 +2,10 @@ const { spawn, exec } = require("child_process");
 const { resolveFilePath, saveFile } = require("../common/fileUtils");
 const path = require('path');
 const { deg2quat } = require("../common/deg2quat");
+const { extract_world, get_world: getWorldFromModule, clear_world } = require('./gz_get_world');
 
 let cachedWorldNames = [];
+let currentWorldName = null; // Store the current world name
 const CAMERA_NAME = 'wot_camera';
 let bridgeProc = null;      // ros_gz_bridge process when visualization is on
 let webVideoProc = null;    // web_video_server process for browser streaming
@@ -30,21 +32,33 @@ function detectWorldNames() {
   });
 }
 
+// Local get_world function that uses stored world name or falls back to old method
 async function get_world() {
-  if (cachedWorldNames.length === 0) {
-    try {
-      await detectWorldNames();
-    } catch (error) {
+  // First try to get from the module's stored world name
+  try {
+    return getWorldFromModule();
+  } catch (error) {
+    // Fallback to local stored world name
+    if (currentWorldName) {
+      return currentWorldName;
+    }
+    
+    // Fallback to old method if no world name is stored
+    if (cachedWorldNames.length === 0) {
+      try {
+        await detectWorldNames();
+      } catch (error) {
+        throw new Error('No active world.');
+      }
+    }
+    
+    const world = cachedWorldNames.length > 0 ? cachedWorldNames[0] : null;
+    if (!world) {
       throw new Error('No active world.');
     }
-  }
-  
-  const world = cachedWorldNames.length > 0 ? cachedWorldNames[0] : null;
-  if (!world) {
-    throw new Error('No active world.');
-  }
-  else {
-    return world;
+    else {
+      return world;
+    }
   }
 }
 
@@ -126,7 +140,7 @@ async function launchSimulation(input) {
     ? ["sim", fullPath, ...args]
     : ["launch", fullPath, ...args];
 
-  console.log(`[launchSimulation] Spawning: ${cmd} ${cmdArgs.join(" ")}`);
+  console.log(`[${new Date().toISOString()}] [launchSimulation] Spawning: ${cmd} ${cmdArgs.join(" ")}`);
 
   try {
     this.gzProcess = spawn(cmd, cmdArgs, {
@@ -138,35 +152,56 @@ async function launchSimulation(input) {
     await new Promise(resolve => setTimeout(resolve, 1500)); // tune as needed
 
     try {
-      await detectWorldNames();
-      return `Simulation launched: ${fullPath}, worlds: ${cachedWorldNames.join(', ')}`;
+      // Extract world name from the SDF file
+      currentWorldName = await extract_world(fullPath);
+      console.log(`[${new Date().toISOString()}] [launchSimulation] World name extracted: ${currentWorldName}`);
+      
+      // Setup observable properties with the correct world name
+      const { setupAllObservableProperties } = require('./gz_topics');
+      if (this.observableSubscriptions) {
+        // Clean up existing subscriptions
+        this.observableSubscriptions.forEach(sub => {
+          if (sub && typeof sub.destroy === 'function') {
+            sub.destroy();
+          }
+        });
+      }
+      this.observableSubscriptions = await setupAllObservableProperties(this.node);
+      
+      console.log(`[${new Date().toISOString()}] [launchSimulation] Setup completed successfully`);
+      return `Simulation launched: ${fullPath}, world: ${currentWorldName}`;
     } catch (detectErr) {
-      console.warn('[launchSimulation] World detection failed:', detectErr.message);
+      console.warn(`[${new Date().toISOString()}] [launchSimulation] World detection failed:`, detectErr.message);
       return `Simulation launched: ${fullPath}, but world detection failed`;
     }
   } catch (err) {
-    console.error('[launchSimulation error]', err);
+    console.error(`[${new Date().toISOString()}] [launchSimulation] Error:`, err);
     throw new Error('Simulation launch failed: ' + err.message);
   }
 }
 
 async function exitSimulation() {
+  console.log(`[${new Date().toISOString()}] [exitSimulation] Starting simulation exit`);
   if (this.gzProcess && this.simPid) {
     try {
       process.kill(-this.simPid, "SIGINT");
-      console.log("[WoT Action] Sent SIGINT to simulation group:", -this.simPid);
+      console.log(`[${new Date().toISOString()}] [exitSimulation] Sent SIGINT to simulation group:`, -this.simPid);
     } catch (e) {
-      console.warn("[WoT Action] Error killing process group:", e.message);
+      console.warn(`[${new Date().toISOString()}] [exitSimulation] Error killing process group:`, e.message);
     }
     this.gzProcess = null;
     this.simPid = null;
     cachedWorldNames = [];
+    currentWorldName = null; // Clear the stored world name
+    clear_world(); // Clear the module's stored world name
     vizState = false;
     await stopBridgeIfAny();
     await stopWebVideoIfAny();
 
+    console.log(`[${new Date().toISOString()}] [exitSimulation] Simulation exit completed`);
     return "Simulation exited.";
   } else {
+    console.log(`[${new Date().toISOString()}] [exitSimulation] No simulation is currently running`);
     return "No simulation is currently running.";
   }
 }
