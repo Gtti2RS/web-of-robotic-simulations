@@ -1,4 +1,3 @@
-const { spawn } = require("child_process");
 const { callService } = require('./ros2_service_helper');
 
 let ros2Publisher = null;

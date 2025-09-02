@@ -3,13 +3,14 @@
 const { callService } = require('../common/ros2_service_helper');
 const { resolveFilePath } = require('../common/fileUtils');
 const { deg2quat } = require('../common/deg2quat');
-const { get_world } = require('./gz_world_utils');
+const { get_world, extract_world, clear_world } = require('./gz_world_utils');
 const { entityExists } = require('./gz_world_utils'); 
 const path = require('path'); // Added for makeSaveWorld
 const fs = require('fs'); // Added for makeSaveWorld
 
 const CAMERA_NAME = 'wot_camera';
 let vizState = false;
+let simProcessName = null; // Track the simulation process name
 
 /**
  * Set real-time factor (RTF) for the active world.
@@ -476,6 +477,164 @@ function makeSaveWorld(node, { timeoutMs = 1000 } = {}) {
   };
 }
 
+/**
+ * Launch simulation using ROS2 process management service
+ * Input: { method: string, fileName: string, arguments: array }
+ */
+function makeLaunchSimulation(node, { timeoutMs = 1000 } = {}) {
+  return async function launchSimulationAction(input) {
+    const data = await input.value();
+    const method = data?.method || "gz";
+    const fileName = data?.fileName;
+    const args = data?.arguments || [];
+
+    if (!fileName) throw new Error("Missing fileName for launchSimulation");
+
+    const fullPath = await resolveFilePath(fileName);
+    if (!fullPath) throw new Error(`File "${fileName}" not found in resource or upload folders`);
+
+    if (simProcessName) throw new Error("Simulation already running");
+
+    const cmd = method === "gz" 
+      ? "gz sim" 
+      : "ros2 launch";
+    const cmdArgs = method === "gz"
+      ? [fullPath, ...args]
+      : [fullPath, ...args];
+
+    const fullCmd = `${cmd} ${cmdArgs.join(" ")}`;
+    const processName = `simulation_${Date.now()}`; // Unique process name
+
+    console.log(`[${new Date().toISOString()}] [makeLaunchSimulation] Starting simulation: ${fullCmd}`);
+
+    try {
+      const { resp } = await callService(
+        node,
+        {
+          srvType: 'sim_process_supervisor_interfaces/srv/ManagedStart',
+          serviceName: '/process/managed/start',
+          payload: {
+            name: processName,
+            cmd: fullCmd
+          }
+        },
+        { timeoutMs }
+      );
+
+      if (resp?.success ?? resp?.ok ?? resp?.boolean) {
+        simProcessName = processName;
+        
+        // Wait a bit for simulation to start
+        await new Promise(resolve => setTimeout(resolve, 2000));
+
+        try {
+          // Extract world name from the SDF file
+          const worldName = await extract_world(fullPath);
+          console.log(`[${new Date().toISOString()}] [makeLaunchSimulation] World name extracted: ${worldName}`);
+          
+          return `Simulation launched: ${fullPath}, world: ${worldName}, process: ${processName}`;
+        } catch (detectErr) {
+          console.warn(`[${new Date().toISOString()}] [makeLaunchSimulation] World detection failed:`, detectErr.message);
+          return `Simulation launched: ${fullPath}, process: ${processName}, but world detection failed`;
+        }
+      } else {
+        throw new Error(`Failed to start simulation: ${resp?.message || 'Unknown error'}`);
+      }
+    } catch (error) {
+      console.error(`[${new Date().toISOString()}] [makeLaunchSimulation] Error:`, error);
+      throw new Error('Simulation launch failed: ' + error.message);
+    }
+  };
+}
+
+/**
+ * Exit simulation using ROS2 process management service
+ * Input: {} - no input required
+ */
+function makeExitSimulation(node, { timeoutMs = 1000 } = {}) {
+  return async function exitSimulationAction(input) {
+    console.log(`[${new Date().toISOString()}] [makeExitSimulation] Starting simulation exit`);
+    
+    if (!simProcessName) {
+      console.log(`[${new Date().toISOString()}] [makeExitSimulation] No simulation is currently running`);
+      return "No simulation is currently running.";
+    }
+
+    try {
+      const { resp } = await callService(
+        node,
+        {
+          srvType: 'sim_process_supervisor_interfaces/srv/ManagedStop',
+          serviceName: '/process/managed/stop',
+          payload: {
+            name: simProcessName
+          }
+        },
+        { timeoutMs }
+      );
+
+      if (resp?.success ?? resp?.ok ?? resp?.boolean) {
+        console.log(`[${new Date().toISOString()}] [makeExitSimulation] Simulation process stopped via ROS2 service`);
+      } else {
+        console.warn(`[${new Date().toISOString()}] [makeExitSimulation] Failed to stop simulation process: ${resp?.message || 'Unknown error'}`);
+      }
+    } catch (error) {
+      console.error(`[${new Date().toISOString()}] [makeExitSimulation] Error stopping simulation process: ${error.message}`);
+    }
+
+    // Clean up state
+    simProcessName = null;
+    clear_world(); // Clear the module's stored world name
+    vizState = false;
+
+    // Stop any visualization processes if they're running
+    try {
+      // Stop bridge process
+      const { resp: bridgeResp } = await callService(
+        node,
+        {
+          srvType: 'sim_process_supervisor_interfaces/srv/ManagedStop',
+          serviceName: '/process/managed/stop',
+          payload: {
+            name: 'camera_bridge'
+          }
+        },
+        { timeoutMs }
+      );
+      
+      if (bridgeResp?.success ?? bridgeResp?.ok ?? bridgeResp?.boolean) {
+        console.log(`[makeExitSimulation] Bridge process stopped via ROS2 service`);
+      }
+    } catch (error) {
+      console.error(`[makeExitSimulation] Error stopping bridge process: ${error.message}`);
+    }
+
+    try {
+      // Stop web video server process
+      const { resp: webVideoResp } = await callService(
+        node,
+        {
+          srvType: 'sim_process_supervisor_interfaces/srv/ManagedStop',
+          serviceName: '/process/managed/stop',
+          payload: {
+            name: 'web_video_server'
+          }
+        },
+        { timeoutMs }
+      );
+      
+      if (webVideoResp?.success ?? webVideoResp?.ok ?? webVideoResp?.boolean) {
+        console.log(`[makeExitSimulation] Web video server process stopped via ROS2 service`);
+      }
+    } catch (error) {
+      console.error(`[makeExitSimulation] Error stopping web video server process: ${error.message}`);
+    }
+
+    console.log(`[${new Date().toISOString()}] [makeExitSimulation] Simulation exit completed`);
+    return "Simulation exited.";
+  };
+}
+
 module.exports = {
   makeSetRtf,
   makeDeleteEntity,
@@ -484,5 +643,7 @@ module.exports = {
   makeSimControl,
   makeSetVisualization,
   makeSaveWorld,
+  makeLaunchSimulation,
+  makeExitSimulation,
   visualizationRead,
 };

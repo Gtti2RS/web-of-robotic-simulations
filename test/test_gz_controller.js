@@ -5,9 +5,8 @@ const { Servient } = require("@node-wot/core");
 const { HttpServer } = require("@node-wot/binding-http");
 
 const { handleUploadFile, readAvailableResources } = require("../library/common/fileUtils");
-const { launchSimulation, exitSimulation} = require("../library/gazebo/gz_actions");
 const { publishMessage, makeSendRos2Cmd } = require("../library/common/ros2_utils");
-const {makeSetRtf, makeDeleteEntity, makeSetEntityPose, makeSpawnEntity, makeSimControl, makeSetVisualization, makeSaveWorld, visualizationRead} = require("../library/gazebo/gz_ros2_srv");
+const {makeSetRtf, makeDeleteEntity, makeSetEntityPose, makeSpawnEntity, makeSimControl, makeSetVisualization, makeSaveWorld, makeLaunchSimulation, makeExitSimulation, visualizationRead} = require("../library/gazebo/gz_ros2_srv");
 const { readSimStats, readPoses, readModels, combinedSSEMiddleware, setupAllObservableProperties, cleanupSubscriptions } = require("../library/gazebo/gz_topics");
 
 class WotPublisherServer {
@@ -16,8 +15,6 @@ class WotPublisherServer {
     this.rosTopic = rosTopic;
     this.port = port;
     this.spinInterval = null;
-    this.gzProcess = null;
-    this.simPid = null;
     this.observableSubscriptions = [];
     this.uploadDirs = {
       world: path.join(process.env.HOME, "wos/upload", "world"),
@@ -51,8 +48,8 @@ class WotPublisherServer {
     this.thing.setActionHandler("publishMessage", (input) =>
       publishMessage(input, this.node)
     );
-    this.thing.setActionHandler("launchSimulation", launchSimulation.bind(this));
-    this.thing.setActionHandler("exitSimulation", exitSimulation.bind(this));
+    this.thing.setActionHandler("launchSimulation", makeLaunchSimulation(this.node));
+    this.thing.setActionHandler("exitSimulation", makeExitSimulation(this.node));
     this.thing.setActionHandler("uploadFile", handleUploadFile.bind(this));
     this.thing.setActionHandler("send_ros2_cmd", makeSendRos2Cmd(this.node));
     this.thing.setActionHandler('sim_control', makeSimControl(this.node));
@@ -86,17 +83,6 @@ class WotPublisherServer {
       this.node.destroy();
     }
     await rclnodejs.shutdown();
-
-    if (this.gzProcess && this.simPid) {
-      try {
-        process.kill(-this.simPid, "SIGINT");
-        console.log("[Shutdown] Sent SIGINT to simulation group:", -this.simPid);
-      } catch (e) {
-        console.warn("[Shutdown] Error killing process group:", e.message);
-      }
-      this.gzProcess = null;
-      this.simPid = null;
-    }
 
     console.log("Gracefully shut down WoT Publisher Server.");
   }
