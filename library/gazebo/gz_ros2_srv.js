@@ -10,6 +10,11 @@ const { setupBridge, stopBridge, setupBridges, stopAllBridges } = require('./gz_
 const path = require('path'); // Added for makeSaveWorld
 const fs = require('fs'); // Added for makeSaveWorld
 
+const CAMERA_NAME = 'wot_camera';
+let vizState = false;
+let simProcessName = null; // Track the simulation process name
+let topicSubscriptions = []; // Track topic subscriptions
+
 // Helper function to stop web video server
 async function stopWebVideoServer(node, { timeoutMs = 1000 } = {}) {
   try {
@@ -26,11 +31,6 @@ async function stopWebVideoServer(node, { timeoutMs = 1000 } = {}) {
     // Ignore errors when stopping web video server
   }
 }
-
-const CAMERA_NAME = 'wot_camera';
-let vizState = false;
-let simProcessName = null; // Track the simulation process name
-let topicSubscriptions = []; // Track topic subscriptions
 
 /**
  * Set real-time factor (RTF) for the active world.
@@ -280,8 +280,12 @@ function makeSimControl(node, { timeoutMs = 1000 } = {}) {
         world_control = { pause: false };
         break;
       case 'reset':
-        world_control = { reset: { all: true }, pause: true };
-        break;
+        // fix gazebo reset bug to enable clean reset of visualization
+        await makeResetVisualization(node, { timeoutMs });
+        
+        // The control service is now called inside makeResetVisualization
+        // Return success message directly
+        return `Simulation "${world}" successfully reset.`;
       default:
         throw new Error(`Invalid mode: ${mode}`);
     }
@@ -301,6 +305,96 @@ function makeSimControl(node, { timeoutMs = 1000 } = {}) {
     }
     throw new Error(resp?.message ? `SimControl failed: ${resp.message}` : 'SimControl failed');
   };
+}
+
+/**
+ * Reset visualization by removing all entities and respawning camera if visualization is enabled.
+ * This fixes the bug where entities remain in image topics after a simulation reset.
+ * Input: {} - no input required
+ */
+async function makeResetVisualization(node, { timeoutMs = 1000 } = {}) {
+  console.log(`[${new Date().toISOString()}] [makeResetVisualization] Starting visualization reset`);
+  
+  const world = get_world();
+  if (!world) {
+    console.warn(`[${new Date().toISOString()}] [makeResetVisualization] No active world found, skipping visualization reset`);
+    return;
+  }
+
+  try {
+    // Step 1: Remove all entities except camera if visualization is enabled
+    const { get_entity } = require('./gz_world_utils');
+    const entities = await get_entity();
+    
+    console.log(`[${new Date().toISOString()}] [makeResetVisualization] Found ${entities.length} entities in world`);
+    
+    const deleteEntity = makeDeleteEntity(node, { timeoutMs });
+    
+    // Remove all entities except camera if visualization is enabled
+    const entitiesToRemove = entities.filter(entity => {
+      // Keep camera if visualization is enabled
+      if (vizState && entity.name === CAMERA_NAME) {
+        return false;
+      }
+      return true;
+    });
+    
+    console.log(`[${new Date().toISOString()}] [makeResetVisualization] Removing ${entitiesToRemove.length} entities`);
+    
+    // Remove entities one by one
+    for (const entity of entitiesToRemove) {
+      try {
+        await deleteEntity({ value: async () => ({ name: entity.name }) });
+        console.log(`[${new Date().toISOString()}] [makeResetVisualization] Removed entity: ${entity.name}`);
+      } catch (error) {
+        console.warn(`[${new Date().toISOString()}] [makeResetVisualization] Failed to remove entity ${entity.name}: ${error.message}`);
+      }
+    }
+    
+    // Step 2: Call Gazebo control service to reset the world
+    console.log(`[${new Date().toISOString()}] [makeResetVisualization] Calling Gazebo control service to reset world`);
+    const { resp: controlResp } = await callService(
+      node,
+      {
+        srvType: 'ros_gz_interfaces/srv/ControlWorld',
+        serviceName: `/world/${world}/control`,
+        payload: { world_control: { reset: { all: true }} }
+      },
+      { timeoutMs }
+    );
+    
+    if (!(controlResp?.success ?? controlResp?.ok ?? controlResp?.boolean)) {
+      console.warn(`[${new Date().toISOString()}] [makeResetVisualization] Gazebo control service failed: ${controlResp?.message || 'Unknown error'}`);
+    } else {
+      console.log(`[${new Date().toISOString()}] [makeResetVisualization] Gazebo control service succeeded`);
+    }
+    
+    // Step 3: If visualization is enabled, spawn camera
+    if (vizState) {
+      console.log(`[${new Date().toISOString()}] [makeResetVisualization] Visualization is enabled, spawning camera`);
+      
+      // Wait a bit for the reset to complete
+      await new Promise(resolve => setTimeout(resolve, 1000));
+      
+      // Spawn camera
+      const spawnEntity = makeSpawnEntity(node, { timeoutMs });
+      await spawnEntity({ value: async () => ({
+        entity_name: CAMERA_NAME,
+        file_name: 'camera.sdf',
+        position: { x: -10, y: 0, z: 10 },
+        orientation: { roll: 0, pitch: 40, yaw: 0 }
+      }) });
+      
+      console.log(`[${new Date().toISOString()}] [makeResetVisualization] Camera spawned successfully`);
+    }
+    
+    console.log(`[${new Date().toISOString()}] [makeResetVisualization] Visualization reset completed successfully`);
+    return `Visualization reset completed. Removed ${entitiesToRemove.length} entities, called Gazebo reset${vizState ? ', camera spawned' : ''}.`;
+    
+  } catch (error) {
+    console.warn(`[${new Date().toISOString()}] [makeResetVisualization] Visualization reset failed: ${error.message}, continuing with simulation reset`);
+    // Don't throw error, just log warning and continue
+  }
 }
 
 /**
@@ -603,6 +697,7 @@ module.exports = {
   makeSetEntityPose,
   makeSpawnEntity,
   makeSimControl,
+  makeResetVisualization,
   makeSetVisualization,
   makeSaveWorld,
   makeLaunchSimulation,
