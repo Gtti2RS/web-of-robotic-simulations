@@ -229,23 +229,33 @@ async function setupAllObservableProperties(node) {
   const processedTopics = new Set();
   
   // Update topics with world name if available
+  let world = null;
   try {
     const { get_world } = require('./gz_world_utils');
-    const world = await get_world();
+    world = get_world();
     
-    // Update topics to include world name
-    PROPERTIES.sim_stats.topic = `/world/${world}/stats_json`;
-    PROPERTIES.poses.topic = `/world/${world}/pose/info_json`;
-    PROPERTIES.models.topic = `/world/${world}/pose/info_json`;
-    
-    console.log(`[${new Date().toISOString()}] [setupAllObservableProperties] Updated topics with world name: ${world}`);
+    if (world) {
+      // Update topics to include world name
+      PROPERTIES.sim_stats.topic = `/world/${world}/stats_json`;
+      PROPERTIES.poses.topic = `/world/${world}/pose/info_json`;
+      PROPERTIES.models.topic = `/world/${world}/pose/info_json`;
+      
+      console.log(`[${new Date().toISOString()}] [setupAllObservableProperties] Updated topics with world name: ${world}`);
+    } else {
+      console.warn(`[${new Date().toISOString()}] [setupAllObservableProperties] No active world detected, skipping topic subscriptions`);
+      return []; // Return empty array - no subscriptions to create
+    }
   } catch (error) {
-    console.warn(`[${new Date().toISOString()}] [setupAllObservableProperties] No world name available, using default topics: ${error.message}`);
+    console.warn(`[${new Date().toISOString()}] [setupAllObservableProperties] No world name available, skipping topic subscriptions: ${error.message}`);
+    return []; // Return empty array - no subscriptions to create
   }
   
   Object.entries(PROPERTIES).forEach(([propertyName, config]) => {
+    console.log(`[${new Date().toISOString()}] [setupAllObservableProperties] Processing property: ${propertyName}, topic: ${config.topic}`);
+    
     // Skip if we already processed this topic (for shared subscriptions)
     if (processedTopics.has(config.topic)) {
+      console.log(`[${new Date().toISOString()}] [setupAllObservableProperties] Skipping ${propertyName} - topic ${config.topic} already processed`);
       return;
     }
     
@@ -254,9 +264,11 @@ async function setupAllObservableProperties(node) {
       // Use shared handler for pose data
       messageHandler = sharedPoseMessageHandler;
       processedTopics.add(config.topic);
+      console.log(`[${new Date().toISOString()}] [setupAllObservableProperties] Using shared pose handler for ${propertyName}`);
     } else {
       // Use default JSON handler for other topics
       messageHandler = jsonMessageHandler;
+      console.log(`[${new Date().toISOString()}] [setupAllObservableProperties] Using JSON handler for ${propertyName}`);
     }
     
     const subscriber = createROS2TopicSubscription(
@@ -266,7 +278,12 @@ async function setupAllObservableProperties(node) {
       propertyName, 
       messageHandler
     );
-    if (subscriber) subscriptions.push(subscriber);
+    if (subscriber) {
+      subscriptions.push(subscriber);
+      console.log(`[${new Date().toISOString()}] [setupAllObservableProperties] Successfully created subscription for ${propertyName}`);
+    } else {
+      console.warn(`[${new Date().toISOString()}] [setupAllObservableProperties] Failed to create subscription for ${propertyName}`);
+    }
   });
   
   console.log(`[${new Date().toISOString()}] [setupAllObservableProperties] Setup ${subscriptions.length} observable property subscriptions`);

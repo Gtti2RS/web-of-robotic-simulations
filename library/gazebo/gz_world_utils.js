@@ -45,7 +45,7 @@ async function extract_world(sdfFilePath) {
  */
 function get_world() {
   if (!storedWorldName) {
-    throw new Error('No world name stored. Call extract_world() first.');
+    throw new Error('No active world detected.');
   }
   return storedWorldName;
 }

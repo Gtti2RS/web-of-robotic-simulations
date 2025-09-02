@@ -5,12 +5,14 @@ const { resolveFilePath } = require('../common/fileUtils');
 const { deg2quat } = require('../common/deg2quat');
 const { get_world, extract_world, clear_world } = require('./gz_world_utils');
 const { entityExists } = require('./gz_world_utils'); 
+const { setupAllObservableProperties, cleanupSubscriptions } = require('./gz_topics');
 const path = require('path'); // Added for makeSaveWorld
 const fs = require('fs'); // Added for makeSaveWorld
 
 const CAMERA_NAME = 'wot_camera';
 let vizState = false;
 let simProcessName = null; // Track the simulation process name
+let topicSubscriptions = []; // Track topic subscriptions
 
 /**
  * Set real-time factor (RTF) for the active world.
@@ -503,7 +505,7 @@ function makeLaunchSimulation(node, { timeoutMs = 1000 } = {}) {
       : [fullPath, ...args];
 
     const fullCmd = `${cmd} ${cmdArgs.join(" ")}`;
-    const processName = `simulation_${Date.now()}`; // Unique process name
+    const processName = "gz_sim"; // Unique process name
 
     console.log(`[${new Date().toISOString()}] [makeLaunchSimulation] Starting simulation: ${fullCmd}`);
 
@@ -531,6 +533,20 @@ function makeLaunchSimulation(node, { timeoutMs = 1000 } = {}) {
           // Extract world name from the SDF file
           const worldName = await extract_world(fullPath);
           console.log(`[${new Date().toISOString()}] [makeLaunchSimulation] World name extracted: ${worldName}`);
+          
+          // Set up topic subscriptions after simulation starts
+          try {
+            console.log(`[${new Date().toISOString()}] [makeLaunchSimulation] Setting up topic subscriptions...`);
+            const subscriptions = await setupAllObservableProperties(node);
+            topicSubscriptions = subscriptions;
+            if (subscriptions.length > 0) {
+              console.log(`[${new Date().toISOString()}] [makeLaunchSimulation] Topic subscriptions set up successfully: ${subscriptions.length} subscriptions`);
+            } else {
+              console.log(`[${new Date().toISOString()}] [makeLaunchSimulation] No topic subscriptions created (no active world detected)`);
+            }
+          } catch (subErr) {
+            console.warn(`[${new Date().toISOString()}] [makeLaunchSimulation] Topic subscription setup failed:`, subErr.message);
+          }
           
           return `Simulation launched: ${fullPath}, world: ${worldName}, process: ${processName}`;
         } catch (detectErr) {
@@ -575,8 +591,26 @@ function makeExitSimulation(node, { timeoutMs = 1000 } = {}) {
 
       if (resp?.success ?? resp?.ok ?? resp?.boolean) {
         console.log(`[${new Date().toISOString()}] [makeExitSimulation] Simulation process stopped via ROS2 service`);
+        
+        // Clean up topic subscriptions
+        if (topicSubscriptions.length > 0) {
+          try {
+            console.log(`[${new Date().toISOString()}] [makeExitSimulation] Cleaning up ${topicSubscriptions.length} topic subscriptions...`);
+            cleanupSubscriptions(topicSubscriptions);
+            topicSubscriptions = [];
+            console.log(`[${new Date().toISOString()}] [makeExitSimulation] Topic subscriptions cleaned up successfully`);
+          } catch (cleanupErr) {
+            console.warn(`[${new Date().toISOString()}] [makeExitSimulation] Topic subscription cleanup failed:`, cleanupErr.message);
+          }
+          
+          // Reset simulation process name
+          simProcessName = null;
+          
+          return `Simulation exited successfully. Process: ${simProcessName}`;
+        }
       } else {
         console.warn(`[${new Date().toISOString()}] [makeExitSimulation] Failed to stop simulation process: ${resp?.message || 'Unknown error'}`);
+        throw new Error(`Failed to stop simulation: ${resp?.message || 'Unknown error'}`);
       }
     } catch (error) {
       console.error(`[${new Date().toISOString()}] [makeExitSimulation] Error stopping simulation process: ${error.message}`);

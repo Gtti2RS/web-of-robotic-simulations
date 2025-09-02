@@ -59,7 +59,7 @@ function makeSendRos2Cmd(node, { timeoutMs = 10000 } = {}) {
         node,
         {
           srvType: 'sim_process_supervisor_interfaces/srv/ExecCmd',
-          serviceName: '/sim/exec_cmd',
+          serviceName: '/process/exec',
           payload: {
             cmd: commandStr
           }
