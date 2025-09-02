@@ -1,5 +1,4 @@
 const rclnodejs = require("rclnodejs");
-const { get_world } = require('./gz_get_world');
 
 // Generic SSE manager for observable properties
 class SSEManager {
@@ -231,7 +230,7 @@ async function setupAllObservableProperties(node) {
   
   // Update topics with world name if available
   try {
-    const { get_world } = require('./gz_actions');
+    const { get_world } = require('./gz_world_utils');
     const world = await get_world();
     
     // Update topics to include world name

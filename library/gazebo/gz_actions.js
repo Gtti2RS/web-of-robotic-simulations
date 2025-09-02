@@ -2,7 +2,7 @@ const { spawn, exec } = require("child_process");
 const { resolveFilePath, saveFile } = require("../common/fileUtils");
 const path = require('path');
 const { deg2quat } = require("../common/deg2quat");
-const { extract_world, get_world: getWorldFromModule, clear_world } = require('./gz_get_world');
+const { extract_world, get_world, clear_world, get_entity, entityExists } = require('./gz_world_utils');
 
 let cachedWorldNames = [];
 let currentWorldName = null; // Store the current world name
@@ -32,11 +32,11 @@ function detectWorldNames() {
   });
 }
 
-// Local get_world function that uses stored world name or falls back to old method
-async function get_world() {
+// Legacy get_world function - kept for backward compatibility but not used
+async function get_world_legacy() {
   // First try to get from the module's stored world name
   try {
-    return getWorldFromModule();
+    return get_world();
   } catch (error) {
     // Fallback to local stored world name
     if (currentWorldName) {
@@ -62,42 +62,9 @@ async function get_world() {
   }
 }
 
-async function getEntities() {
-  const world = await get_world();
-
-  const cmd = `gz service -s /world/${world}/scene/info --reqtype gz.msgs.Empty --reptype gz.msgs.Scene --req ''`;
-
-  const stdout = await new Promise((resolve, reject) => {
-    exec(cmd, (error, out, stderr) => error ? reject(new Error(stderr || error.message)) : resolve(out));
-  });
-
-  // Parse in one pass using lightweight regexes
-  const models = [];
-  const blockRe = /model\s*{([\s\S]*?)\n}/g;
-  let block;
-  while ((block = blockRe.exec(stdout)) !== null) {
-    const t = block[1];
-
-    const name = (t.match(/name:\s*"([^"]+)"/) || [])[1];
-    if (!name) continue;
-
-    const id = parseInt((t.match(/\bid:\s*([0-9]+)/) || [])[1] || '0', 10) || undefined;
-
-    const pos = t.match(/position\s*{[\s\S]*?x:\s*([-+0-9.eE]+)[\s\S]*?y:\s*([-+0-9.eE]+)[\s\S]*?z:\s*([-+0-9.eE]+)/);
-    const position = pos ? { x: +pos[1], y: +pos[2], z: +pos[3] } : { x: 0, y: 0, z: 0 };
-
-    const ori = t.match(/orientation\s*{[\s\S]*?x:\s*([-+0-9.eE]+)[\s\S]*?y:\s*([-+0-9.eE]+)[\s\S]*?z:\s*([-+0-9.eE]+)[\s\S]*?w:\s*([-+0-9.eE]+)/);
-    const orientation = ori ? { x: +ori[1], y: +ori[2], z: +ori[3], w: +ori[4] } : { x: 0, y: 0, z: 0, w: 1 };
-
-    models.push({ name, id, pose: { position, orientation } });
-  }
-
-  return models;
-}
-
 async function read_entity_info() {
   try {
-    const models = await getEntities();
+    const models = await get_entity();
     return models;
   } catch (err) {
     console.error('[available_models read]', err);
@@ -105,22 +72,7 @@ async function read_entity_info() {
   }
 }
 
-async function entityExists(idOrName) {
-  const models = await getEntities();
-  if (idOrName == null) return false;
 
-  const isId =
-    typeof idOrName === 'bigint' ||
-    typeof idOrName === 'number' ||
-    (typeof idOrName === 'string' && /^\d+$/.test(idOrName));
-
-  if (isId) {
-    const targetId = typeof idOrName === 'bigint' ? idOrName : BigInt(idOrName);
-    return models.some(m => m.id !== undefined && BigInt(m.id) === targetId);
-  }
-
-  return models.some(m => m.name === idOrName);
-}
 
 async function launchSimulation(input) {
   const data = await input.value();
@@ -514,7 +466,5 @@ module.exports = {
   set_entity_pose,
   remove_entity,
   save_world,
-  set_visualization,
-  get_world,
-  entityExists
+  set_visualization
 };
