@@ -5,14 +5,11 @@ const { resolveFilePath } = require('../common/fileUtils');
 const { deg2quat } = require('../common/deg2quat');
 const { get_world } = require('./gz_world_utils');
 const { entityExists } = require('./gz_world_utils'); 
-const { spawn } = require('child_process');
 const path = require('path'); // Added for makeSaveWorld
 const fs = require('fs'); // Added for makeSaveWorld
 
 const CAMERA_NAME = 'wot_camera';
 let vizState = false;
-let bridgeProc = null;
-let webVideoProc = null;
 
 /**
  * Set real-time factor (RTF) for the active world.
@@ -316,65 +313,120 @@ function makeSetVisualization(node, { timeoutMs = 1000 } = {}) {
           orientation: { roll: 0, pitch: 40, yaw: 0 }
         }) });
       }
-      // Start bridge if not running
-      if (!bridgeProc || bridgeProc.killed) {
-        const world = await get_world();
+      
+      // Start bridge using ROS2 process management service
+      try {
+        const world = get_world();
         const gzTopic = `/world/${world}/model/${CAMERA_NAME}/link/link/sensor/camera/image`;
-        const args = [
-          'run', 'ros_gz_bridge', 'parameter_bridge',
-          `${gzTopic}@sensor_msgs/msg/Image[gz.msgs.Image`,
-          '--ros-args', '-r', `${gzTopic}:=/viz_cam`
-        ];
-        bridgeProc = spawn('ros2', args, { stdio: 'inherit' });
-        bridgeProc.on('exit', () => { bridgeProc = null; });
-        bridgeProc.stdout?.on('data', (data) => {
-          console.log(`[ros_gz_bridge] ${data.toString().trim()}`);
-        });
-        bridgeProc.stderr?.on('data', (data) => {
-          console.error(`[ros_gz_bridge] ${data.toString().trim()}`);
-        });
+        const bridgeCmd = `ros2 run ros_gz_bridge parameter_bridge ${gzTopic}@sensor_msgs/msg/Image[gz.msgs.Image --ros-args -r ${gzTopic}:=/viz_cam`;
+        
+        const { resp: bridgeResp } = await callService(
+          node,
+          {
+            srvType: 'sim_process_supervisor_interfaces/srv/ManagedStart',
+            serviceName: '/process/managed/start',
+            payload: {
+              name: 'camera_bridge',
+              cmd: bridgeCmd
+            }
+          },
+          { timeoutMs }
+        );
+        
+        if (bridgeResp?.success ?? bridgeResp?.ok ?? bridgeResp?.boolean) {
+          console.log(`[makeSetVisualization] Bridge process started via ROS2 service`);
+        } else {
+          console.warn(`[makeSetVisualization] Failed to start bridge process: ${bridgeResp?.message || 'Unknown error'}`);
+        }
+      } catch (error) {
+        console.error(`[makeSetVisualization] Error starting bridge process: ${error.message}`);
       }
-      // Start web_video_server if not running
-      if (!webVideoProc || webVideoProc.killed) {
-        webVideoProc = spawn('ros2', [
-          'run', 'web_video_server', 'web_video_server',
-          '--ros-args',
-          '-p', 'port:=8081',
-          '-p', 'address:=0.0.0.0',
-          '-p', 'server_threads:=2',
-          '-p', 'ros_threads:=3',
-          '-p', 'default_stream_type:=mjpeg'
-        ], { stdio: 'inherit', detached: false });
-        webVideoProc.on('exit', () => { webVideoProc = null; });
-        webVideoProc.stdout?.on('data', (data) => {
-          console.log(`[web_video_server] ${data.toString().trim()}`);
-        });
-        webVideoProc.stderr?.on('data', (data) => {
-          console.error(`[web_video_server] ${data.toString().trim()}`);
-        });
+      
+      // Start web_video_server using ROS2 process management service
+      try {
+        const webVideoCmd = `ros2 run web_video_server web_video_server --ros-args -p port:=8081 -p address:=0.0.0.0 -p server_threads:=2 -p ros_threads:=3 -p default_stream_type:=mjpeg`;
+        
+        const { resp: webVideoResp } = await callService(
+          node,
+          {
+            srvType: 'sim_process_supervisor_interfaces/srv/ManagedStart',
+            serviceName: '/process/managed/start',
+            payload: {
+              name: 'web_video_server',
+              cmd: webVideoCmd
+            }
+          },
+          { timeoutMs }
+        );
+        
+        if (webVideoResp?.success ?? webVideoResp?.ok ?? webVideoResp?.boolean) {
+          console.log(`[makeSetVisualization] Web video server process started via ROS2 service`);
+        } else {
+          console.warn(`[makeSetVisualization] Failed to start web video server process: ${webVideoResp?.message || 'Unknown error'}`);
+        }
+      } catch (error) {
+        console.error(`[makeSetVisualization] Error starting web video server process: ${error.message}`);
       }
+      
       vizState = true;
       console.log(`[makeSetVisualization] Visualization enabled`);
-      return 'Visualization enabled (camera and streams ensured).';
+      return 'Visualization enabled (camera and streams ensured via ROS2 process management).';
     } else {
       // Remove camera if exists
       if (await entityExists(CAMERA_NAME)) {
         const remove_camera = makeDeleteEntity(node, { timeoutMs });
         await remove_camera({ value: async () => ({ name: CAMERA_NAME }) });
       }
-      // Stop bridge if any
-      if (bridgeProc && !bridgeProc.killed) {
-        try { process.kill(-bridgeProc.pid, 'SIGTERM'); } catch {}
-        bridgeProc = null;
+      
+      // Stop bridge process using ROS2 process management service
+      try {
+        const { resp: bridgeResp } = await callService(
+          node,
+          {
+            srvType: 'sim_process_supervisor_interfaces/srv/ManagedStop',
+            serviceName: '/process/managed/stop',
+            payload: {
+              name: 'camera_bridge'
+            }
+          },
+          { timeoutMs }
+        );
+        
+        if (bridgeResp?.success ?? bridgeResp?.ok ?? bridgeResp?.boolean) {
+          console.log(`[makeSetVisualization] Bridge process stopped via ROS2 service`);
+        } else {
+          console.warn(`[makeSetVisualization] Failed to stop bridge process: ${bridgeResp?.message || 'Unknown error'}`);
+        }
+      } catch (error) {
+        console.error(`[makeSetVisualization] Error stopping bridge process: ${error.message}`);
       }
-      // Stop web video if any
-      if (webVideoProc && !webVideoProc.killed) {
-        try { process.kill(-webVideoProc.pid, 'SIGTERM'); } catch {}
-        webVideoProc = null;
+      
+      // Stop web video server process using ROS2 process management service
+      try {
+        const { resp: webVideoResp } = await callService(
+          node,
+          {
+            srvType: 'sim_process_supervisor_interfaces/srv/ManagedStop',
+            serviceName: '/process/managed/stop',
+            payload: {
+              name: 'web_video_server'
+            }
+          },
+          { timeoutMs }
+        );
+        
+        if (webVideoResp?.success ?? webVideoResp?.ok ?? webVideoResp?.boolean) {
+          console.log(`[makeSetVisualization] Web video server process stopped via ROS2 service`);
+        } else {
+          console.warn(`[makeSetVisualization] Failed to stop web video server process: ${webVideoResp?.message || 'Unknown error'}`);
+        }
+      } catch (error) {
+        console.error(`[makeSetVisualization] Error stopping web video server process: ${error.message}`);
       }
+      
       vizState = false;
       console.log(`[makeSetVisualization] Visualization disabled`);
-      return 'Visualization disabled (camera removed if present).';
+      return 'Visualization disabled (camera removed if present, processes stopped via ROS2 service).';
     }
   };
 }
