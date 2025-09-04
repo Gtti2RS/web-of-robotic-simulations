@@ -1,0 +1,9 @@
+FROM ros:jazzy-ros-base
+
+# install Node.js
+RUN apt-get update && apt-get install -y curl gnupg2 build-essential python3 \
+ && curl -fsSL https://deb.nodesource.com/setup_20.x | bash - \
+ && apt-get install -y nodejs \
+ && rm -rf /var/lib/apt/lists/*
+
+RUN echo "source /opt/ros/jazzy/setup.bash" >> /etc/bash.bashrc

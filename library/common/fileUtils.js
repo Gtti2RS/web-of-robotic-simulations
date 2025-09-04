@@ -54,7 +54,7 @@ async function handleUploadFile(input) {
 
     const filePath = path.join(BASE_PATH, 'upload', target, name);
     await saveFile(filePath, content);
-    return `File '${name}' uploaded to '${target}'`;
+    return `File '${name}' uploaded to '${filePath}'`;
 }
 
 

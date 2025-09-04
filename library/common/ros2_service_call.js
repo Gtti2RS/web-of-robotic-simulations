@@ -1,8 +1,8 @@
 // project_root/test_ros2_serviceCall.js
 // Export WoT action handlers as factories that capture your already-created rclnodejs node.
 
-const { callService } = require('../library/common/ros2_service_helper');
-const { get_world } = require('../library/gazebo/gz_actions'); 
+const { callService } = require('./ros2_service_helper');
+const { get_world } = require('../gazebo/gz_actions'); 
 
 /**
  * Set real-time factor (RTF) for the active world.

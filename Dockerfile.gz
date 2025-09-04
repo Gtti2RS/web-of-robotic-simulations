@@ -12,3 +12,5 @@ RUN apt-get update && apt-get install -y --no-install-recommends \
     rm -rf /var/lib/apt/lists/*
 
 ENV QT_QPA_PLATFORM=offscreen
+
+RUN echo "source /opt/ros/jazzy/setup.bash" >> /etc/bash.bashrc

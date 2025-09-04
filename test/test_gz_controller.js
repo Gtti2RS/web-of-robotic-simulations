@@ -7,8 +7,7 @@ const { HttpServer } = require("@node-wot/binding-http");
 const { handleUploadFile, readAvailableResources } = require("../library/common/fileUtils");
 const { launchSimulation, exitSimulation, read_entity_info, sim_control, spawn_entity, set_entity_pose, remove_entity, save_world, visualizationRead, set_visualization} = require("../library/gazebo/gz_actions");
 const { publishMessage, sendRos2Cmd } = require("../library/common/ros2_utils");
-const {makeSetRtf} = require("./test_ros2_serviceCall");
-//const {setRosNode} = require("../library/common/ros2_service_helper");
+const {makeSetRtf} = require("../library/common/ros2_service_call");
 
 class WotPublisherServer {
   constructor(tdPath = "./gz_controller.json", rosTopic = "wot_topic", port = 8080) {
