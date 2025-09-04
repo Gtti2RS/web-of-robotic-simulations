@@ -130,10 +130,14 @@ function createROS2TopicSubscription(node, topicName, messageType, propertyName,
     const subscriber = node.createSubscription(messageType, topicName, (msg) => {
       try {
         const processedData = messageHandler ? messageHandler(msg) : msg;
-        sseManager.updateData(propertyName, {
-          ...processedData,
-          timestamp: new Date().toISOString()
-        });
+        
+        // Only update if the handler didn't already process the data (returned null)
+        if (processedData !== null) {
+          sseManager.updateData(propertyName, {
+            ...processedData,
+            timestamp: new Date().toISOString()
+          });
+        }
       } catch (error) {
         console.error(`Error processing message from ${topicName}:`, error);
         sseManager.updateData(propertyName, {
@@ -166,6 +170,8 @@ const sharedPoseMessageHandler = (msg) => {
   try {
     const data = JSON.parse(msg.data);
     sharedPoseData = data;
+    
+    console.log(`[${new Date().toISOString()}] [sharedPoseMessageHandler] Processing pose message with ${data.pose?.length || 0} entities`);
     
     // Update poses property with full pose data
     sseManager.updateData("poses", {
@@ -217,7 +223,10 @@ const sharedPoseMessageHandler = (msg) => {
       timestamp: new Date().toISOString()
     });
     
-    return data; // Return original data for poses property
+    console.log(`[${new Date().toISOString()}] [sharedPoseMessageHandler] Updated poses and models properties, found ${models.length} models`);
+    
+    // Don't return data to avoid double processing
+    return null;
   } catch (error) {
     throw new Error(`Failed to process pose data: ${error.message}`);
   }
