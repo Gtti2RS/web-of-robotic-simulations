@@ -587,7 +587,7 @@ function makeLaunchSimulation(node, { timeoutMs = 1000 } = {}) {
           console.log(`[${new Date().toISOString()}] [makeLaunchSimulation] World name extracted: ${worldName}`);
           
           // Set up bridges after simulation starts (excluding image_bridge which is managed by visualization)
-          await setupBridges(node, worldName, ['world_services', 'physics_bridge'], { timeoutMs });
+          await setupBridges(node, worldName, ['world_services', 'ros_gz_bridge_addon'], { timeoutMs });
           
           // Set up topic subscriptions after bridges are set up
           try {

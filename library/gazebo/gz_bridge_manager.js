@@ -11,10 +11,10 @@ const BRIDGE_REGISTRY = {
       /world/${worldName}/control@ros_gz_interfaces/srv/ControlWorld`,
     description: 'World services bridge for entity management'
   },
-  physics_bridge: {
-    name: 'physics_bridge',
-    cmd: (worldName) => `ros2 launch gz_physics_bridge bridge_throttled.launch.py world_name:=${worldName} stats_rate:=1 pose_rate:=1`,
-    description: 'Physics bridge for throttled topics'
+  ros_gz_bridge_addon: {
+    name: 'ros_gz_bridge_addon',
+    cmd: (worldName) => `ros2 launch ros_gz_bridge_addon ros_gz_bridge_addon.launch.py world:=${worldName} stats_rate:=1 pose_rate:=1`,
+    description: 'combined bridge for throttledpose/stats topics, setRtf and generate_sdf_file'
   },
   image_bridge: {
     name: 'camera_bridge',
