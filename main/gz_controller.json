@@ -169,10 +169,12 @@
       "title": "Set entity pose to the given location and orientation ",
       "input": {
         "type": "object",
-        "required": [
-          "name"
-        ],
+        "required": [],
         "properties": {
+          "id": {
+            "type": "integer",
+            "description": "Entity ID (uint64). If provided, takes precedence over name."
+          },
           "name": {
             "type": "string"
           },
@@ -333,21 +335,6 @@
         }
       }
     },
-    "model_list": {
-      "type": "array",
-      "items": {
-        "type": "object",
-        "properties": {
-          "name": {
-            "type": "string"
-          },
-          "id": {
-            "type": "integer"
-          }
-        }
-      },
-      "readOnly": true
-    },
     "visualization": {
       "type": "boolean",
       "readOnly": true,
@@ -357,6 +344,176 @@
           "rel": "alternate",
           "href": "http://192.168.0.3:8081/stream?topic=/camera2",
           "type": "text/html"
+        }
+      ]
+    },
+    "sim_stats": {
+      "type": "object",
+      "readOnly": true,
+      "observable": true,
+      "description": "Current simulation statistics from ROS2 /world/${world}/stats_json topic",
+      "properties": {
+        "timestamp": {
+          "type": "string",
+          "format": "date-time",
+          "description": "Timestamp when the message was received"
+        },
+        "sim_time": {
+          "type": "object",
+          "description": "Simulation time",
+          "properties": {
+            "sec": { "type": "integer" },
+            "nsec": { "type": "integer" }
+          }
+        },
+        "real_time": {
+          "type": "object",
+          "description": "Real time",
+          "properties": {
+            "sec": { "type": "integer" },
+            "nsec": { "type": "integer" }
+          }
+        },
+        "paused": {
+          "type": "boolean",
+          "description": "Whether simulation is paused"
+        },
+        "iterations": {
+          "type": "integer",
+          "description": "Number of simulation iterations"
+        },
+        "real_time_factor": {
+          "type": "number",
+          "description": "Real-time factor"
+        },
+        "step_size": {
+          "type": "object",
+          "description": "Simulation step size",
+          "properties": {
+            "sec": { "type": "integer" },
+            "nsec": { "type": "integer" }
+          }
+        }
+      },
+      "forms": [
+        {
+          "href": "http://localhost:8080/gz_controller/properties/sim_stats",
+          "op": ["readproperty"],
+          "contentType": "application/json"
+        },
+        {
+          "href": "http://localhost:8080/gz_controller/properties/sim_stats/observable",
+          "op": ["observeproperty"],
+          "subprotocol": "sse",
+          "contentType": "text/event-stream"
+        }
+      ]
+    },
+    "poses": {
+      "type": "object",
+      "readOnly": true,
+      "observable": true,
+      "description": "Current entity poses from ROS2 /world/${world}/pose/info_json topic",
+      "properties": {
+        "timestamp": {
+          "type": "string",
+          "format": "date-time",
+          "description": "Timestamp when the message was received"
+        },
+        "header": {
+          "type": "object",
+          "description": "Message header with timestamp",
+          "properties": {
+            "stamp": {
+              "type": "object",
+              "properties": {
+                "sec": { "type": "integer" },
+                "nsec": { "type": "integer" }
+              }
+            }
+          }
+        },
+        "pose": {
+          "type": "array",
+          "description": "Array of entity poses",
+          "items": {
+            "type": "object",
+            "properties": {
+              "name": { "type": "string" },
+              "id": { "type": "integer" },
+              "position": {
+                "type": "object",
+                "properties": {
+                  "x": { "type": "number" },
+                  "y": { "type": "number" },
+                  "z": { "type": "number" }
+                }
+              },
+              "orientation": {
+                "type": "object",
+                "properties": {
+                  "x": { "type": "number" },
+                  "y": { "type": "number" },
+                  "z": { "type": "number" },
+                  "w": { "type": "number" }
+                }
+              }
+            }
+          }
+        }
+      },
+      "forms": [
+        {
+          "href": "http://localhost:8080/gz_controller/properties/poses",
+          "op": ["readproperty"],
+          "contentType": "application/json"
+        },
+        {
+          "href": "http://localhost:8080/gz_controller/properties/poses/observable",
+          "op": ["observeproperty"],
+          "subprotocol": "sse",
+          "contentType": "text/event-stream"
+        }
+      ]
+    },
+    "models": {
+      "type": "object",
+      "readOnly": true,
+      "observable": true,
+      "description": "Available models extracted from pose data",
+      "properties": {
+        "timestamp": {
+          "type": "string",
+          "format": "date-time",
+          "description": "Timestamp when the message was received"
+        },
+        "models": {
+          "type": "array",
+          "description": "Array of available models",
+          "items": {
+            "type": "object",
+            "properties": {
+              "name": { "type": "string" },
+              "id": { "type": "integer" }
+            }
+          }
+        },
+        "total_count": {
+          "type": "integer",
+          "description": "Total number of available models"
+        }
+      },
+      "forms": [
+        {
+          "href": "http://localhost:8080/gz_controller/properties/models",
+          "op": ["readproperty"],
+          "contentType": "application/json"
+        },
+        {
+          "href": "http://localhost:8080/gz_controller/properties/models/observable",
+          "op": ["observeproperty"],
+          "subprotocol": "sse",
+          "contentType": "text/event-stream"
         }
       ]
     }

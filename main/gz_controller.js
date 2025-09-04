@@ -5,9 +5,9 @@ const { Servient } = require("@node-wot/core");
 const { HttpServer } = require("@node-wot/binding-http");
 
 const { handleUploadFile, readAvailableResources } = require("../library/common/fileUtils");
-const { launchSimulation, exitSimulation, read_entity_info, sim_control, spawn_entity, set_entity_pose, remove_entity, save_world, visualizationRead, set_visualization} = require("../library/gazebo/gz_actions");
-const { publishMessage, sendRos2Cmd } = require("../library/common/ros2_utils");
-const {makeSetRtf} = require("../library/common/ros2_service_call");
+const { publishMessage, makeSendRos2Cmd } = require("../library/common/ros2_utils");
+const {makeSetRtf, makeDeleteEntity, makeSetEntityPose, makeSpawnEntity, makeSimControl, makeSetVisualization, makeSaveWorld, makeLaunchSimulation, makeExitSimulation, visualizationRead} = require("../library/gazebo/gz_ros2_srv");
+const { readSimStats, readPoses, readModels, combinedSSEMiddleware, setupAllObservableProperties, cleanupSubscriptions } = require("../library/gazebo/gz_topics");
 
 class WotPublisherServer {
   constructor(tdPath = "./gz_controller.json", rosTopic = "wot_topic", port = 8080) {
@@ -15,8 +15,7 @@ class WotPublisherServer {
     this.rosTopic = rosTopic;
     this.port = port;
     this.spinInterval = null;
-    this.gzProcess = null;
-    this.simPid = null;
+    this.observableSubscriptions = [];
     this.uploadDirs = {
       world: path.join(process.env.HOME, "wos/upload", "world"),
       model: path.join(process.env.HOME, "wos/upload", "model"),
@@ -30,10 +29,11 @@ class WotPublisherServer {
     this.node = new rclnodejs.Node("wot_pub_node");
     //setRosNode(this.node);
     this.publisher = this.node.createPublisher("std_msgs/msg/String", this.rosTopic);
+    this.observableSubscriptions = []; // Will be set up when simulation is launched
     this.startSpin();
 
     this.servient = new Servient();
-    this.servient.addServer(new HttpServer({ port: this.port }));
+    this.servient.addServer(new HttpServer({ port: this.port, middleware: combinedSSEMiddleware }));
 
     const td = JSON.parse(fs.readFileSync(this.tdPath, "utf8"));
 
@@ -41,25 +41,27 @@ class WotPublisherServer {
     this.thing = await wot.produce(td);
 
     this.thing.setPropertyReadHandler("availableResources", readAvailableResources);
-    this.thing.setPropertyReadHandler('model_list', read_entity_info);
     this.thing.setPropertyReadHandler('visualization', visualizationRead);
+    this.thing.setPropertyReadHandler('sim_stats', readSimStats);
+    this.thing.setPropertyReadHandler('poses', readPoses);
+    this.thing.setPropertyReadHandler('models', readModels);
     this.thing.setActionHandler("publishMessage", (input) =>
       publishMessage(input, this.node)
     );
-    this.thing.setActionHandler("launchSimulation", launchSimulation.bind(this));
-    this.thing.setActionHandler("exitSimulation", exitSimulation.bind(this));
+    this.thing.setActionHandler("launchSimulation", makeLaunchSimulation(this.node));
+    this.thing.setActionHandler("exitSimulation", makeExitSimulation(this.node));
     this.thing.setActionHandler("uploadFile", handleUploadFile.bind(this));
-    this.thing.setActionHandler("send_ros2_cmd", sendRos2Cmd.bind(this));
-    this.thing.setActionHandler('sim_control', sim_control);
-    this.thing.setActionHandler('spawn_entity', spawn_entity);
-    this.thing.setActionHandler('set_entity_pose', set_entity_pose);
-    this.thing.setActionHandler('remove_entity', remove_entity);
-    this.thing.setActionHandler('save_world', save_world);
-    this.thing.setActionHandler('set_visualization', set_visualization);
-    this.thing.setActionHandler('setRtf', makeSetRtf(this.node, { debug: false, timeoutMs: 1500 }));
+    this.thing.setActionHandler("send_ros2_cmd", makeSendRos2Cmd(this.node));
+    this.thing.setActionHandler('sim_control', makeSimControl(this.node));
+    this.thing.setActionHandler('spawn_entity', makeSpawnEntity(this.node));
+    this.thing.setActionHandler('set_entity_pose', makeSetEntityPose(this.node));
+    this.thing.setActionHandler('remove_entity', makeDeleteEntity(this.node));
+    this.thing.setActionHandler('save_world', makeSaveWorld(this.node));
+    this.thing.setActionHandler('set_visualization', makeSetVisualization(this.node));
+    this.thing.setActionHandler('setRtf', makeSetRtf(this.node));
 
     await this.thing.expose();
-    console.log(`Thing exposed at http://localhost:${this.port}/`);
+    console.log(`Thing exposed at http://localhost:${this.port}/gz_controller`);
   }
 
   startSpin() {
@@ -72,21 +74,15 @@ class WotPublisherServer {
     if (this.spinInterval) {
       clearInterval(this.spinInterval);
     }
+    
+    // Cleanup observable property subscriptions
+    cleanupSubscriptions(this.observableSubscriptions);
+    this.observableSubscriptions = [];
+    
     if (this.node) {
       this.node.destroy();
     }
     await rclnodejs.shutdown();
-
-    if (this.gzProcess && this.simPid) {
-      try {
-        process.kill(-this.simPid, "SIGINT");
-        console.log("[Shutdown] Sent SIGINT to simulation group:", -this.simPid);
-      } catch (e) {
-        console.warn("[Shutdown] Error killing process group:", e.message);
-      }
-      this.gzProcess = null;
-      this.simPid = null;
-    }
 
     console.log("Gracefully shut down WoT Publisher Server.");
   }
