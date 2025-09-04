@@ -171,8 +171,6 @@ const sharedPoseMessageHandler = (msg) => {
     const data = JSON.parse(msg.data);
     sharedPoseData = data;
     
-    console.log(`[${new Date().toISOString()}] [sharedPoseMessageHandler] Processing pose message with ${data.pose?.length || 0} entities`);
-    
     // Update poses property with full pose data
     sseManager.updateData("poses", {
       ...data,
@@ -222,8 +220,6 @@ const sharedPoseMessageHandler = (msg) => {
       total_count: models.length,
       timestamp: new Date().toISOString()
     });
-    
-    console.log(`[${new Date().toISOString()}] [sharedPoseMessageHandler] Updated poses and models properties, found ${models.length} models`);
     
     // Don't return data to avoid double processing
     return null;
