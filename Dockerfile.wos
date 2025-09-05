@@ -6,4 +6,17 @@ RUN apt-get update && apt-get install -y curl gnupg2 build-essential python3 \
  && apt-get install -y nodejs \
  && rm -rf /var/lib/apt/lists/*
 
+# Set up ROS2 environment
 RUN echo "source /opt/ros/jazzy/setup.bash" >> /etc/bash.bashrc
+
+# Set working directory
+WORKDIR /project-root
+
+# Copy package.json first for better Docker layer caching
+COPY package.json ./
+
+# Install npm dependencies with ROS2 environment sourced
+RUN bash -c "source /opt/ros/jazzy/setup.bash && npm install"
+
+# Copy the rest of the application
+COPY . .

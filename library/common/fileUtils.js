@@ -1,8 +1,7 @@
 const fs = require("fs/promises");
 const path = require("path");
-const os = require("os");
 
-const BASE_PATH = path.join(os.homedir(), "wos");
+const BASE_PATH = "/project-root";
 const folderGroups = ["resource", "upload", "saved"];
 const folderTypes = ["world", "model", "launch"];
 

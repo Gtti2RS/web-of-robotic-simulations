@@ -1,8 +1,16 @@
 services:
+  discovery:
+    image: wos/fastdds-discovery:latest
+    networks:
+      wos_net:
+        ipv4_address: 172.28.0.10
+    restart: unless-stopped
+    tty: true
+    command: bash -lc "fastdds discovery --server-id 0 --ip 0.0.0.0 --port 11811"
 
   gz_sim:
     image: evan/gz-jazzy
-    container_name: gz_sim
+    container_name: sim
     build:
       context: .
       dockerfile: Dockerfile.gz
@@ -30,9 +38,9 @@ services:
       - "8081:8081"
     command: bash -lc "source /opt/ros/jazzy/setup.bash && exec tail -f /dev/null"
 
-  wos_server:
+  wot_server:
     image: wos_server:0.1
-    container_name: wos_server
+    container_name: wot
     build:
       context: .
       dockerfile: Dockerfile.wos
@@ -44,13 +52,9 @@ services:
     volumes:
      # mount the entire repo so requires to ./library/... work
       - ./:/project-root:rw
-      # Use named volumes for build caches
-      - npm_cache:/project-root/node_modules
-      - ros_ws_cache:/opt/ros/jazzy
+      - /project-root/node_modules
     ports:
       - "8080:8080"
-      - "8082:8082"
-    entrypoint: []
     command: bash -lc "tail -f /dev/null"
 
 networks:
@@ -59,9 +63,3 @@ networks:
     ipam:
       config:
         - subnet: 172.28.0.0/16
-
-volumes:
-  npm_cache:
-    driver: local
-  ros_ws_cache:
-    driver: local

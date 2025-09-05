@@ -4,12 +4,12 @@ const fs = require('fs');
 const path = require('path');
 
 const app = express();
-const PORT = 8081;
+const PORT = 8082;
 
 const uploadDirs = {
-  world: path.join(process.env.HOME, "wos/upload", "world"),
-  model: path.join(process.env.HOME, "wos/upload", "model"),
-  launch: path.join(process.env.HOME, "wos/upload", "launch")
+  world: path.join("/project-root", "upload", "world"),
+  model: path.join("/project-root", "upload", "model"),
+  launch: path.join("/project-root", "upload", "launch")
 };
 
 // Ensure upload folders exist
@@ -47,11 +47,19 @@ app.post('/upload', (req, res) => {
     const oldPath = file.filepath;
     const newPath = path.join(uploadDirs[target], file.originalFilename);
 
-    fs.rename(oldPath, newPath, (err) => {
+    // Use copyFile + unlink instead of rename to handle cross-device moves
+    fs.copyFile(oldPath, newPath, (err) => {
       if (err) {
-        console.error('File move error:', err);
-        return res.status(500).json({ error: 'File move failed' });
+        console.error('File copy error:', err);
+        return res.status(500).json({ error: 'File copy failed' });
       }
+
+      // Delete the temporary file after successful copy
+      fs.unlink(oldPath, (unlinkErr) => {
+        if (unlinkErr) {
+          console.warn('Failed to delete temporary file:', unlinkErr);
+        }
+      });
 
       console.log(`File uploaded to: ${newPath}`);
       res.json({ message: 'File uploaded successfully', path: newPath });
