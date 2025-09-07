@@ -62,6 +62,7 @@ async function resolveFilePath(fileName) {
     const searchPaths = [
         ["resource", "world"],
         ["resource", "model"],
+        ["resource", "model", "ur_description"],
         ["resource", "launch"],
         ["upload", "world"],
         ["upload", "model"],
@@ -69,8 +70,8 @@ async function resolveFilePath(fileName) {
         ["saved", "world"]
     ];
 
-    for (const [group, subdir] of searchPaths) {
-        const fullPath = path.join(BASE_PATH, group, subdir, fileName);
+    for (const pathParts of searchPaths) {
+        const fullPath = path.join(BASE_PATH, ...pathParts, fileName);
         try {
             const stat = await fs.stat(fullPath);
             if (stat.isFile()) {
