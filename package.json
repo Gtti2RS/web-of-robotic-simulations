@@ -14,6 +14,8 @@
     "@node-wot/core": "^0.9.1",
     "express": "^5.1.0",
     "formidable": "^3.5.4",
-    "rclnodejs": "^1.4.0"
+    "rclnodejs": "^1.4.0",
+    "websocket-as-promised": "^3.0.1",
+    "ws": "^8.18.3"
   }
 }

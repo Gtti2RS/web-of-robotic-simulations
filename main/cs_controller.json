@@ -1,0 +1,71 @@
+{
+  "@context": "https://www.w3.org/2022/wot/td/v1.1",
+  "id": "urn:coppeliasim:simulation:server",
+  "title": "cs_controller",
+  "description": "A WoT server for controlling CoppeliaSim simulation",
+  "securityDefinitions": {
+    "nosec_sc": {
+      "scheme": "nosec"
+    }
+  },
+  "security": ["nosec_sc"],
+  "properties": {
+    "sim_stats": {
+      "type": "string",
+      "description": "Current simulation state (stop, paused, running)",
+      "readOnly": true
+    }
+  },
+  "actions": {
+    "startSimulation": {
+      "description": "Start the simulation",
+      "output": {
+        "type": "string",
+        "description": "Result of the operation"
+      }
+    },
+    "pauseSimulation": {
+      "description": "Pause the simulation",
+      "output": {
+        "type": "string",
+        "description": "Result of the operation"
+      }
+    },
+    "stopSimulation": {
+      "description": "Stop the simulation",
+      "output": {
+        "type": "string",
+        "description": "Result of the operation"
+      }
+    },
+    "loadScene": {
+      "description": "Load a scene file",
+      "input": {
+        "type": "string",
+        "description": "Filename of the scene file (will be resolved from resource/upload/saved folders)"
+      },
+      "output": {
+        "type": "string",
+        "description": "Result of the operation"
+      }
+    },
+    "saveScene": {
+      "description": "Save the current scene to a file",
+      "input": {
+        "type": "string",
+        "description": "Filename to save the scene as"
+      },
+      "output": {
+        "type": "string",
+        "description": "Result of the operation"
+      }
+    },
+    "closeScene": {
+      "description": "Close the current scene",
+      "output": {
+        "type": "string",
+        "description": "Result of the operation"
+      }
+    }
+  }
+}
