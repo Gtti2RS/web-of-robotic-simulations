@@ -14,6 +14,82 @@
       "type": "string",
       "description": "Current simulation state (stop, paused, running)",
       "readOnly": true
+    },
+    "availableResources": {
+      "description": "Lists all available files in resource, upload, and saved folders",
+      "readOnly": true,
+      "type": "object",
+      "properties": {
+        "resource": {
+          "type": "object",
+          "properties": {
+            "model": {
+              "type": "array",
+              "items": {
+                "type": "string"
+              }
+            },
+            "world": {
+              "type": "array",
+              "items": {
+                "type": "string"
+              }
+            },
+            "launch": {
+              "type": "array",
+              "items": {
+                "type": "string"
+              }
+            }
+          }
+        },
+        "upload": {
+          "type": "object",
+          "properties": {
+            "model": {
+              "type": "array",
+              "items": {
+                "type": "string"
+              }
+            },
+            "world": {
+              "type": "array",
+              "items": {
+                "type": "string"
+              }
+            },
+            "launch": {
+              "type": "array",
+              "items": {
+                "type": "string"
+              }
+            }
+          }
+        },
+        "saved": {
+          "type": "object",
+          "properties": {
+            "model": {
+              "type": "array",
+              "items": {
+                "type": "string"
+              }
+            },
+            "world": {
+              "type": "array",
+              "items": {
+                "type": "string"
+              }
+            },
+            "launch": {
+              "type": "array",
+              "items": {
+                "type": "string"
+              }
+            }
+          }
+        }
+      }
     }
   },
   "actions": {
@@ -62,6 +138,66 @@
     },
     "closeScene": {
       "description": "Close the current scene",
+      "output": {
+        "type": "string",
+        "description": "Result of the operation"
+      }
+    },
+    "spawn_entity": {
+      "title": "Spawn entity",
+      "description": "Spawn a new entity from .ttm or .urdf file at a given pose",
+      "input": {
+        "type": "object",
+        "properties": {
+          "entity_name": {
+            "type": "string",
+            "description": "Entity name"
+          },
+          "file_name": {
+            "type": "string",
+            "description": "Model file name with extension (.ttm or .urdf)"
+          },
+          "position": {
+            "type": "object",
+            "properties": {
+              "x": {
+                "type": "number",
+                "default": 0
+              },
+              "y": {
+                "type": "number",
+                "default": 0
+              },
+              "z": {
+                "type": "number",
+                "default": 0
+              }
+            }
+          },
+          "orientation": {
+            "type": "object",
+            "properties": {
+              "roll": {
+                "type": "number",
+                "default": 0
+              },
+              "pitch": {
+                "type": "number",
+                "default": 0
+              },
+              "yaw": {
+                "type": "number",
+                "default": 0
+              }
+            },
+            "description": "Euler angles in degrees"
+          }
+        },
+        "required": [
+          "entity_name",
+          "file_name"
+        ]
+      },
       "output": {
         "type": "string",
         "description": "Result of the operation"

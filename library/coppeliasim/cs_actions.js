@@ -3,7 +3,9 @@ const WORKSPACE_DIR = '/home/evan/wos';
 
 // Use CoppeliaSim helper to load RemoteAPIClient from installation directory
 const { RemoteAPIClient } = require('./coppelia_helper');
-const { resolveFilePath } = require('../common/fileUtils');
+const { resolveFilePath, readAvailableResources } = require('../common/fileUtils');
+const { deg2quat } = require('../common/deg2quat');
+const { loadUrdf } = require('./urdf_loader');
 
 // CoppeliaSim connection class
 class CoppeliaSimConnection {
@@ -112,6 +114,76 @@ class CoppeliaSimConnection {
         console.log(`[${new Date().toLocaleTimeString()}] SCENE: Closed ✓`);
     }
 
+    async spawnEntity(entityName, fileName, position = {x: 0, y: 0, z: 0}, orientation = {roll: 0, pitch: 0, yaw: 0}) {
+        if (!this.connected) {
+            throw new Error('Not connected to CoppeliaSim');
+        }
+
+        // Resolve the full path from filename using fileUtils
+        const filePath = await resolveFilePath(fileName);
+        if (!filePath) {
+            throw new Error(`File not found: ${fileName}`);
+        }
+
+        // Determine file type and spawn accordingly
+        const fileExtension = fileName.toLowerCase().split('.').pop();
+        let objectHandle;
+
+        console.log(`[${new Date().toLocaleTimeString()}] SPAWN: Loading ${fileName} as ${entityName}...`);
+
+        if (fileExtension === 'ttm') {
+            // Load CoppeliaSim model file
+            const loadResult = await this.sim.loadModel(filePath);
+            console.log(`[${new Date().toLocaleTimeString()}] SPAWN: TTM model loaded ✓`);
+            
+            // Handle different return types from loadModel
+            if (Array.isArray(loadResult)) {
+                objectHandle = loadResult[0];
+                console.log(`[${new Date().toLocaleTimeString()}] SPAWN: Model returned array, using first handle: ${objectHandle}`);
+            } else if (typeof loadResult === 'object' && loadResult.handle !== undefined) {
+                objectHandle = loadResult.handle;
+                console.log(`[${new Date().toLocaleTimeString()}] SPAWN: Model returned object, using handle: ${objectHandle}`);
+            } else if (typeof loadResult === 'number') {
+                objectHandle = loadResult;
+                console.log(`[${new Date().toLocaleTimeString()}] SPAWN: Model returned handle: ${objectHandle}`);
+            } else {
+                throw new Error(`Unexpected TTM model handle type: ${typeof loadResult}, value: ${loadResult}`);
+            }
+        } else if (fileExtension === 'urdf') {
+            // Use the loadUrdf function to import URDF with existing sim connection
+            objectHandle = await loadUrdf(filePath, entityName, this.sim);
+            if (objectHandle === -1) {
+                throw new Error('Failed to load URDF using loadUrdf function');
+            }
+            console.log(`[${new Date().toLocaleTimeString()}] SPAWN: URDF model imported with handle: ${objectHandle} ✓`);
+        } else {
+            throw new Error(`Unsupported file type: ${fileExtension}. Only .ttm and .urdf files are supported.`);
+        }
+
+        // Validate the handle is a valid number
+        if (typeof objectHandle !== 'number' || !Number.isFinite(objectHandle)) {
+            throw new Error(`Invalid object handle: ${objectHandle} (type: ${typeof objectHandle})`);
+        }
+
+        // Set the object alias (name) - only for TTM files, URDF files are already renamed
+        if (fileExtension === 'ttm') {
+            await this.sim.setObjectAlias(objectHandle, entityName);
+        }
+
+        // Set position
+        const pos = [position.x, position.y, position.z];
+        await this.sim.setObjectPosition(objectHandle, pos);
+
+        // Set orientation (convert from Euler angles to quaternion using deg2quat utility)
+        const { qx, qy, qz, qw } = deg2quat(orientation);
+        const quaternion = [qx, qy, qz, qw];
+        await this.sim.setObjectQuaternion(objectHandle, quaternion);
+
+        console.log(`[${new Date().toLocaleTimeString()}] SPAWN: Entity ${entityName} spawned at position [${pos.join(', ')}] with orientation [${orientation.roll}°, ${orientation.pitch}°, ${orientation.yaw}°] ✓`);
+        
+        return objectHandle;
+    }
+
     isConnected() {
         return this.connected;
     }
@@ -143,6 +215,8 @@ function setupActionHandlers(thing, coppeliaSim) {
             return "error";
         }
     });
+
+    thing.setPropertyReadHandler("availableResources", readAvailableResources);
 
     // Set action handlers
     thing.setActionHandler("startSimulation", async () => {
@@ -213,6 +287,36 @@ function setupActionHandlers(thing, coppeliaSim) {
         } catch (error) {
             console.error(`[${new Date().toLocaleTimeString()}] SCENE: Close failed - ${error.message}`);
             return `Failed to close scene: ${error instanceof Error ? error.message : String(error)}`;
+        }
+    });
+
+    thing.setActionHandler("spawn_entity", async (data) => {
+        try {
+            const input = await data.value();
+            const { entity_name, file_name, position = {}, orientation = {} } = input;
+
+            if (!entity_name || !file_name) {
+                throw new Error('Both entity_name and file_name are required');
+            }
+
+            // Set default values for position and orientation
+            const pos = {
+                x: Number.isFinite(position.x) ? position.x : 0,
+                y: Number.isFinite(position.y) ? position.y : 0,
+                z: Number.isFinite(position.z) ? position.z : 0
+            };
+
+            const orient = {
+                roll: Number.isFinite(orientation.roll) ? orientation.roll : 0,
+                pitch: Number.isFinite(orientation.pitch) ? orientation.pitch : 0,
+                yaw: Number.isFinite(orientation.yaw) ? orientation.yaw : 0
+            };
+
+            await coppeliaSim.spawnEntity(entity_name, file_name, pos, orient);
+            return `Entity "${entity_name}" spawned successfully from "${file_name}" at position [${pos.x}, ${pos.y}, ${pos.z}] with orientation [${orient.roll}°, ${orient.pitch}°, ${orient.yaw}°]`;
+        } catch (error) {
+            console.error(`[${new Date().toLocaleTimeString()}] SPAWN: Spawn failed - ${error.message}`);
+            return `Failed to spawn entity: ${error instanceof Error ? error.message : String(error)}`;
         }
     });
 }

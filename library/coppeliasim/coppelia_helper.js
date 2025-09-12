@@ -8,6 +8,7 @@ const COPPELIASIM_INSTALL_DIR = '/home/evan/APPS/coppeliasim';
 // Use the installed websocket-as-promised package (which we know works)
 const WebSocketAsPromised = require('websocket-as-promised');
 const WebSocket = require('ws');
+const CBOR = require('cbor');
 
 class RemoteAPIClient {
     constructor(host = 'localhost', port = 23050, codec = "cbor", opts = {}) {

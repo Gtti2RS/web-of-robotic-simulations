@@ -1,1 +1,2 @@
-web of simulation repo
+in coppelia_helper.js: 
+const COPPELIASIM_INSTALL_DIR = '/home/evan/APPS/coppeliasim';
