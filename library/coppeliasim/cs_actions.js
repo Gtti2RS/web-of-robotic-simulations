@@ -6,6 +6,8 @@ const { RemoteAPIClient } = require('./coppelia_helper');
 const { resolveFilePath, readAvailableResources } = require('../common/fileUtils');
 const { deg2quat } = require('../common/deg2quat');
 const { loadUrdf } = require('./urdf_loader');
+const { getCoppeliaSimObjects, entityExist } = require('./get_object_list');
+const { setupPropertyHandlers } = require('./cs_properties');
 
 // CoppeliaSim connection class
 class CoppeliaSimConnection {
@@ -195,28 +197,8 @@ class CoppeliaSimConnection {
 
 // Action handlers setup
 function setupActionHandlers(thing, coppeliaSim) {
-    // Set property handlers
-    thing.setPropertyReadHandler("sim_stats", async () => {
-        try {
-            const state = await coppeliaSim.getSimulationState();
-            // Map CoppeliaSim states to string values for user understanding
-            switch (state) {
-                case 0: // stopped
-                    return "stopped";
-                case 8: // paused
-                    return "paused";
-                case 17: // running
-                    return "running";
-                default:
-                    return `unknown(${state})`; // return unknown state with original value
-            }
-        } catch (error) {
-            console.error('Error getting simulation state:', error);
-            return "error";
-        }
-    });
-
-    thing.setPropertyReadHandler("availableResources", readAvailableResources);
+    // Setup property handlers
+    setupPropertyHandlers(thing, coppeliaSim);
 
     // Set action handlers
     thing.setActionHandler("startSimulation", async () => {
@@ -299,6 +281,13 @@ function setupActionHandlers(thing, coppeliaSim) {
                 throw new Error('Both entity_name and file_name are required');
             }
 
+            // Check if entity already exists by getting objects list
+            const objects = await getCoppeliaSimObjects('localhost', 23050, false, 100);
+            const existingEntity = objects.find(obj => obj.name === entity_name);
+            if (existingEntity) {
+                throw new Error(`Entity "${entity_name}" already exists. Please choose a different name or remove the existing entity first.`);
+            }
+
             // Set default values for position and orientation
             const pos = {
                 x: Number.isFinite(position.x) ? position.x : 0,
@@ -317,6 +306,109 @@ function setupActionHandlers(thing, coppeliaSim) {
         } catch (error) {
             console.error(`[${new Date().toLocaleTimeString()}] SPAWN: Spawn failed - ${error.message}`);
             return `Failed to spawn entity: ${error instanceof Error ? error.message : String(error)}`;
+        }
+    });
+
+    thing.setActionHandler("set_entity_pose", async (data) => {
+        try {
+            const input = await data.value();
+            const { id, name, position = {}, orientation = {} } = input;
+
+            // Either id or name must be provided
+            if (!id && !name) {
+                throw new Error('Either id or name must be provided to identify the entity');
+            }
+
+            // Get all objects once and find the target entity
+            const objects = await getCoppeliaSimObjects('localhost', 23050, false, 100);
+            let targetObject = null;
+            
+            if (id !== undefined) {
+                // Find by ID (handle)
+                targetObject = objects.find(obj => obj.handle === id);
+                if (!targetObject) {
+                    throw new Error(`Entity with ID ${id} not found`);
+                }
+            } else {
+                // Find by name
+                targetObject = objects.find(obj => obj.name === name);
+                if (!targetObject) {
+                    throw new Error(`Entity with name "${name}" not found`);
+                }
+            }
+            
+            const entityHandle = targetObject.handle;
+            const entityName = targetObject.name;
+
+            // Set position if provided
+            if (position.x !== undefined || position.y !== undefined || position.z !== undefined) {
+                const pos = [
+                    Number.isFinite(position.x) ? position.x : 0,
+                    Number.isFinite(position.y) ? position.y : 0,
+                    Number.isFinite(position.z) ? position.z : 0
+                ];
+                await coppeliaSim.sim.setObjectPosition(entityHandle, pos);
+                console.log(`[${new Date().toLocaleTimeString()}] POSE: Set position for "${entityName}" to [${pos.join(', ')}]`);
+            }
+
+            // Set orientation if provided
+            if (orientation.roll !== undefined || orientation.pitch !== undefined || orientation.yaw !== undefined) {
+                const orient = {
+                    roll: Number.isFinite(orientation.roll) ? orientation.roll : 0,
+                    pitch: Number.isFinite(orientation.pitch) ? orientation.pitch : 0,
+                    yaw: Number.isFinite(orientation.yaw) ? orientation.yaw : 0
+                };
+                
+                // Convert from Euler angles to quaternion using deg2quat utility
+                const { qx, qy, qz, qw } = deg2quat(orient);
+                const quaternion = [qx, qy, qz, qw];
+                await coppeliaSim.sim.setObjectQuaternion(entityHandle, quaternion);
+                console.log(`[${new Date().toLocaleTimeString()}] POSE: Set orientation for "${entityName}" to [${orient.roll}°, ${orient.pitch}°, ${orient.yaw}°]`);
+            }
+
+            return `Entity "${entityName}" (ID: ${entityHandle}) pose updated successfully`;
+        } catch (error) {
+            console.error(`[${new Date().toLocaleTimeString()}] POSE: Set pose failed - ${error.message}`);
+            return `Failed to set entity pose: ${error instanceof Error ? error.message : String(error)}`;
+        }
+    });
+
+    thing.setActionHandler("remove_entity", async (data) => {
+        try {
+            const input = await data.value();
+            const { name } = input;
+
+            if (!name) {
+                throw new Error('Entity name is required');
+            }
+
+            // Get all objects and find the target entity
+            const objects = await getCoppeliaSimObjects('localhost', 23050, false, 100);
+            const targetObject = objects.find(obj => obj.name === name);
+            
+            if (!targetObject) {
+                throw new Error(`Entity with name "${name}" not found`);
+            }
+
+            const entityHandle = targetObject.handle;
+            const entityName = targetObject.name;
+
+            // Remove the entity using CoppeliaSim's removeModel API
+            // This removes the entire model hierarchy (root + all children), matching GUI behavior
+            try {
+                await coppeliaSim.sim.removeModel(entityHandle);
+                console.log(`[${new Date().toLocaleTimeString()}] REMOVE: Removed model "${entityName}" (ID: ${entityHandle}) and all its children`);
+                return `Model "${entityName}" (ID: ${entityHandle}) and all its children removed successfully`;
+            } catch (removeModelError) {
+                // If removeModel fails (e.g., object is not a model base), fall back to removeObjects
+                console.log(`[${new Date().toLocaleTimeString()}] REMOVE: removeModel failed, trying removeObjects: ${removeModelError.message}`);
+                await coppeliaSim.sim.removeObjects([entityHandle]);
+                console.log(`[${new Date().toLocaleTimeString()}] REMOVE: Removed object "${entityName}" (ID: ${entityHandle})`);
+                return `Object "${entityName}" (ID: ${entityHandle}) removed successfully (note: child objects may remain)`;
+            }
+        } catch (error) {
+            console.error(`[${new Date().toLocaleTimeString()}] REMOVE: Remove failed - ${error.message}`);
+            return `Failed to remove entity: ${error instanceof Error ? error.message : String(error)}`;
         }
     });
 }

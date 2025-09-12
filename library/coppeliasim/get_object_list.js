@@ -22,11 +22,14 @@
  *   node get_object_list.js --debug            # Debug mode with 50 handles
  *   node get_object_list.js --handles 100      # Check up to 100 handles
  *   node get_object_list.js --debug --handles 200  # Debug mode with 200 handles
+ * 
+ * Exports:
+ *   getCoppeliaSimObjects(host, port, debug, totalHandles) - Returns array of {handle, name} objects
  */
 
 const { RemoteAPIClient } = require('./coppelia_helper');
 
-class CoppeliaSimObjectTester {
+class CoppeliaSimObjectLister {
     constructor(host = 'localhost', port = 23050, debug = false, totalHandles = 50) {
         this.client = new RemoteAPIClient(host, port, 'json');
         this.debug = debug;
@@ -108,13 +111,10 @@ class CoppeliaSimObjectTester {
         // Deduplicate objects by name, keeping the one with smallest handle number
         const uniqueObjects = this.deduplicateObjects(foundObjects);
         
-        // Return the deduplicated objects
+        // Return the deduplicated objects with only handle and name
         return uniqueObjects.map(obj => ({
             handle: obj.handle,
-            name: obj.name,
-            type: 'shape',
-            position: null,
-            orientation: null
+            name: obj.name
         }));
     }
     
@@ -159,20 +159,20 @@ class CoppeliaSimObjectTester {
 
 // Main test function
 async function runTest(debug = false, totalHandles = 50) {
-    const tester = new CoppeliaSimObjectTester('localhost', 23050, debug, totalHandles);
+    const lister = new CoppeliaSimObjectLister('localhost', 23050, debug, totalHandles);
     
     try {
-        await tester.connect();
-        const objects = await tester.getShapeObjects();
+        await lister.connect();
+        const objects = await lister.getShapeObjects();
         
         console.log(`Found ${objects.length} shape objects`);
-        console.log(JSON.stringify(objects.map(obj => ({ handle: obj.handle, name: obj.name })), null, 2));
+        console.log(JSON.stringify(objects, null, 2));
         
     } catch (error) {
         console.error(`Error: ${error.message}`);
         process.exit(1);
     } finally {
-        await tester.disconnect();
+        await lister.disconnect();
     }
 }
 
@@ -195,21 +195,32 @@ if (require.main === module) {
     });
 }
 
-// Simple function to get shape objects programmatically
-async function getShapeObjects(host = 'localhost', port = 23050, debug = false, totalHandles = 50) {
-    const tester = new CoppeliaSimObjectTester(host, port, debug, totalHandles);
+// Main exported function to get CoppeliaSim objects
+async function getCoppeliaSimObjects(host = 'localhost', port = 23050, debug = false, totalHandles = 50) {
+    const lister = new CoppeliaSimObjectLister(host, port, debug, totalHandles);
     
     try {
-        await tester.connect();
-        const objects = await tester.getShapeObjects();
+        await lister.connect();
+        const objects = await lister.getShapeObjects();
         return objects;
     } finally {
-        await tester.disconnect();
+        await lister.disconnect();
     }
 }
 
-module.exports = {
-    CoppeliaSimObjectTester,
-    runTest,
-    getShapeObjects
-};
+// Function to check if an entity exists by name or handle
+async function entityExist(entityIdentifier) {
+    const objects = await getCoppeliaSimObjects('localhost', 23050, false, 100);
+    
+    if (typeof entityIdentifier === 'string') {
+        // Check by name
+        return objects.some(obj => obj.name === entityIdentifier);
+    } else if (typeof entityIdentifier === 'number') {
+        // Check by handle
+        return objects.some(obj => obj.handle === entityIdentifier);
+    } else {
+        throw new Error('Entity identifier must be a string (name) or number (handle)');
+    }
+}
+
+module.exports = { getCoppeliaSimObjects, entityExist };

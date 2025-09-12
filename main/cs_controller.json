@@ -90,6 +90,40 @@
           }
         }
       }
+    },
+    "models": {
+      "type": "object",
+      "readOnly": true,
+      "observable": false,
+      "description": "Available models from CoppeliaSim scene",
+      "properties": {
+        "timestamp": {
+          "type": "string",
+          "format": "date-time",
+          "description": "Timestamp when the data was retrieved"
+        },
+        "models": {
+          "type": "array",
+          "description": "Array of available models",
+          "items": {
+            "type": "object",
+            "properties": {
+              "name": { 
+                "type": "string",
+                "description": "Model name"
+              },
+              "handle": { 
+                "type": "integer",
+                "description": "Model handle (CoppeliaSim object handle)"
+              }
+            }
+          }
+        },
+        "total_count": {
+          "type": "integer",
+          "description": "Total number of available models"
+        }
+      }
     }
   },
   "actions": {
@@ -197,6 +231,78 @@
           "entity_name",
           "file_name"
         ]
+      },
+      "output": {
+        "type": "string",
+        "description": "Result of the operation"
+      }
+    },
+    "set_entity_pose": {
+      "title": "Set entity pose",
+      "description": "Set entity pose to the given location and orientation",
+      "input": {
+        "type": "object",
+        "properties": {
+          "id": {
+            "type": "integer",
+            "description": "Entity ID (handle). If provided, takes precedence over name."
+          },
+          "name": {
+            "type": "string",
+            "description": "Entity name"
+          },
+          "position": {
+            "type": "object",
+            "properties": {
+              "x": {
+                "type": "number"
+              },
+              "y": {
+                "type": "number"
+              },
+              "z": {
+                "type": "number"
+              }
+            }
+          },
+          "orientation": {
+            "type": "object",
+            "properties": {
+              "roll": {
+                "type": "number",
+                "unit": "degree"
+              },
+              "pitch": {
+                "type": "number",
+                "unit": "degree"
+              },
+              "yaw": {
+                "type": "number",
+                "unit": "degree"
+              }
+            }
+          }
+        }
+      },
+      "output": {
+        "type": "string",
+        "description": "Result of the operation"
+      }
+    },
+    "remove_entity": {
+      "title": "Remove an entity",
+      "description": "Remove an entity from the simulation by name. For models, removes the entire hierarchy (root + all children). For individual objects, removes only the specified object.",
+      "input": {
+        "type": "object",
+        "required": [
+          "name"
+        ],
+        "properties": {
+          "name": {
+            "type": "string",
+            "description": "Name of the entity to remove"
+          }
+        }
       },
       "output": {
         "type": "string",
