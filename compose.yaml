@@ -46,8 +46,27 @@ services:
     ports:
       - "8080:8080"
       - "8082:8082"
+      - "8083:8083"
     entrypoint: []
     command: bash -lc "tail -f /dev/null"
+
+  coppeliasim:
+    build:
+      context: /home/yifan/app/docker-image-coppeliasim
+      dockerfile: Dockerfile
+    image: coppeliasim:4.10
+    container_name: coppeliasim
+    environment:
+      - TZ=Europe/Berlin
+    volumes:
+      - ./:/project-root:rw
+    ports:
+      - "23000:23000"  # ZMQ Remote API
+      - "23050:23050"  # WS Remote API
+      - "23020:23020"  # streaming port
+    # keep container alive without starting sim
+    entrypoint: ["tail","-f","/dev/null"]
+
 
 networks:
   wos_net:

@@ -1,0 +1,46 @@
+<?xml version="1.0"?>
+<robot name="cube_5cm">
+  <!-- Single free body link -->
+  <link name="cube_link">
+    <!-- Inertial: solid cube, a=0.05 m, m=0.10 kg -->
+    <inertial>
+      <origin xyz="0 0 0" rpy="0 0 0"/>
+      <mass value="0.06"/>
+      <!-- I = (1/6) m a^2 = 0.0000416667 kg·m^2 -->
+      <inertia
+        ixx="2.7e-05" iyy="2.7e-05" izz="2.7e-05"
+        ixy="0" ixz="0" iyz="0"/>
+    </inertial>
+
+    <!-- Collision geometry -->
+    <collision>
+      <origin xyz="0 0 0" rpy="0 0 0"/>
+      <geometry>
+        <box size="0.03 0.03 0.03"/>
+      </geometry>
+    </collision>
+
+    <!-- Visual (simple grey box) -->
+    <visual>
+      <origin xyz="0 0 0" rpy="0 0 0"/>
+      <geometry>
+        <box size="0.03 0.03 0.03"/>
+      </geometry>
+      <material name="mat_grey">
+        <color rgba="0.6 0.6 0.6 1.0"/>
+      </material>
+    </visual>
+  </link>
+
+  <!-- Gazebo (Ignition/Gazebo Harmonic) URDF extensions -->
+  <gazebo reference="cube_link">
+    <!-- Higher friction helps gripping; tune to your RG2 fingertips -->
+    <mu1>1.2</mu1>
+    <mu2>1.2</mu2>
+    <kp>1e6</kp>
+    <kd>1.0</kd>
+    <max_vel>0.2</max_vel>
+    <gravity>1</gravity>
+    <selfCollide>false</selfCollide>
+  </gazebo>
+</robot>

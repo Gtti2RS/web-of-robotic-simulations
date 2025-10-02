@@ -8,6 +8,7 @@
 const rcl = require('rclnodejs');
 
 const _clients = new Map(); // key = `${srvType}|${serviceName}`
+const _actionClients = new Map(); // key = `${actionType}|${actionName}`
 
 function _key(srvType, serviceName) {
   return `${srvType}|${serviceName}`;
@@ -19,6 +20,19 @@ function getClient(node, srvType, serviceName) {
   const c = node.createClient(srvType, serviceName);
   _clients.set(k, c);
   return c;
+}
+
+function _actionKey(actionType, actionName) {
+  return `${actionType}|${actionName}`;
+}
+
+function getActionClient(node, actionType, actionName) {
+  const k = _actionKey(actionType, actionName);
+  if (_actionClients.has(k)) return _actionClients.get(k);
+  // Use ActionClient with action type string (supported by rclnodejs)
+  const client = new rcl.ActionClient(node, actionType, actionName);
+  _actionClients.set(k, client);
+  return client;
 }
 
 /**
@@ -58,3 +72,46 @@ async function callService(
 }
 
 module.exports = { callService, getClient };
+
+/**
+ * callAction(node, { actionType, actionName, goal }, opts)
+ * opts: { timeoutMs=60000, debug=false, collectFeedback=false }
+ * Returns { goal, result, feedback }
+ */
+async function callAction(
+  node,
+  { actionType, actionName, goal = {} },
+  opts = {}
+) {
+  const { timeoutMs = 60000, debug = false, collectFeedback = true, onFeedback } = opts;
+
+  // Build a plain JS goal object; rclnodejs will map fields during send
+  const goalMsg = {};
+  for (const [k, v] of Object.entries(goal || {})) {
+    if (v !== undefined) goalMsg[k] = v;
+  }
+
+  if (debug) {
+    const snap = {};
+    for (const k of Object.keys(goal)) if (k in goalMsg) snap[k] = goalMsg[k];
+    console.log('[ros2_action] →', { actionType, actionName, goal: snap });
+  }
+
+  const client = getActionClient(node, actionType, actionName);
+  const ok = await client.waitForServer(timeoutMs);
+  if (!ok) throw new Error(`Action server not available: ${actionName}`);
+
+  const feedback = [];
+  const feedbackCb = collectFeedback ? (fb) => { feedback.push(fb); if (typeof onFeedback === 'function') { try { onFeedback(fb); } catch (_) {} } } : undefined;
+
+  const goalHandle = await client.sendGoal(goalMsg, feedbackCb);
+  if (!goalHandle) throw new Error('Failed to send goal');
+
+  const result = await goalHandle.getResult();
+
+  if (debug) console.log('[ros2_action] ← result =', result);
+  return { goal: goalMsg, result, feedback: collectFeedback ? feedback : undefined };
+}
+
+module.exports.callAction = callAction;
+module.exports.getActionClient = getActionClient;

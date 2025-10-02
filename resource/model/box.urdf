@@ -1,0 +1,41 @@
+<?xml version="1.0"?>
+<robot name="tiny_box">
+  <!-- 0.01 kg, 0.03 x 0.03 x 0.03 m cube. Link frame at the COM. -->
+  <link name="box_link">
+    <inertial>
+      <origin xyz="0 0 0" rpy="0 0 0"/>
+      <mass value="0.01"/>
+      <!-- I = 1.5e-6 for each axis -->
+      <inertia ixx="1.5e-06" iyy="1.5e-06" izz="1.5e-06"
+               ixy="0.0" ixz="0.0" iyz="0.0"/>
+    </inertial>
+
+    <visual>
+      <origin xyz="0 0 0" rpy="0 0 0"/>
+      <geometry>
+        <box size="0.03 0.03 0.03"/>
+      </geometry>
+      <material name="Blue"><color rgba="0 0 1 1"/></material>
+    </visual>
+
+    <collision>
+      <origin xyz="0 0 0" rpy="0 0 0"/>
+      <geometry>
+        <box size="0.03 0.03 0.03"/>
+      </geometry>
+    </collision>
+  </link>
+
+  <!-- Gazebo tuning -->
+  <gazebo reference="box_link">
+    <selfCollide>false</selfCollide>
+    <linearDamping>0.02</linearDamping>
+    <angularDamping>0.02</angularDamping>
+    <mu1>0.8</mu1>
+    <mu2>0.8</mu2>
+    <kp>100000</kp>
+    <kd>5.0</kd>
+    <maxVel>0.2</maxVel>
+    <minDepth>0.001</minDepth>
+  </gazebo>
+</robot>
