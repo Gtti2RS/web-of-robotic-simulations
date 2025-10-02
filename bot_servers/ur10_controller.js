@@ -109,7 +109,7 @@ async function main() {
     const ori = data?.orientation || {};
     // Use default values for hidden parameters
     const groupName = 'ur_manipulator';
-    const ikLink = 'tool0';
+    const ikLink = 'rg2_tipp';
     const frameId = 'world';
 
     let orientation;

@@ -361,6 +361,8 @@
     </inertial>
   </link>
 
+  <link name="rg2_tipp" />
+
 
   <joint name="tool0_rg2_mount" type="fixed">
     <parent link="tool0" />
@@ -386,6 +388,12 @@
     <axis xyz="0 0 -1" />
     <limit effort="20.0" lower="0.0" upper="1.18" velocity="2.0" />
     <dynamics damping="0.5" friction="0.2" />
+  </joint>
+
+  <joint name="rg2_hand-rg2_tipp" type="fixed">
+    <parent link="rg2_hand" />
+    <child link="rg2_tipp" />
+    <origin rpy="0 0 0" xyz="0.21 0 0" />
   </joint>
 
 

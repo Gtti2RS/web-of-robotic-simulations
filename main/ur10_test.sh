@@ -28,7 +28,7 @@ send_action() {
 # Step 1: Move to initial position
 echo "=== Step 1: Move to initial position ==="
 send_action "moveToCartesian" '{
-    "position": { "x": -0.5, "y": 0.5, "z": 0.3 },
+    "position": { "x": -0.5, "y": 0.5, "z": 0.05 },
     "orientation": { "roll": 0, "pitch": 90, "yaw": 0 }
 }' "Move to pick position"
 
@@ -39,7 +39,7 @@ send_action "gripOpen" '{}' "Open gripper to prepare for pickup"
 # Step 3: Move down to z:0.22
 echo "=== Step 3: Move down to z:0.22 ==="
 send_action "moveToCartesian" '{
-    "position": { "x": -0.5, "y": 0.5, "z": 0.22 },
+    "position": { "x": -0.5, "y": 0.5, "z": 0.01 },
     "orientation": { "roll": 0, "pitch": 90, "yaw": 0 }
 }' "Move down to pickup height"
 
@@ -47,37 +47,52 @@ send_action "moveToCartesian" '{
 echo "=== Step 4: Close gripper ==="
 send_action "gripClose" '{}' "Close gripper to grasp object"
 
-# Step 5: Move to place position
-echo "=== Step 5: Move to place position ==="
+# Step 5: Move to z:0.05
+echo "=== Step 5: Move to z:0.05 ==="
 send_action "moveToCartesian" '{
-    "position": { "x": -0.5, "y": -0.5, "z": 0.25 },
+    "position": { "x": -0.5, "y": 0.5, "z": 0.05 },
+    "orientation": { "roll": 0, "pitch": 90, "yaw": 0 }
+}' "Move to pickup height"
+
+# Step 6: Move to place position
+echo "=== Step 6: Move to place position ==="
+send_action "moveToCartesian" '{
+    "position": { "x": -0.5, "y": -0.5, "z": 0.02 },
     "orientation": { "roll": 0, "pitch": 90, "yaw": 0 }
 }' "Move to place position"
 
-# Step 6: Open gripper
-echo "=== Step 6: Open gripper ==="
+# Step 7: Open gripper
+echo "=== Step 7: Open gripper ==="
 send_action "gripOpen" '{}' "Open gripper to release object"
 
-# Step 7: Move to z:0.22
-echo "=== Step 7: Move to z:0.22 ==="
+# Step 8: Move to z:0.01
+echo "=== Step 8: Move to z:0.01 ==="
 send_action "moveToCartesian" '{
-    "position": { "x": -0.5, "y": -0.5, "z": 0.22 },
+    "position": { "x": -0.5, "y": -0.5, "z": 0.01 },
     "orientation": { "roll": 0, "pitch": 90, "yaw": 0 }
 }' "Move down to pickup height"
 
-# Step 8: Close gripper
-echo "=== Step 8: Close gripper ==="
+# Step 9: Close gripper
+echo "=== Step 9: Close gripper ==="
 send_action "gripClose" '{}' "Close gripper to grasp object"
 
-# Step 9: Move to y:0.5, z:0.25
-echo "=== Step 9: Move to y:0.5, z:0.25 ==="
+# Step 10: Move to z:0.02
+echo "=== Step 10: Move to z:0.02 ==="
 send_action "moveToCartesian" '{
-    "position": { "x": -0.5, "y": 0.5, "z": 0.25 },
+    "position": { "x": -0.5, "y": -0.5, "z": 0.02 },
+    "orientation": { "roll": 0, "pitch": 90, "yaw": 0 }
+}' "Move to place height"
+
+# Step 11: Move to place position
+echo "=== Step 11: Move to place position ==="
+send_action "moveToCartesian" '{
+    "position": { "x": -0.5, "y": 0.5, "z": 0.02 },
     "orientation": { "roll": 0, "pitch": 90, "yaw": 0 }
 }' "Move to place position"
 
-# Step 10: Open gripper
-echo "=== Step 10: Open gripper ==="
+
+# Step 12: Open gripper
+echo "=== Step 12: Open gripper ==="
 send_action "gripOpen" '{}' "Open gripper to release object"
 
 echo "=== Test sequence completed ==="
