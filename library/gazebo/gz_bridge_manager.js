@@ -20,6 +20,11 @@ const BRIDGE_REGISTRY = {
     name: 'camera_bridge',
     cmd: (worldName) => `ros2 run ros_gz_bridge parameter_bridge /world/${worldName}/model/wot_camera/link/link/sensor/camera/image@sensor_msgs/msg/Image[gz.msgs.Image --ros-args -r /world/${worldName}/model/wot_camera/link/link/sensor/camera/image:=/viz_cam`,
     description: 'Image bridge for camera visualization'
+  },
+  clock_bridge: {
+    name: 'clock_bridge',
+    cmd: () => `ros2 run ros_gz_bridge parameter_bridge /clock@rosgraph_msgs/msg/Clock[gz.msgs.Clock`,
+    description: 'Clock bridge for simulation time synchronization'
   }
 };
 
