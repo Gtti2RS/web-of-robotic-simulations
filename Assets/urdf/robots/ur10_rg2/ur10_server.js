@@ -1,5 +1,5 @@
 // Minimal WoT server exposing an IK action
-// Usage: node /home/yifan/wos/bot_servers/ur10_controller.js
+// Usage: node /home/yifan/wos/Assets/urdf/robots/ur10_rg2/ur10_server.js
 
 const { Servient } = require('@node-wot/core');
 const HttpServer = require('@node-wot/binding-http').HttpServer;
@@ -7,8 +7,8 @@ const rcl = require('rclnodejs');
 const fs = require('fs');
 const path = require('path');
 
-const { callService, callAction } = require('../library/common/ros2_service_helper');
-const { deg2quat } = require('../library/common/deg2quat');
+const { callService, callAction } = require('../../../../library/common/ros2_service_helper');
+const { deg2quat } = require('../../../../library/common/deg2quat');
 const PORT = 8083;
 
 // Helper function to convert degrees to radians
@@ -87,7 +87,7 @@ function checkTrajectoryResult(result) {
 async function main() {
   // Init ROS 2
   await rcl.init();
-  const node = new rcl.Node('ur10_controller');
+  const node = new rcl.Node('ur10_server');
   let spinInterval = setInterval(() => {
     if (typeof rcl.spinOnce === 'function') rcl.spinOnce(node);
   }, 100);
@@ -98,7 +98,7 @@ async function main() {
   const wot = await servient.start();
 
   // Load Thing Description from external JSON file
-  const tdPath = path.join(__dirname, 'ur10_controller.json');
+  const tdPath = path.join(__dirname, 'ur10_server.json');
   const td = JSON.parse(fs.readFileSync(tdPath, 'utf8'));
 
   const thing = await wot.produce(td);
@@ -569,7 +569,7 @@ async function main() {
   });
 
   await thing.expose();
-  console.log('UR10Controller exposed on http://localhost:' + PORT + '/ur10_controller');
+  console.log('UR10Server exposed on http://localhost:' + PORT + '/ur10_server');
 
   async function shutdown(code = 0) {
     try {

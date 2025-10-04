@@ -1,8 +1,33 @@
+/**
+ * @fileoverview ROS 2 Utilities Library
+ * 
+ * This module provides utilities for interacting with ROS 2 from Node.js applications,
+ * including message publishing and command execution via child processes.
+ * 
+ * Key Features:
+ * - ROS 2 message publishing with automatic publisher management
+ * - Secure ROS 2 command execution via child processes with timeout handling
+ * - Process tracking and automatic cleanup
+ * 
+ * @author Yifan & Cursor & ChatGPT
+ * @version 1.0.0
+ */
+
 const { spawn } = require('child_process');
 
 let ros2Publisher = null;
 let activeChildProcesses = new Set(); // Track active child processes
 
+/**
+ * Creates a factory function for publishing ROS 2 messages
+ * 
+ * @param {Object} node - ROS 2 node instance from rclnodejs
+ * @returns {Function} Async function that publishes messages to the 'wot_topic'
+ * 
+ * @example
+ * const publishMessage = makePublishMessage(node);
+ * await publishMessage({ value: async () => "Hello ROS 2!" });
+ */
 function makePublishMessage(node) {
   return async function publishMessage(input) {
     const msg = await input.value();
@@ -29,6 +54,16 @@ function makePublishMessage(node) {
 }
 
 
+/**
+ * Parses a command string into an array of arguments, handling quoted strings
+ * 
+ * @param {string} cmdStr - Command string to parse
+ * @returns {string[]} Array of parsed command arguments
+ * 
+ * @example
+ * parseCommand('ros2 topic list') // ['ros2', 'topic', 'list']
+ * parseCommand('ros2 topic echo "my topic"') // ['ros2', 'topic', 'echo', 'my topic']
+ */
 function parseCommand(cmdStr) {
   const regex = /'[^']*'|"[^"]*"|\S+/g;
   return cmdStr.match(regex)?.map(arg => {
@@ -39,6 +74,26 @@ function parseCommand(cmdStr) {
   }) || [];
 }
 
+/**
+ * Creates a factory function for executing ROS 2 commands via child processes
+ * 
+ * This function provides secure execution of ROS 2 CLI commands with:
+ * - Input validation and sanitization
+ * - Timeout handling with SIGTERM → SIGKILL escalation
+ * - Process tracking and automatic cleanup
+ * - Structured output parsing
+ * 
+ * @param {Object} node - ROS 2 node instance from rclnodejs
+ * @param {Object} options - Configuration options
+ * @param {number} options.timeoutMs - Command timeout in milliseconds (default: 10000)
+ * @returns {Function} Async function that executes ROS 2 commands
+ * 
+ * @example
+ * const sendRos2Cmd = makeSendRos2Cmd(node, { timeoutMs: 15000 });
+ * const result = await sendRos2Cmd({ value: async () => "ros2 topic list" });
+ * console.log(result.lines); // Array of output lines
+ * console.log(result.raw); // Raw output string
+ */
 function makeSendRos2Cmd(node, { timeoutMs = 10000 } = {}) {
   return async function sendRos2CmdAction(input) {
     const commandStr = await input.value();

@@ -1,4 +1,26 @@
-// Export WoT action handlers as factories that capture your already-created rclnodejs node.
+/**
+ * @fileoverview Gazebo ROS 2 Service Integration Library
+ * 
+ * This module provides Web of Things (WoT) action handlers for Gazebo simulation control
+ * via ROS 2 services. It acts as a bridge between WoT interfaces and Gazebo's ROS 2 API.
+ * 
+ * Key Features:
+ * - Simulation lifecycle management (launch, exit, control)
+ * - Entity management (spawn, remove, pose setting)
+ * - World management (save, visualization control)
+ * - UR10 robot integration with automatic TD exposure
+ * - Bridge management for ROS 2 topic communication
+ * - Process management for child processes and services
+ * 
+ * Architecture:
+ * - Factory pattern for action handlers that capture ROS 2 node instances
+ * - Service-based communication with Gazebo via ROS 2 bridges
+ * - Automatic process supervision and cleanup
+ * - Support for both Gazebo SDF files and ROS 2 launch files
+ * 
+ * @author Yifan & Cursor & ChatGPT
+ * @version 1.0.0
+ */
 
 const { callService } = require('../common/ros2_service_helper');
 const { resolveFilePath, checkFileConflict } = require('../common/fileUtils');
@@ -306,7 +328,7 @@ function makeSimControl(node, { timeoutMs = 1000 } = {}) {
         
         // The control service is now called inside makeResetVisualization
         // Return success message directly
-        return `Simulation "${world}" successfully reset.`;
+        return `reset successfully.`;
       default:
         throw new Error(`Invalid mode: ${mode}`);
     }
@@ -322,7 +344,7 @@ function makeSimControl(node, { timeoutMs = 1000 } = {}) {
     );
 
     if (resp?.success ?? resp?.ok ?? resp?.boolean) {
-      return `Simulation "${world}" successfully ${mode}d.`;
+      return `${mode} successfully.`;
     }
     throw new Error(resp?.message ? `SimControl failed: ${resp.message}` : 'SimControl failed');
   };
@@ -634,8 +656,8 @@ function makeLaunchSimulation(node, { timeoutMs = 1000 } = {}) {
               const ur10Result = await startUr10Configuration(node, 'bot', { timeoutMs: 60000 });
               
               if (ur10Result.success) {
-                ur10Message = ` UR10 configuration completed successfully`;
-                console.log(`[${new Date().toISOString()}] [makeLaunchSimulation] UR10 configuration completed successfully`);
+                ur10Message = ` UR10 TD exposed at http://localhost:8083/ur10_server`;
+                console.log(`[${new Date().toISOString()}] [makeLaunchSimulation] UR10 TD exposed at http://localhost:8083/ur10_server`);
               } else {
                 const failedProcesses = [];
                 if (ur10Result.results.config.error) {
@@ -729,7 +751,7 @@ function makeExitSimulation(node, { timeoutMs = 1000 } = {}) {
         vizState = false;
         clear_world();
         
-        return `Simulation exited successfully. Process: ${simProcessName}`;
+        return `Simulation exited successfully.`;
       } else {
         console.warn(`[${new Date().toISOString()}] [makeExitSimulation] Failed to stop simulation process: ${resp?.message || 'Unknown error'}`);
         throw new Error(`Failed to stop simulation: ${resp?.message || 'Unknown error'}`);
@@ -778,7 +800,7 @@ function generateUr10ProcessNames(entityName) {
 function getUr10ProcessCommands() {
   return {
     config: 'bash /project-root/Assets/urdf/robots/ur10_rg2/ur10_config.sh',
-    controller: 'node /project-root/bot_servers/ur10_controller.js'
+    controller: 'node /project-root/Assets/urdf/robots/ur10_rg2/ur10_server.js'
   };
 }
 
@@ -902,7 +924,7 @@ async function startUr10Process(node, processName, command, { timeoutMs = 1000 }
  * Start UR10 controller as a child process
  */
 function startUr10ControllerChildProcess(entityName) {
-  const controllerPath = path.join(__dirname, '../../bot_servers/ur10_controller.js');
+  const controllerPath = path.join(__dirname, '../../Assets/urdf/robots/ur10_rg2/ur10_server.js');
   
   console.log(`[${new Date().toISOString()}] [startUr10ControllerChildProcess] Starting UR10 controller child process for ${entityName}`);
   console.log(`[${new Date().toISOString()}] [startUr10ControllerChildProcess] Controller path: ${controllerPath}`);
@@ -1144,7 +1166,7 @@ async function handleUr10Spawning(node, entityName, fileName, { timeoutMs = 1000
   const ur10Result = await startUr10Configuration(node, entityName, { timeoutMs });
   
   if (ur10Result.success) {
-    return ` UR10 configuration completed successfully`;
+    return ` UR10 TD exposed at http://localhost:8083/ur10_server`;
   } else {
     const failedProcesses = [];
     if (ur10Result.results.config.error) {

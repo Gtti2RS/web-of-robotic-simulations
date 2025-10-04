@@ -1,3 +1,19 @@
+/**
+ * @fileoverview File Utilities Library
+ * 
+ * This module provides utilities for file system operations in the WoS (Web of Simulators) project,
+ * including file upload handling, asset management, and path resolution for Gazebo simulations.
+ * 
+ * Key Features:
+ * - Secure file upload handling with validation
+ * - Asset discovery and organization (URDF, Gazebo files)
+ * - Path resolution for simulation files
+ * - File conflict detection and management
+ * 
+ * @author Yifan & Cursor & ChatGPT
+ * @version 1.0.0
+ */
+
 const fs = require("fs/promises");
 const path = require("path");
 

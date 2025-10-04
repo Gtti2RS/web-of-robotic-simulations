@@ -3,7 +3,7 @@
 # UR10 Controller Test Sequence
 # This script performs a pick and place operation using WoT actions
 
-BASE_URL="http://localhost:8083/ur10_controller"
+BASE_URL="http://localhost:8083/ur10_server"
 
 echo "Starting UR10 test sequence..."
 

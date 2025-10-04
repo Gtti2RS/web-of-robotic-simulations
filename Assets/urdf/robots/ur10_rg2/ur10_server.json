@@ -1,7 +1,7 @@
 {
   "@context": "https://www.w3.org/2019/wot/td/v1",
-  "title": "ur10_controller",
-  "id": "urn:dev:wot:ur10_controller",
+  "title": "ur10_server",
+  "id": "urn:dev:wot:ur10_server",
   "security": ["nosec_sc"],
   "securityDefinitions": { 
     "nosec_sc": { 

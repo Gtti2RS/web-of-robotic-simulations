@@ -42,20 +42,20 @@ class WotPublisherServer {
 
     this.thing.setPropertyReadHandler("assets", readGazeboAssets);
     this.thing.setPropertyReadHandler('visualization', visualizationRead);
-    this.thing.setPropertyReadHandler('sim_stats', readSimStats);
+    this.thing.setPropertyReadHandler('simStats', readSimStats);
     this.thing.setPropertyReadHandler('poses', readPoses);
     this.thing.setPropertyReadHandler('models', readModels);
     this.thing.setActionHandler("publishMessage", makePublishMessage(this.node));
     this.thing.setActionHandler("launchSimulation", makeLaunchSimulation(this.node));
     this.thing.setActionHandler("exitSimulation", makeExitSimulation(this.node));
     this.thing.setActionHandler("uploadFile", handleGazeboUpload.bind(this));
-    this.thing.setActionHandler("send_ros2_cmd", makeSendRos2Cmd(this.node));
-    this.thing.setActionHandler('sim_control', makeSimControl(this.node));
-    this.thing.setActionHandler('spawn_entity', makeSpawnEntity(this.node));
-    this.thing.setActionHandler('set_entity_pose', makeSetEntityPose(this.node));
-    this.thing.setActionHandler('remove_entity', makeDeleteEntity(this.node));
-    this.thing.setActionHandler('save_world', makeSaveWorld(this.node));
-    this.thing.setActionHandler('set_visualization', makeSetVisualization(this.node));
+    this.thing.setActionHandler("sendRos2Cmd", makeSendRos2Cmd(this.node));
+    this.thing.setActionHandler('simControl', makeSimControl(this.node));
+    this.thing.setActionHandler('spawnEntity', makeSpawnEntity(this.node));
+    this.thing.setActionHandler('setEntityPose', makeSetEntityPose(this.node));
+    this.thing.setActionHandler('removeEntity', makeDeleteEntity(this.node));
+    this.thing.setActionHandler('saveWorld', makeSaveWorld(this.node));
+    this.thing.setActionHandler('setVisualization', makeSetVisualization(this.node));
     this.thing.setActionHandler('setRtf', makeSetRtf(this.node));
 
     await this.thing.expose();

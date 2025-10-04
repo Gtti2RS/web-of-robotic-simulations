@@ -1,9 +1,21 @@
-// project_root/library/ros2_call.js
-// Ubuntu 24.04.2 LTS • ROS 2 Jazzy • Gazebo Harmonic
-// Generic ROS 2 service caller for rclnodejs using the callback-style API.
-// - Reuses clients per (srvType, serviceName)
-// - Filters payload keys to only those present on the generated Request
-// - Returns { req, resp } so callers can log if needed
+/**
+ * @fileoverview ROS 2 Service Helper Library
+ * 
+ * This module provides a generic ROS 2 service caller for rclnodejs using the callback-style API.
+ * It supports both service calls and action calls with client reuse and payload validation.
+ * 
+ * Key Features:
+ * - Generic service caller with client reuse per (srvType, serviceName)
+ * - Payload key filtering to match generated Request types
+ * - Action client support with feedback collection
+ * - Timeout handling and error management
+ * - Debug logging capabilities
+ * 
+ * Compatible with: Ubuntu 24.04.2 LTS • ROS 2 Jazzy • Gazebo Harmonic
+ * 
+ * @author Yifan & Cursor & ChatGPT
+ * @version 1.0.0
+ */
 
 const rcl = require('rclnodejs');
 

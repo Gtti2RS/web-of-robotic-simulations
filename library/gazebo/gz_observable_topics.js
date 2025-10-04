@@ -1,3 +1,26 @@
+/**
+ * @fileoverview Gazebo Observable Topics Library
+ * 
+ * This module provides real-time data streaming from Gazebo simulation via ROS 2 topics,
+ * implementing Server-Sent Events (SSE) for Web of Things observable properties.
+ * 
+ * Key Features:
+ * - Real-time simulation statistics streaming (simStats)
+ * - Live entity pose monitoring (poses)
+ * - Dynamic model list tracking (models)
+ * - Server-Sent Events (SSE) implementation for web clients
+ * - Automatic topic subscription management
+ * - Connection lifecycle management with keep-alive
+ * 
+ * Observable Properties:
+ * - simStats: Simulation timing, iterations, real-time factor
+ * - poses: Entity positions and orientations
+ * - models: Available models in the simulation
+ * 
+ * @author Yifan & Cursor & ChatGPT
+ * @version 1.0.0
+ */
+
 const rclnodejs = require("rclnodejs");
 
 // Generic SSE manager for observable properties

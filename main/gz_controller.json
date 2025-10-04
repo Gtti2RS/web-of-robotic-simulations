@@ -65,7 +65,7 @@
     "exitSimulation": {
       "description": "Stop the currently running simulation"
     },
-    "send_ros2_cmd": {
+    "sendRos2Cmd": {
       "description": "Send a full ROS 2 CLI command as a string, starting with 'ros2'",
       "input": {
         "type": "string"
@@ -85,7 +85,7 @@
         }
       }
     },
-    "sim_control": {
+    "simControl": {
       "description": "Control simulation: pause, run, or reset",
       "input": {
         "type": "object",
@@ -107,7 +107,7 @@
         "type": "string"
       }
     },
-    "spawn_entity": {
+    "spawnEntity": {
       "title": "Spawn entity",
       "description": "Spawn a new entity from SDF file at a given pose.",
       "input": {
@@ -162,7 +162,7 @@
         "type": "string"
       }
     },
-    "set_entity_pose": {
+    "setEntityPose": {
       "title": "Set entity pose to the given location and orientation ",
       "input": {
         "type": "object",
@@ -212,7 +212,7 @@
         "type": "string"
       }
     },
-    "remove_entity": {
+    "removeEntity": {
       "title": "Remove an entity",
       "input": {
         "type": "object",
@@ -229,7 +229,7 @@
         "type": "string"
       }
     },
-    "save_world": {
+    "saveWorld": {
       "description": "Save the current world using the specified file name.",
       "input": {
         "type": "object",
@@ -248,7 +248,7 @@
         "description": "Confirmation message"
       }
     },
-    "set_visualization": {
+    "setVisualization": {
       "description": "Toggle visualization when simulation is running",
       "input": {
         "type": "boolean"
@@ -354,7 +354,7 @@
         }
       ]
     },
-    "sim_stats": {
+    "simStats": {
       "type": "object",
       "readOnly": true,
       "observable": true,
@@ -365,7 +365,7 @@
           "format": "date-time",
           "description": "Timestamp when the message was received"
         },
-        "sim_time": {
+        "simTime": {
           "type": "object",
           "description": "Simulation time",
           "properties": {
@@ -373,7 +373,7 @@
             "nsec": { "type": "integer" }
           }
         },
-        "real_time": {
+        "realTime": {
           "type": "object",
           "description": "Real time",
           "properties": {
@@ -389,11 +389,11 @@
           "type": "integer",
           "description": "Number of simulation iterations"
         },
-        "real_time_factor": {
+        "realTimeFactor": {
           "type": "number",
           "description": "Real-time factor"
         },
-        "step_size": {
+        "stepSize": {
           "type": "object",
           "description": "Simulation step size",
           "properties": {
@@ -404,12 +404,12 @@
       },
       "forms": [
         {
-          "href": "http://localhost:8080/gz_controller/properties/sim_stats",
+          "href": "http://localhost:8080/gz_controller/properties/simStats",
           "op": ["readproperty"],
           "contentType": "application/json"
         },
         {
-          "href": "http://localhost:8080/gz_controller/properties/sim_stats/observable",
+          "href": "http://localhost:8080/gz_controller/properties/simStats/observable",
           "op": ["observeproperty"],
           "subprotocol": "sse",
           "contentType": "text/event-stream"
@@ -505,7 +505,7 @@
             }
           }
         },
-        "total_count": {
+        "totalCount": {
           "type": "integer",
           "description": "Total number of available models"
         }

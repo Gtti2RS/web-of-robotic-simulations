@@ -1,3 +1,27 @@
+/**
+ * @fileoverview Gazebo World Utilities Library
+ * 
+ * This module provides utilities for working with Gazebo world files and entities,
+ * including world name extraction, entity management, and UR10 robot detection.
+ * 
+ * Key Features:
+ * - World name extraction from SDF and launch files
+ * - Entity existence checking and management
+ * - UR10 robot detection and configuration
+ * - World state management (clear, store, retrieve)
+ * - SDF file parsing and manipulation
+ * - Launch file analysis for world detection
+ * 
+ * Functions:
+ * - World name extraction and storage
+ * - Entity existence validation
+ * - UR10 robot identification and setup
+ * - World state management
+ * 
+ * @author Yifan & Cursor & ChatGPT
+ * @version 1.0.0
+ */
+
 const fs = require('fs');
 const path = require('path');
 const { readModels } = require('./gz_observable_topics');

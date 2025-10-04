@@ -15,7 +15,7 @@ const uploadDirs = {
 
 // Simulator-specific upload handlers
 const simulatorHandlers = {
-  gazebo: require('./library/common/fileUtils').handleGazeboUpload,
+  gazebo: require('../library/common/fileUtils').handleGazeboUpload,
   // Add other simulators here in the future
   // coppeliasim: require('./library/coppeliasim/coppeliaUpload').handleCoppeliaUpload,
   // unity: require('./library/unity/unityUpload').handleUnityUpload,
