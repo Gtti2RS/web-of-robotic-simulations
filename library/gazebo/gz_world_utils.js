@@ -116,10 +116,49 @@ async function entityExists(idOrName) {
   }
 }
 
+/**
+ * Check if a world file contains UR10 robot references
+ * @param {string} sdfFilePath - Path to the SDF file
+ * @returns {Promise<boolean>} - True if UR10 is referenced, false otherwise
+ */
+async function ur10Exists(sdfFilePath) {
+  try {
+    console.log(`[${new Date().toISOString()}] [ur10Exists] Checking for UR10 in: ${sdfFilePath}`);
+    
+    if (!sdfFilePath) {
+      throw new Error('SDF file path is required');
+    }
+    
+    if (!fs.existsSync(sdfFilePath)) {
+      throw new Error(`SDF file not found: ${sdfFilePath}`);
+    }
+
+    const content = fs.readFileSync(sdfFilePath, 'utf8');
+    
+    // Check for UR10 references in the file
+    // Look for URI references to ur10_rg2
+    const ur10Patterns = [
+      /<uri>.*ur10_rg2.*<\/uri>/i,
+      /<uri>.*ur10.*<\/uri>/i,
+      /ur10_rg2/i,
+      /ur10\.urdf/i
+    ];
+    
+    const hasUr10 = ur10Patterns.some(pattern => pattern.test(content));
+    
+    console.log(`[${new Date().toISOString()}] [ur10Exists] UR10 found: ${hasUr10}`);
+    return hasUr10;
+  } catch (error) {
+    console.error(`[${new Date().toISOString()}] [ur10Exists] Error: ${error.message}`);
+    return false;
+  }
+}
+
 module.exports = {
   extract_world,
   get_world,
   clear_world,
   get_entity,
-  entityExists
+  entityExists,
+  ur10Exists
 };

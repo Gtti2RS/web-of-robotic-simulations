@@ -3,7 +3,7 @@
 const { callService } = require('../common/ros2_service_helper');
 const { resolveFilePath } = require('../common/fileUtils');
 const { deg2quat } = require('../common/deg2quat');
-const { get_world, extract_world, clear_world } = require('./gz_world_utils');
+const { get_world, extract_world, clear_world, ur10Exists } = require('./gz_world_utils');
 const { entityExists } = require('./gz_world_utils'); 
 const { setupAllObservableProperties, cleanupSubscriptions } = require('./gz_topics');
 const { setupBridge, stopBridge, setupBridges, stopAllBridges } = require('./gz_bridge_manager');
@@ -210,7 +210,6 @@ function makeSpawnEntity(node, { timeoutMs = 1000 } = {}) {
 
     const entity_name = data?.entity_name;
     const file_name = data?.file_name;
-    const entity_type = data?.entity_type || 'object'; // Default to 'object' if not specified
     if (!entity_name) throw new Error('SpawnEntity requires "entity_name".');
     if (!file_name) throw new Error('SpawnEntity requires "file_name".');
 
@@ -269,8 +268,8 @@ function makeSpawnEntity(node, { timeoutMs = 1000 } = {}) {
     if (resp?.success ?? resp?.ok ?? resp?.boolean) {
       let resultMessage = `${entity_name} is spawned to current world.`;
       
-      // Handle UR10 processes if entity type is 'ur10'
-      const ur10Message = await handleUr10Spawning(node, entity_name, entity_type, { timeoutMs });
+      // Handle UR10 processes if file_name matches 'ur10_rg2.urdf'
+      const ur10Message = await handleUr10Spawning(node, entity_name, file_name, { timeoutMs });
       if (ur10Message) {
         resultMessage += ur10Message;
       }
@@ -608,6 +607,10 @@ function makeLaunchSimulation(node, { timeoutMs = 1000 } = {}) {
           const worldName = await extract_world(fullPath);
           console.log(`[${new Date().toISOString()}] [makeLaunchSimulation] World name extracted: ${worldName}`);
           
+          // Check if the world file contains UR10 robot references
+          const hasUr10 = await ur10Exists(fullPath);
+          console.log(`[${new Date().toISOString()}] [makeLaunchSimulation] UR10 detected in world: ${hasUr10}`);
+          
           // Set up bridges after simulation starts (excluding image_bridge which is managed by visualization)
           await setupBridges(node, worldName, ['world_services', 'ros_gz_bridge_addon', 'clock_bridge'], { timeoutMs });
           
@@ -625,7 +628,38 @@ function makeLaunchSimulation(node, { timeoutMs = 1000 } = {}) {
             console.warn(`[${new Date().toISOString()}] [makeLaunchSimulation] Topic subscription setup failed:`, subErr.message);
           }
           
-          return `Simulation launched: ${fullPath}, world: ${worldName}, process: ${processName}`;
+          // Start UR10 configuration if UR10 is detected in the world
+          let ur10Message = '';
+          if (hasUr10) {
+            console.log(`[${new Date().toISOString()}] [makeLaunchSimulation] Starting UR10 configuration...`);
+            try {
+              // Wait a bit for the simulation to fully initialize before starting UR10
+              await new Promise(resolve => setTimeout(resolve, 3000));
+              
+              // Start UR10 configuration with a default entity name and wait for completion
+              const ur10Result = await startUr10Configuration(node, 'bot', { timeoutMs: 60000 });
+              
+              if (ur10Result.success) {
+                ur10Message = ` UR10 configuration completed successfully`;
+                console.log(`[${new Date().toISOString()}] [makeLaunchSimulation] UR10 configuration completed successfully`);
+              } else {
+                const failedProcesses = [];
+                if (ur10Result.results.config.error) {
+                  failedProcesses.push(`config: ${ur10Result.results.config.error}`);
+                }
+                if (ur10Result.results.controller.error) {
+                  failedProcesses.push(`controller: ${ur10Result.results.controller.error}`);
+                }
+                ur10Message = ` (UR10 processes failed: ${failedProcesses.join(', ')})`;
+                console.warn(`[${new Date().toISOString()}] [makeLaunchSimulation] UR10 configuration failed:`, failedProcesses);
+              }
+            } catch (ur10Err) {
+              ur10Message = ` (UR10 configuration error: ${ur10Err.message})`;
+              console.error(`[${new Date().toISOString()}] [makeLaunchSimulation] UR10 configuration error:`, ur10Err.message);
+            }
+          }
+          
+          return `Simulation launched: ${fullPath}, world: ${worldName}${ur10Message}`;
         } catch (detectErr) {
           console.warn(`[${new Date().toISOString()}] [makeLaunchSimulation] World detection failed:`, detectErr.message);
           return `Simulation launched: ${fullPath}, process: ${processName}, but world detection failed`;
@@ -725,10 +759,10 @@ function makeExitSimulation(node, { timeoutMs = 1000 } = {}) {
 // ============================================================================
 
 /**
- * Check if an entity type is UR10
+ * Check if a file name indicates UR10 entity
  */
-function isUr10Entity(entityType) {
-  return entityType === 'ur10';
+function isUr10Entity(fileName) {
+  return fileName === 'ur10_rg2.urdf';
 }
 
 /**
@@ -765,6 +799,75 @@ async function isMoveItReady(node, { timeoutMs = 30000 } = {}) {
   
   console.log(`[${new Date().toISOString()}] [isMoveItReady] MoveIt initialization wait completed`);
   return true;
+}
+
+/**
+ * Wait for UR10 controller to be ready by checking for MoveIt services
+ */
+async function waitForUr10ControllerReady(node, { timeoutMs = 30000, checkIntervalMs = 2000 } = {}) {
+  console.log(`[${new Date().toISOString()}] [waitForUr10ControllerReady] Waiting for UR10 controller to be ready...`);
+  
+  const startTime = Date.now();
+  const timeout = timeoutMs;
+  
+  while (Date.now() - startTime < timeout) {
+    try {
+      // Check if MoveIt services are available - this indicates the UR10 system is ready
+      const { resp } = await callService(
+        node,
+        {
+          srvType: 'moveit_msgs/srv/GetPlanningScene',
+          serviceName: '/get_planning_scene',
+          payload: { components: { components: [] } }
+        },
+        { timeoutMs: 1000 }
+      );
+      
+      if (resp) {
+        console.log(`[${new Date().toISOString()}] [waitForUr10ControllerReady] MoveIt planning scene service is available, UR10 is ready`);
+        return true;
+      }
+      
+    } catch (error) {
+      // Service not ready yet, continue waiting
+    }
+    
+    // Also try checking for the move_group service as an alternative
+    try {
+      const { resp } = await callService(
+        node,
+        {
+          srvType: 'moveit_msgs/srv/GetPositionIK',
+          serviceName: '/compute_ik',
+          payload: { 
+            ik_request: {
+              group_name: 'ur_manipulator',
+              robot_state: { joint_state: { name: [], position: [] } },
+              pose_stamped: {
+                header: { frame_id: 'base_link' },
+                pose: { position: { x: 0, y: 0, z: 0 }, orientation: { x: 0, y: 0, z: 0, w: 1 } }
+              }
+            }
+          }
+        },
+        { timeoutMs: 1000 }
+      );
+      
+      if (resp) {
+        console.log(`[${new Date().toISOString()}] [waitForUr10ControllerReady] MoveIt IK service is available, UR10 is ready`);
+        return true;
+      }
+      
+    } catch (error) {
+      // Service not ready yet, continue waiting
+    }
+    
+    console.log(`[${new Date().toISOString()}] [waitForUr10ControllerReady] MoveIt services not ready yet, waiting ${checkIntervalMs}ms...`);
+    await new Promise(resolve => setTimeout(resolve, checkIntervalMs));
+  }
+  
+  console.warn(`[${new Date().toISOString()}] [waitForUr10ControllerReady] Timeout reached, MoveIt services may not be fully ready`);
+  return false;
 }
 
 /**
@@ -913,6 +1016,18 @@ async function startUr10Configuration(node, entityName, { timeoutMs = 1000 } = {
   const controllerResult = startUr10ControllerChildProcess(entityName);
   results.controller = controllerResult;
   
+  // Step 4: Wait for controller to be ready (only if controller started successfully)
+  if (results.controller.success) {
+    console.log(`[${new Date().toISOString()}] [startUr10Configuration] Step 4: Waiting for controller to be ready...`);
+    const controllerReady = await waitForUr10ControllerReady(node, { timeoutMs: 30000 });
+    
+    if (controllerReady) {
+      console.log(`[${new Date().toISOString()}] [startUr10Configuration] Controller is ready and active`);
+    } else {
+      console.warn(`[${new Date().toISOString()}] [startUr10Configuration] Controller may not be fully ready, but continuing...`);
+    }
+  }
+  
   // Store process information if at least one succeeded
   if (results.config.success || results.controller.success) {
     ur10Processes.set(entityName, {
@@ -1024,22 +1139,15 @@ async function stopAllUr10Configurations(node, { timeoutMs = 1000 } = {}) {
 /**
  * Handle UR10 processes for entity spawning
  */
-async function handleUr10Spawning(node, entityName, entityType, { timeoutMs = 1000 } = {}) {
-  if (!isUr10Entity(entityType)) {
+async function handleUr10Spawning(node, entityName, fileName, { timeoutMs = 1000 } = {}) {
+  if (!isUr10Entity(fileName)) {
     return null;
   }
   
   const ur10Result = await startUr10Configuration(node, entityName, { timeoutMs });
   
   if (ur10Result.success) {
-    const startedProcesses = [];
-    if (ur10Result.results.config.success) {
-      startedProcesses.push(`config: ${ur10Result.results.config.processName}`);
-    }
-    if (ur10Result.results.controller.success) {
-      startedProcesses.push(`controller: ${ur10Result.results.controller.processName}`);
-    }
-    return ` UR10 processes started (${startedProcesses.join(', ')})`;
+    return ` UR10 configuration completed successfully`;
   } else {
     const failedProcesses = [];
     if (ur10Result.results.config.error) {

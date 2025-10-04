@@ -158,12 +158,6 @@
               }
             },
             "description": "Euler angles in degrees"
-          },
-          "entity_type": {
-            "type": "string",
-            "default": "object",
-            "description": "Entity type. Use 'ur10' for UR10 robots to automatically start configuration process",
-            "enum": ["object", "ur10"]
           }
         }
       },
