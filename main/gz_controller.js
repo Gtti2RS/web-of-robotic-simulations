@@ -5,9 +5,9 @@ const { Servient } = require("@node-wot/core");
 const { HttpServer } = require("@node-wot/binding-http");
 
 const { handleGazeboUpload, readGazeboAssets } = require("../library/common/fileUtils");
-const { publishMessage, makeSendRos2Cmd } = require("../library/common/ros2_utils");
+const { makePublishMessage, makeSendRos2Cmd } = require("../library/common/ros2_utils");
 const {makeSetRtf, makeDeleteEntity, makeSetEntityPose, makeSpawnEntity, makeSimControl, makeSetVisualization, makeSaveWorld, makeLaunchSimulation, makeExitSimulation, visualizationRead} = require("../library/gazebo/gz_ros2_srv");
-const { readSimStats, readPoses, readModels, combinedSSEMiddleware, setupAllObservableProperties, cleanupSubscriptions } = require("../library/gazebo/gz_topics");
+const { readSimStats, readPoses, readModels, combinedSSEMiddleware, cleanupSubscriptions } = require("../library/gazebo/gz_observable_topics");
 
 class WotPublisherServer {
   constructor(tdPath = "./gz_controller.json", rosTopic = "wot_topic", port = 8080) {
@@ -40,14 +40,12 @@ class WotPublisherServer {
     const wot = await this.servient.start();
     this.thing = await wot.produce(td);
 
-        this.thing.setPropertyReadHandler("assets", readGazeboAssets);
+    this.thing.setPropertyReadHandler("assets", readGazeboAssets);
     this.thing.setPropertyReadHandler('visualization', visualizationRead);
     this.thing.setPropertyReadHandler('sim_stats', readSimStats);
     this.thing.setPropertyReadHandler('poses', readPoses);
     this.thing.setPropertyReadHandler('models', readModels);
-    this.thing.setActionHandler("publishMessage", (input) =>
-      publishMessage(input, this.node)
-    );
+    this.thing.setActionHandler("publishMessage", makePublishMessage(this.node));
     this.thing.setActionHandler("launchSimulation", makeLaunchSimulation(this.node));
     this.thing.setActionHandler("exitSimulation", makeExitSimulation(this.node));
     this.thing.setActionHandler("uploadFile", handleGazeboUpload.bind(this));

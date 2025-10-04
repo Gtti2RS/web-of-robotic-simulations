@@ -3,27 +3,29 @@ const { spawn } = require('child_process');
 let ros2Publisher = null;
 let activeChildProcesses = new Set(); // Track active child processes
 
-async function publishMessage(input, node) {
-  const msg = await input.value();
+function makePublishMessage(node) {
+  return async function publishMessage(input) {
+    const msg = await input.value();
 
-  if (typeof msg !== "string") {
-    throw new Error("Input must be a string.");
-  }
+    if (typeof msg !== "string") {
+      throw new Error("Input must be a string.");
+    }
 
-  if (!ros2Publisher) {
-    ros2Publisher = node.createPublisher(
-      "std_msgs/msg/String",
-      "wot_topic"
-    );
-  }
+    if (!ros2Publisher) {
+      ros2Publisher = node.createPublisher(
+        "std_msgs/msg/String",
+        "wot_topic"
+      );
+    }
 
-  try {
-    ros2Publisher.publish({ data: msg });
-    console.log("[WoT Action] Published message: ", msg);
-    return `Published: ${msg}`;
-  } catch (err) {
-    throw new Error("Failed to publish message: " + err.message);
-  }
+    try {
+      ros2Publisher.publish({ data: msg });
+      console.log("[WoT Action] Published message: ", msg);
+      return `Published: ${msg}`;
+    } catch (err) {
+      throw new Error("Failed to publish message: " + err.message);
+    }
+  };
 }
 
 
@@ -154,6 +156,6 @@ function makeSendRos2Cmd(node, { timeoutMs = 10000 } = {}) {
 
 
 module.exports = {
-  publishMessage,
+  makePublishMessage,
   makeSendRos2Cmd
 };

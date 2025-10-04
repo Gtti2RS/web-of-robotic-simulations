@@ -1,6 +1,6 @@
 const fs = require('fs');
 const path = require('path');
-const { readModels } = require('./gz_topics');
+const { readModels } = require('./gz_observable_topics');
 
 // Store the extracted world name
 let storedWorldName = null;
