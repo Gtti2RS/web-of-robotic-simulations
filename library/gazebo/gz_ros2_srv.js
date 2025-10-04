@@ -567,7 +567,7 @@ function makeLaunchSimulation(node, { timeoutMs = 1000 } = {}) {
     if (!fileName) throw new Error("Missing fileName for launchSimulation");
 
     const fullPath = await resolveFilePath(fileName);
-    if (!fullPath) throw new Error(`File "${fileName}" not found in resource or upload folders`);
+    if (!fullPath) throw new Error(`File "${fileName}" not found in Assets or upload folders`);
 
     if (simProcessName) throw new Error("Simulation already running");
 
@@ -746,7 +746,7 @@ function generateUr10ProcessNames(entityName) {
  */
 function getUr10ProcessCommands() {
   return {
-    config: 'bash /project-root/main/ur10_config.sh',
+    config: 'bash /project-root/Assets/urdf/robots/ur10_rg2/ur10_config.sh',
     controller: 'node /project-root/bot_servers/ur10_controller.js'
   };
 }

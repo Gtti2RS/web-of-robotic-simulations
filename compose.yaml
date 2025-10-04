@@ -10,10 +10,10 @@ services:
     networks: [wos_net]
     environment:
       - ROS_DOMAIN_ID=21
-      # Let gz find models/worlds in both resource and upload:
-      - GZ_SIM_RESOURCE_PATH=/project-root/resource/model:/project-root/resource/models:/project-root/resource/worlds:/project-root/upload
+      # Let gz find models/worlds in both Assets and upload:
+      - GZ_SIM_RESOURCE_PATH=/project-root/Assets/model:/project-root/Assets/models:/project-root/Assets/worlds:/project-root/upload
       # If you use plugins:
-      - GZ_PLUGIN_PATH=/project-root/resource/plugins:${GZ_PLUGIN_PATH:-}
+      - GZ_PLUGIN_PATH=/project-root/Assets/plugins:${GZ_PLUGIN_PATH:-}
       # Headless defaults (since you're headless)
       - QT_QPA_PLATFORM=offscreen
     working_dir: /project-root

@@ -288,53 +288,63 @@
     }
   },
   "properties": {
-    "availableResources": {
-      "description": "Lists all available files in resource and upload folders",
+    "assets": {
+      "description": "Lists all available Gazebo assets (URDF and Gazebo files) organized by category",
       "readOnly": true,
       "type": "object",
       "properties": {
-        "resource": {
+        "urdf": {
           "type": "object",
+          "description": "URDF robot and object files",
           "properties": {
-            "model": {
+            "objects": {
               "type": "array",
               "items": {
                 "type": "string"
-              }
+              },
+              "description": "Object URDF files"
             },
-            "world": {
+            "robots": {
               "type": "array",
               "items": {
                 "type": "string"
-              }
-            },
-            "launch": {
-              "type": "array",
-              "items": {
-                "type": "string"
-              }
+              },
+              "description": "Robot URDF files"
             }
           }
         },
-        "upload": {
+        "gazebo": {
           "type": "object",
+          "description": "Gazebo simulation files",
           "properties": {
-            "model": {
-              "type": "array",
-              "items": {
-                "type": "string"
-              }
-            },
-            "world": {
-              "type": "array",
-              "items": {
-                "type": "string"
+            "models": {
+              "type": "object",
+              "description": "Gazebo model files",
+              "additionalProperties": {
+                "type": "array",
+                "items": {
+                  "type": "string"
+                }
               }
             },
             "launch": {
-              "type": "array",
-              "items": {
-                "type": "string"
+              "type": "object",
+              "description": "Launch files",
+              "additionalProperties": {
+                "type": "array",
+                "items": {
+                  "type": "string"
+                }
+              }
+            },
+            "worlds": {
+              "type": "object",
+              "description": "World files",
+              "additionalProperties": {
+                "type": "array",
+                "items": {
+                  "type": "string"
+                }
               }
             }
           }
