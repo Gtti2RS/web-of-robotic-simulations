@@ -536,7 +536,7 @@ function makeSaveWorld(node, { timeoutMs = 1000 } = {}) {
         ? name.trim().replace(/[^a-zA-Z0-9_\-]/g, '_') + '.sdf'
         : `world_${world}_${new Date().toISOString().replace(/[:.]/g, '-')}.sdf`;
 
-      const filePath = path.join(__dirname, '../../saved/world', safeName);
+      const filePath = path.join('/project-root', 'Assets', 'gazebo', 'worlds', 'saved', safeName);
       const finalSdf = `<?xml version="1.0" ?>\n${sdfString}`;
       
       // Use fs to save the file

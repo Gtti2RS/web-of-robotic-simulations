@@ -2,8 +2,24 @@ const fs = require("fs/promises");
 const path = require("path");
 
 const BASE_PATH = "/project-root";
-const folderGroups = ["Assets", "upload", "saved"];
 const folderTypes = ["world", "model", "launch"];
+
+// ============================================================================
+// PUBLIC API FUNCTIONS
+// ============================================================================
+
+/**
+ * Read assets from urdf and gazebo categories
+ * @returns {Promise<Object>} - Object with urdf and gazebo asset structures
+ */
+async function readGazeboAssets() {
+    try {
+        return await readAvailableResources(["urdf", "gazebo"]);
+    } catch (error) {
+        console.error('[readGazeboAssets] Error reading assets:', error);
+        throw new Error(`Failed to read assets: ${error.message}`);
+    }
+}
 
 /**
  * List available files under specified categories in Assets folder.
@@ -25,6 +41,10 @@ async function readAvailableResources(categories = []) {
         return `Failed to read available Assets: ${err.message || String(err)}`;
     }
 }
+
+// ============================================================================
+// ASSET DISCOVERY FUNCTIONS
+// ============================================================================
 
 /**
  * Build the structured category with files grouped by immediate parent directory
@@ -104,6 +124,10 @@ async function buildCategoryStructure(dirPath) {
     }
 }
 
+// ============================================================================
+// UTILITY FUNCTIONS
+// ============================================================================
+
 /**
  * Check if a file has one of the valid extensions
  * @param {string} fileName - Name of the file
@@ -124,6 +148,29 @@ async function saveFile(filePath, data) {
     } catch (err) {
         console.error("❌ Failed to write file:", err.message);
         throw new Error("File save failed");
+    }
+}
+
+// ============================================================================
+// FILE UPLOAD FUNCTIONS
+// ============================================================================
+
+/**
+ * Check if a file name already exists anywhere in the Assets structure
+ * @param {string} fileName - The file name to check (with extension)
+ * @returns {Promise<boolean>} - True if conflict exists
+ */
+async function checkFileConflict(fileName) {
+    try {
+        // Get all existing files using readGazeboAssets
+        const assets = await readGazeboAssets();
+        
+        // Convert assets to JSON string and check if fileName exists
+        const assetsString = JSON.stringify(assets);
+        return assetsString.includes(`"${fileName}"`);
+    } catch (error) {
+        console.error('Error checking for conflicts:', error);
+        return false; // If we can't check, assume no conflict to avoid blocking uploads
     }
 }
 
@@ -166,10 +213,17 @@ async function handleGazeboUpload(input) {
     if (target === 'model') {
         // For models: create folder structure and model.config
         const modelDir = path.join(BASE_PATH, assetsSubDir, fileName);
+        filePath = path.join(modelDir, name);
+        
+        // Check for conflicts before creating directory
+        const hasConflict = await checkFileConflict(name);
+        if (hasConflict) {
+            throw new Error(`Model '${fileName}' already exists. Please choose a different name.`);
+        }
+        
         await fs.mkdir(modelDir, { recursive: true });
         
         // Save the uploaded file in the model directory
-        filePath = path.join(modelDir, name);
         await saveFile(filePath, content);
         
         // Generate model.config content
@@ -181,6 +235,13 @@ async function handleGazeboUpload(input) {
     } else {
         // For world and launch files: save directly without creating subfolders
         filePath = path.join(BASE_PATH, assetsSubDir, name);
+        
+        // Check for conflicts before saving file
+        const hasConflict = await checkFileConflict(name);
+        if (hasConflict) {
+            throw new Error(`File '${name}' already exists. Please choose a different name.`);
+        }
+        
         await saveFile(filePath, content);
         
         resultMessage = `Gazebo ${target} '${name}' uploaded to '${filePath}'`;
@@ -209,6 +270,10 @@ function generateModelConfig(modelName, fileName, fileExt) {
   <description>${description}</description>
 </model>`;
 }
+
+// ============================================================================
+// FILE RESOLUTION FUNCTIONS
+// ============================================================================
 
 async function resolveFilePath(fileName) {
     const foundPath = await searchRecursively(path.join(BASE_PATH, "Assets"), fileName);
@@ -243,19 +308,6 @@ async function searchRecursively(dirPath, fileName) {
     }
     
     return null;
-}
-
-/**
- * Read assets from urdf and gazebo categories
- * @returns {Promise<Object>} - Object with urdf and gazebo asset structures
- */
-async function readGazeboAssets() {
-    try {
-        return await readAvailableResources(["urdf", "gazebo"]);
-    } catch (error) {
-        console.error('[readGazeboAssets] Error reading assets:', error);
-        throw new Error(`Failed to read assets: ${error.message}`);
-    }
 }
 
 module.exports = {
