@@ -1,9 +1,9 @@
 // Export WoT action handlers as factories that capture your already-created rclnodejs node.
 
 const { callService } = require('../common/ros2_service_helper');
-const { resolveFilePath } = require('../common/fileUtils');
+const { resolveFilePath, checkFileConflict } = require('../common/fileUtils');
 const { deg2quat } = require('../common/deg2quat');
-const { get_world, extract_world, clear_world, ur10Exists } = require('./gz_world_utils');
+const { get_world, extract_world, clear_world, extractSdfFromLaunch, ur10Exists } = require('./gz_world_utils');
 const { entityExists } = require('./gz_world_utils'); 
 const { setupAllObservableProperties, cleanupSubscriptions } = require('./gz_topics');
 const { setupBridge, stopBridge, setupBridges, stopAllBridges } = require('./gz_bridge_manager');
@@ -329,8 +329,7 @@ function makeSimControl(node, { timeoutMs = 1000 } = {}) {
 }
 
 /**
- * Reset visualization by removing all entities and respawning camera if visualization is enabled.
- * This fixes the bug where entities remain in image topics after a simulation reset.
+ * Reset visualization by calling Gazebo control service and refreshing visualization if enabled.
  * Input: {} - no input required
  */
 async function makeResetVisualization(node, { timeoutMs = 1000 } = {}) {
@@ -343,36 +342,7 @@ async function makeResetVisualization(node, { timeoutMs = 1000 } = {}) {
   }
 
   try {
-    // Step 1: Remove all entities except camera if visualization is enabled
-    const { get_entity } = require('./gz_world_utils');
-    const entities = await get_entity();
-    
-    console.log(`[${new Date().toISOString()}] [makeResetVisualization] Found ${entities.length} entities in world`);
-    
-    const deleteEntity = makeDeleteEntity(node, { timeoutMs });
-    
-    // Remove all entities except camera if visualization is enabled
-    const entitiesToRemove = entities.filter(entity => {
-      // Keep camera if visualization is enabled
-      if (vizState && entity.name === CAMERA_NAME) {
-        return false;
-      }
-      return true;
-    });
-    
-    console.log(`[${new Date().toISOString()}] [makeResetVisualization] Removing ${entitiesToRemove.length} entities`);
-    
-    // Remove entities one by one
-    for (const entity of entitiesToRemove) {
-      try {
-        await deleteEntity({ value: async () => ({ name: entity.name }) });
-        console.log(`[${new Date().toISOString()}] [makeResetVisualization] Removed entity: ${entity.name}`);
-      } catch (error) {
-        console.warn(`[${new Date().toISOString()}] [makeResetVisualization] Failed to remove entity ${entity.name}: ${error.message}`);
-      }
-    }
-    
-    // Step 2: Call Gazebo control service to reset the world
+    // Call Gazebo control service to reset the world
     console.log(`[${new Date().toISOString()}] [makeResetVisualization] Calling Gazebo control service to reset world`);
     const { resp: controlResp } = await callService(
       node,
@@ -390,27 +360,16 @@ async function makeResetVisualization(node, { timeoutMs = 1000 } = {}) {
       console.log(`[${new Date().toISOString()}] [makeResetVisualization] Gazebo control service succeeded`);
     }
     
-    // Step 3: If visualization is enabled, spawn camera
+    // If visualization is enabled, refresh it using makeSetVisualization
     if (vizState) {
-      console.log(`[${new Date().toISOString()}] [makeResetVisualization] Visualization is enabled, spawning camera`);
-      
-      // Wait a bit for the reset to complete
-      await new Promise(resolve => setTimeout(resolve, 1000));
-      
-      // Spawn camera
-      const spawnEntity = makeSpawnEntity(node, { timeoutMs });
-      await spawnEntity({ value: async () => ({
-        entity_name: CAMERA_NAME,
-        file_name: 'camera.sdf',
-        position: { x: -10, y: 0, z: 10 },
-        orientation: { roll: 0, pitch: 40, yaw: 0 }
-      }) });
-      
-      console.log(`[${new Date().toISOString()}] [makeResetVisualization] Camera spawned successfully`);
+      console.log(`[${new Date().toISOString()}] [makeResetVisualization] Visualization is enabled, refreshing visualization`);
+      const setVisualization = makeSetVisualization(node, { timeoutMs });
+      await setVisualization({ value: async () => true });
+      console.log(`[${new Date().toISOString()}] [makeResetVisualization] Visualization refreshed successfully`);
     }
     
     console.log(`[${new Date().toISOString()}] [makeResetVisualization] Visualization reset completed successfully`);
-    return `Visualization reset completed. Removed ${entitiesToRemove.length} entities, called Gazebo reset${vizState ? ', camera spawned' : ''}.`;
+    return `Visualization reset completed. Called Gazebo reset${vizState ? ', visualization refreshed' : ''}.`;
     
   } catch (error) {
     console.warn(`[${new Date().toISOString()}] [makeResetVisualization] Visualization reset failed: ${error.message}, continuing with simulation reset`);
@@ -535,6 +494,12 @@ function makeSaveWorld(node, { timeoutMs = 1000 } = {}) {
         ? name.trim().replace(/[^a-zA-Z0-9_\-]/g, '_') + '.sdf'
         : `world_${world}_${new Date().toISOString().replace(/[:.]/g, '-')}.sdf`;
 
+      // Check for file conflicts before saving
+      const hasConflict = await checkFileConflict(safeName);
+      if (hasConflict) {
+        throw new Error(`World file '${safeName}' already exists. Please choose a different name.`);
+      }
+
       const filePath = path.join('/project-root', 'Assets', 'gazebo', 'worlds', 'saved', safeName);
       const finalSdf = `<?xml version="1.0" ?>\n${sdfString}`;
       
@@ -554,14 +519,14 @@ function makeSaveWorld(node, { timeoutMs = 1000 } = {}) {
 
 /**
  * Launch simulation using ROS2 process management service
- * Input: { method: string, fileName: string, arguments: array }
+ * Input: { fileName: string, autoRun: boolean, headless: boolean }
  */
 function makeLaunchSimulation(node, { timeoutMs = 1000 } = {}) {
   return async function launchSimulationAction(input) {
     const data = await input.value();
-    const method = data?.method || "gz";
     const fileName = data?.fileName;
-    const args = data?.arguments || [];
+    const autoRun = data?.autoRun !== undefined ? data.autoRun : true;
+    const headless = data?.headless !== undefined ? data.headless : true;
 
     if (!fileName) throw new Error("Missing fileName for launchSimulation");
 
@@ -570,12 +535,25 @@ function makeLaunchSimulation(node, { timeoutMs = 1000 } = {}) {
 
     if (simProcessName) throw new Error("Simulation already running");
 
+    // Auto-detect method based on file extension
+    const fileExtension = path.extname(fileName).toLowerCase();
+    const method = fileExtension === '.py' ? 'ros2' : 'gz';
+    
     const cmd = method === "gz" 
       ? "gz sim" 
       : "ros2 launch";
-    const cmdArgs = method === "gz"
-      ? [fullPath, ...args]
-      : [fullPath, ...args];
+    
+    // Build command arguments based on boolean properties
+    const cmdArgs = [fullPath];
+    if (method === "gz") {
+      if (autoRun) cmdArgs.push("-r");
+      if (headless) cmdArgs.push("-s", "--headless-rendering");
+    } else if (method === "ros2") {
+      // For ROS2 launch files, pass arguments to control GUI tools
+      if (headless) {
+        cmdArgs.push("rqt:=false", "rviz:=false", "gui:=false", "use_sim_time:=true");
+      }
+    }
 
     const fullCmd = `${cmd} ${cmdArgs.join(" ")}`;
     const processName = "gz_sim"; // Unique process name
@@ -603,12 +581,28 @@ function makeLaunchSimulation(node, { timeoutMs = 1000 } = {}) {
         await new Promise(resolve => setTimeout(resolve, 2000));
 
         try {
+          // Extract world name from the file (SDF or launch file)
+          let worldName;
+          let sdfPath = fullPath;
+          
+          if (method === 'ros2') {
+            // For ROS2 launch files, first extract the SDF path
+            console.log(`[${new Date().toISOString()}] [makeLaunchSimulation] Extracting SDF path from ROS2 launch file`);
+            const extractedSdfPath = await extractSdfFromLaunch(fullPath);
+            if (extractedSdfPath) {
+              sdfPath = extractedSdfPath;
+              console.log(`[${new Date().toISOString()}] [makeLaunchSimulation] Using extracted SDF path: ${sdfPath}`);
+            } else {
+              console.warn(`[${new Date().toISOString()}] [makeLaunchSimulation] Could not extract SDF path from launch file, using original path`);
+            }
+          }
+          
           // Extract world name from the SDF file
-          const worldName = await extract_world(fullPath);
+          worldName = await extract_world(sdfPath);
           console.log(`[${new Date().toISOString()}] [makeLaunchSimulation] World name extracted: ${worldName}`);
           
           // Check if the world file contains UR10 robot references
-          const hasUr10 = await ur10Exists(fullPath);
+          const hasUr10 = await ur10Exists(sdfPath);
           console.log(`[${new Date().toISOString()}] [makeLaunchSimulation] UR10 detected in world: ${hasUr10}`);
           
           // Set up bridges after simulation starts (excluding image_bridge which is managed by visualization)
@@ -730,6 +724,7 @@ function makeExitSimulation(node, { timeoutMs = 1000 } = {}) {
           console.log(`[${new Date().toISOString()}] [makeExitSimulation] Cleaned up ${ur10CleanupResult.stoppedCount} UR10 processes`);
         }
         
+        
         // Reset state
         vizState = false;
         clear_world();
@@ -746,6 +741,8 @@ function makeExitSimulation(node, { timeoutMs = 1000 } = {}) {
       simProcessName = null;
       vizState = false;
       ur10Processes.clear(); // Clear UR10 processes in fallback cleanup
+      
+      
       clear_world();
     }
 

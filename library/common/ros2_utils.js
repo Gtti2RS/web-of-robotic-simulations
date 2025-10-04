@@ -1,6 +1,7 @@
-const { callService } = require('./ros2_service_helper');
+const { spawn } = require('child_process');
 
 let ros2Publisher = null;
+let activeChildProcesses = new Set(); // Track active child processes
 
 async function publishMessage(input, node) {
   const msg = await input.value();
@@ -55,34 +56,102 @@ function makeSendRos2Cmd(node, { timeoutMs = 10000 } = {}) {
     }
 
     try {
-      const { resp } = await callService(
-        node,
-        {
-          srvType: 'sim_process_supervisor_interfaces/srv/ExecCmd',
-          serviceName: '/process/exec',
-          payload: {
-            cmd: commandStr
-          }
-        },
-        { timeoutMs }
-      );
+      const result = await new Promise((resolve, reject) => {
+        // Spawn the ROS 2 command as a child process
+        const child = spawn(parts[0], parts.slice(1), {
+          stdio: ['pipe', 'pipe', 'pipe'],
+          shell: false,
+          env: { ...process.env }
+        });
 
-      if (resp?.return_code === 0) {
+        // Track this child process
+        activeChildProcesses.add(child);
+
+        let stdout = '';
+        let stderr = '';
+
+        // Collect stdout
+        child.stdout.on('data', (data) => {
+          stdout += data.toString();
+        });
+
+        // Collect stderr
+        child.stderr.on('data', (data) => {
+          stderr += data.toString();
+        });
+
+        // Handle process completion
+        child.on('close', (code) => {
+          // Remove from tracking when process completes
+          activeChildProcesses.delete(child);
+          
+          if (code === 0) {
+            resolve({
+              return_code: 0,
+              stdout: stdout.trim(),
+              stderr: stderr.trim()
+            });
+          } else {
+            resolve({
+              return_code: code,
+              stdout: stdout.trim(),
+              stderr: stderr.trim()
+            });
+          }
+        });
+
+        // Handle process errors
+        child.on('error', (error) => {
+          // Remove from tracking on error
+          activeChildProcesses.delete(child);
+          reject(new Error(`Failed to spawn process: ${error.message}`));
+        });
+
+        // Set timeout with improved signal handling
+        const timeout = setTimeout(() => {
+          console.log(`[WoT Action] Command timed out, terminating process PID: ${child.pid}`);
+          
+          // Try SIGTERM first
+          child.kill('SIGTERM');
+          
+          // If still alive after 2 seconds, force kill with SIGKILL
+          const forceKillTimeout = setTimeout(() => {
+            if (!child.killed) {
+              console.log(`[WoT Action] Force killing stuck process PID: ${child.pid}`);
+              child.kill('SIGKILL');
+            }
+          }, 2000);
+          
+          // Clean up force kill timeout when process exits
+          child.on('close', () => {
+            clearTimeout(forceKillTimeout);
+          });
+          
+          reject(new Error(`Command timed out after ${timeoutMs}ms`));
+        }, timeoutMs);
+
+        child.on('close', () => {
+          clearTimeout(timeout);
+        });
+      });
+
+      if (result.return_code === 0) {
         console.log(`[WoT Action] Executed ros2 command: ${commandStr}`);
-        const cleanOutput = resp.stdout?.trim() || '';
+        const cleanOutput = result.stdout || '';
         const lines = cleanOutput ? cleanOutput.split("\n") : [];
         return { lines, raw: cleanOutput };
       } else {
-        const errorMsg = resp?.stderr || resp?.error || resp?.message || 'Unknown error occurred';
+        const errorMsg = result.stderr || result.stdout || 'Unknown error occurred';
         console.error(`[WoT Action] ROS 2 command failed: ${errorMsg}`);
         throw new Error(` ROS 2 command failed: ${errorMsg}`);
       }
     } catch (error) {
-      console.error(`[WoT Action] Service call failed: ${error.message}`);
-      throw new Error(` Service call failed: ${error.message}`);
+      console.error(`[WoT Action] Process execution failed: ${error.message}`);
+      throw new Error(` Process execution failed: ${error.message}`);
     }
   };
 }
+
 
 module.exports = {
   publishMessage,

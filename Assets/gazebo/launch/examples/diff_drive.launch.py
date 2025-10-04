@@ -35,7 +35,8 @@ def generate_launch_description():
         PythonLaunchDescriptionSource(
             os.path.join(pkg_ros_gz_sim, 'launch', 'gz_sim.launch.py')),
         launch_arguments={
-            'gz_args': '-r diff_drive.sdf'
+            'gz_args': '-r -s --headless-rendering /project-root/Assets/gazebo/worlds/vendor/diff_drive.sdf'
+            # using gui: -r -s  /project-root/Assets/gazebo/worlds/vendor/diff_drive.sdf
         }.items(),
     )
 

@@ -38,26 +38,23 @@
       }
     },
     "launchSimulation": {
-      "description": "Launch simulation using 'gz sim' or 'ros2 launch'",
+      "description": "Launch simulation using 'gz sim' or 'ros2 launch' (method auto-detected from file extension: .sdf for gz sim, .py for ros2 launch)",
       "input": {
         "type": "object",
         "properties": {
-          "method": {
-            "type": "string",
-            "enum": [
-              "gz",
-              "ros2"
-            ]
-          },
           "fileName": {
-            "type": "string"
+            "type": "string",
+            "description": "Simulation file name (method auto-detected: .sdf files use gz sim, .py files use ros2 launch)"
           },
-          "arguments": {
-            "type": "array",
-            "items": {
-              "type": "string"
-            },
-            "default": []
+          "autoRun": {
+            "type": "boolean",
+            "default": true,
+            "description": "Automatically run the simulation"
+          },
+          "headless": {
+            "type": "boolean",
+            "default": true,
+            "description": "Run simulation in headless mode"
           }
         },
         "required": [

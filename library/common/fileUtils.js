@@ -314,5 +314,6 @@ module.exports = {
     readGazeboAssets,
     saveFile,
     handleGazeboUpload,
-    resolveFilePath
+    resolveFilePath,
+    checkFileConflict
 };

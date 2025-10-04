@@ -44,7 +44,8 @@ def generate_launch_description():
         PythonLaunchDescriptionSource(
             os.path.join(pkg_ros_gz_sim, 'launch', 'gz_sim.launch.py')),
         launch_arguments={
-            'gz_args': '-r -z 1000000 linear_battery_demo.sdf'
+            'gz_args': '-r -s --headless-rendering -z 1000000 /project-root/Assets/gazebo/worlds/vendor/linear_battery_demo.sdf'
+            # using gui: -r -s -z 1000000 /project-root/Assets/gazebo/worlds/vendor/linear_battery_demo.sdf
         }.items(),
     )
 
