@@ -79,64 +79,81 @@ function manageScene_callback(msg)
     local rawCommand = msg.data
     local response = {}
     
-    if rawCommand and rawCommand ~= "" then
-        -- Debug: log what we received
-        sim.addLog(sim.verbosity_msgs, "Received command: " .. tostring(rawCommand))
-        
-        -- Use the raw command as JSON (standard format)
-        local jsonString = rawCommand
-        
-        if jsonString then
-            -- Parse the extracted JSON string
-            local operation = nil
-            local scenePath = nil
-            
-            -- Extract operation
-            local opMatch = string.match(jsonString, '"operation"%s*:%s*"([^"]+)"')
-            if opMatch then
-                operation = opMatch
+    if not rawCommand or rawCommand == "" then
+        response.data = '{"success":false,"message":"No command provided","expectedFormat":"data: \'{\"operation\":\"load|close|save\",\"scenePath\":\"/path/to/scene.ttt\"}\'","timestamp":"' .. os.date("%Y-%m-%d %H:%M:%S") .. '"}'
+        simROS2.publish(manageSceneResponsePub, response)
+        return
+    end
+    
+    -- Debug: log what we received
+    sim.addLog(sim.verbosity_msgs, "Received command: " .. tostring(rawCommand))
+    
+    -- Parse JSON string
+    local operation = string.match(rawCommand, '"operation"%s*:%s*"([^"]+)"')
+    local scenePath = string.match(rawCommand, '"scenePath"%s*:%s*"([^"]+)"')
+    
+    if not operation then
+        response.data = '{"success":false,"message":"Invalid JSON format","expectedFormat":{"operation":"load|close|save","scenePath":"path/to/scene.ttt (for load and save)"},"timestamp":"' .. os.date("%Y-%m-%d %H:%M:%S") .. '"}'
+        simROS2.publish(manageSceneResponsePub, response)
+        return
+    end
+    
+    -- Dispatch table for operations
+    local operations = {
+        load = function()
+            if not scenePath or scenePath == "" then
+                return '{"success":false,"message":"No scene path provided for load operation","timestamp":"' .. os.date("%Y-%m-%d %H:%M:%S") .. '"}'
             end
             
-            -- Extract scenePath if present
-            local pathMatch = string.match(jsonString, '"scenePath"%s*:%s*"([^"]+)"')
-            if pathMatch then
-                scenePath = pathMatch
+            local loadSuccess, errorMsg = pcall(sim.loadScene, scenePath)
+            if loadSuccess then
+                return '{"success":true,"message":"Scene loaded successfully","scenePath":"' .. scenePath .. '","timestamp":"' .. os.date("%Y-%m-%d %H:%M:%S") .. '"}'
+            else
+                return '{"success":false,"message":"Failed to load scene","error":"' .. tostring(errorMsg) .. '","timestamp":"' .. os.date("%Y-%m-%d %H:%M:%S") .. '"}'
+            end
+        end,
+        
+        close = function()
+            local closeSuccess, errorMsg = pcall(sim.closeScene)
+            if closeSuccess then
+                return '{"success":true,"message":"Scene closed successfully","timestamp":"' .. os.date("%Y-%m-%d %H:%M:%S") .. '"}'
+            else
+                return '{"success":false,"message":"Failed to close scene","error":"' .. tostring(errorMsg) .. '","timestamp":"' .. os.date("%Y-%m-%d %H:%M:%S") .. '"}'
+            end
+        end,
+        
+        save = function()
+            if not scenePath or scenePath == "" then
+                return '{"success":false,"message":"No scene path provided for save operation","timestamp":"' .. os.date("%Y-%m-%d %H:%M:%S") .. '"}'
             end
             
-            if operation then
-                if operation == "load" then
-                    if scenePath and scenePath ~= "" then
-                        -- Load the scene
-                        local loadSuccess, errorMsg = pcall(sim.loadScene, scenePath)
-                        
-                    if loadSuccess then
-                        response.data = '{"success":true,"message":"Scene loaded successfully","scenePath":"' .. scenePath .. '","timestamp":"' .. os.date("%Y-%m-%d %H:%M:%S") .. '"}'
-                    else
-                        response.data = '{"success":false,"message":"Failed to load scene","error":"' .. tostring(errorMsg) .. '","timestamp":"' .. os.date("%Y-%m-%d %H:%M:%S") .. '"}'
-                    end
-                    else
-                        response.data = '{"success":false,"message":"No scene path provided for load operation","timestamp":"' .. os.date("%Y-%m-%d %H:%M:%S") .. '"}'
-                    end
-                elseif operation == "close" then
-                    -- Close the current scene
-                    local closeSuccess, errorMsg = pcall(sim.closeScene)
-                    
-                    if closeSuccess then
-                        response.data = '{"success":true,"message":"Scene closed successfully","timestamp":"' .. os.date("%Y-%m-%d %H:%M:%S") .. '"}'
-                    else
-                        response.data = '{"success":false,"message":"Failed to close scene","error":"' .. tostring(errorMsg) .. '","timestamp":"' .. os.date("%Y-%m-%d %H:%M:%S") .. '"}'
-                    end
+            -- Check if scene path has correct extension
+            if not string.match(scenePath, "%.ttt$") then
+                return '{"success":false,"message":"Invalid file extension","error":"Scene files must have .ttt extension","scenePath":"' .. scenePath .. '","timestamp":"' .. os.date("%Y-%m-%d %H:%M:%S") .. '"}'
+            end
+            
+            local saveSuccess, result = pcall(sim.saveScene, scenePath)
+            sim.addLog(sim.verbosity_msgs, "Save result: success=" .. tostring(saveSuccess) .. ", result=" .. tostring(result) .. ", type=" .. type(result))
+            if saveSuccess then
+                -- sim.saveScene returns 1 on success, -1 on failure
+                if result == 1 then
+                    return '{"success":true,"message":"Scene saved successfully","scenePath":"' .. scenePath .. '","timestamp":"' .. os.date("%Y-%m-%d %H:%M:%S") .. '"}'
                 else
-                    response.data = '{"success":false,"message":"Unknown operation","validOperations":["load","close"],"timestamp":"' .. os.date("%Y-%m-%d %H:%M:%S") .. '"}'
+                    local errorMsg = "sim.saveScene returned " .. tostring(result)
+                    return '{"success":false,"message":"Failed to save scene","error":"' .. errorMsg .. '","scenePath":"' .. scenePath .. '","timestamp":"' .. os.date("%Y-%m-%d %H:%M:%S") .. '"}'
                 end
             else
-                response.data = '{"success":false,"message":"Invalid JSON format","expectedFormat":{"operation":"load|close","scenePath":"path/to/scene.ttt (for load only)"},"timestamp":"' .. os.date("%Y-%m-%d %H:%M:%S") .. '"}'
+                return '{"success":false,"message":"Failed to save scene","error":"' .. tostring(result) .. '","scenePath":"' .. scenePath .. '","timestamp":"' .. os.date("%Y-%m-%d %H:%M:%S") .. '"}'
             end
-        else
-            response.data = '{"success":false,"message":"No JSON string found between single quotes","expectedFormat":"data: \'{\"operation\":\"load\",\"scenePath\":\"/path/to/scene.ttt\"}\'","timestamp":"' .. os.date("%Y-%m-%d %H:%M:%S") .. '"}'
         end
+    }
+    
+    -- Execute the operation
+    local operationFunc = operations[operation]
+    if operationFunc then
+        response.data = operationFunc()
     else
-        response.data = '{"success":false,"message":"No command provided","expectedFormat":"data: \'{\"operation\":\"load\",\"scenePath\":\"/path/to/scene.ttt\"}\'","timestamp":"' .. os.date("%Y-%m-%d %H:%M:%S") .. '"}'
+        response.data = '{"success":false,"message":"Unknown operation","validOperations":["load","close","save"],"timestamp":"' .. os.date("%Y-%m-%d %H:%M:%S") .. '"}'
     end
     
     -- Publish the response
