@@ -8,6 +8,8 @@ function sysCall_init()
         startSimService=simROS2.createService('/startCoppeliaSim', 'std_srvs/srv/Trigger', 'startSimulation_service_callback')
         pauseSimService=simROS2.createService('/pauseCoppeliaSim', 'std_srvs/srv/Trigger', 'pauseSimulation_service_callback')
         stopSimService=simROS2.createService('/stopCoppeliaSim', 'std_srvs/srv/Trigger', 'stopSimulation_service_callback')
+        fasterSimService=simROS2.createService('/fasterCoppeliaSim', 'std_srvs/srv/Trigger', 'fasterSimulation_service_callback')
+        slowerSimService=simROS2.createService('/slowerCoppeliaSim', 'std_srvs/srv/Trigger', 'slowerSimulation_service_callback')
         manageSceneSub=simROS2.createSubscription('/manageScene', 'std_msgs/msg/String', 'manageScene_callback')
         manageSceneResponsePub=simROS2.createPublisher('/manageSceneResponse', 'std_msgs/msg/String')
         manageModelSub=simROS2.createSubscription('/manageModel', 'std_msgs/msg/String', 'manageModel_callback')
@@ -23,6 +25,7 @@ function sysCall_init()
         
         rosInterfaceSynModeEnabled=false
         haltMainScript=false
+        currentSpeedFactor=0
     else
         sim.addLog(sim.verbosity_scripterrors,"ROS2 interface was not found. Cannot run.")
     end
@@ -30,12 +33,20 @@ end
 function startSimulation_service_callback(request, response)
     local result = {}
     
-    -- Just start the simulation
+    -- Set real-time simulation as default
+    local setRealtimeSuccess, setRealtimeError = pcall(sim.setBoolParam, sim.boolparam_realtime_simulation, true)
+    if not setRealtimeSuccess then
+        result.success = false
+        result.message = "Failed to set real-time simulation parameter: " .. tostring(setRealtimeError)
+        return result
+    end
+    
+    -- Start the simulation
     local success, errorMsg = pcall(sim.startSimulation)
     
     if success then
         result.success = true
-        result.message = "Simulation start command executed successfully"
+        result.message = "Simulation started successfully with real-time enabled"
     else
         result.success = false
         result.message = "Failed to start simulation: " .. tostring(errorMsg)
@@ -62,15 +73,72 @@ end
 function stopSimulation_service_callback(request, response)
     local result = {}
     
-    -- Just stop the simulation
+    -- stop the simulation and set speed factor to 0    
     local success, errorMsg = pcall(sim.stopSimulation)
     
     if success then
+        currentSpeedFactor = 0
         result.success = true
         result.message = "Simulation stop command executed successfully"
     else
         result.success = false
         result.message = "Failed to stop simulation: " .. tostring(errorMsg)
+    end
+    return result
+end
+
+function fasterSimulation_service_callback(request, response)
+    local result = {}
+    
+    -- Check if speed factor is already at maximum
+    if currentSpeedFactor >= 6 then
+        result.success = false
+        result.message = '{"message":"Speed factor already at maximum (6). Cannot increase further.","speedFactor":' .. currentSpeedFactor .. '}'
+        return result
+    end
+    
+    -- Increment speed factor
+    currentSpeedFactor = currentSpeedFactor + 1
+    
+    -- Set the speed modifier parameter
+    local success, errorMsg = pcall(sim.setInt32Parameter, sim.intparam_speedmodifier, currentSpeedFactor)
+    
+    if success then
+        result.success = true
+        result.message = '{"message":"Simulation speed increased successfully","speedFactor":' .. currentSpeedFactor .. '}'
+    else
+        -- Rollback the speed factor if setting failed
+        currentSpeedFactor = currentSpeedFactor - 1
+        result.success = false
+        result.message = '{"message":"Failed to set speed modifier: ' .. tostring(errorMsg) .. '","speedFactor":' .. currentSpeedFactor .. '}'
+    end
+    return result
+end
+
+function slowerSimulation_service_callback(request, response)
+    local result = {}
+    
+    -- Check if speed factor is already at minimum
+    if currentSpeedFactor <= -3 then
+        result.success = false
+        result.message = '{"message":"Speed factor already at minimum (-3). Cannot decrease further.","speedFactor":' .. currentSpeedFactor .. '}'
+        return result
+    end
+    
+    -- Decrement speed factor
+    currentSpeedFactor = currentSpeedFactor - 1
+    
+    -- Set the speed modifier parameter
+    local success, errorMsg = pcall(sim.setInt32Parameter, sim.intparam_speedmodifier, currentSpeedFactor)
+    
+    if success then
+        result.success = true
+        result.message = '{"message":"Simulation speed decreased successfully","speedFactor":' .. currentSpeedFactor .. '}'
+    else
+        -- Rollback the speed factor if setting failed
+        currentSpeedFactor = currentSpeedFactor + 1
+        result.success = false
+        result.message = '{"message":"Failed to set speed modifier: ' .. tostring(errorMsg) .. '","speedFactor":' .. currentSpeedFactor .. '}'
     end
     return result
 end
@@ -412,6 +480,8 @@ function sysCall_cleanup()
         simROS2.shutdownService(startSimService)
         simROS2.shutdownService(pauseSimService)
         simROS2.shutdownService(stopSimService)
+        simROS2.shutdownService(fasterSimService)
+        simROS2.shutdownService(slowerSimService)
         simROS2.shutdownSubscription(manageSceneSub)
         simROS2.shutdownPublisher(manageSceneResponsePub)
         simROS2.shutdownSubscription(manageModelSub)
