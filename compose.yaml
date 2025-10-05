@@ -51,13 +51,13 @@ services:
     command: bash -lc "tail -f /dev/null"
 
   coppeliasim:
-    build:
-      context: /home/yifan/app/docker-image-coppeliasim
-      dockerfile: Dockerfile
     image: coppeliasim:4.10
     container_name: coppeliasim
+    networks: [wos_net]
     environment:
       - TZ=Europe/Berlin
+      - ROS_DOMAIN_ID=21
+      - RMW_IMPLEMENTATION=rmw_fastrtps_cpp
     volumes:
       - ./:/project-root:rw
     ports:
