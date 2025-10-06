@@ -20,6 +20,8 @@ function sysCall_init()
         simStepDonePub=simROS2.createPublisher('/simulationStepDone', 'std_msgs/msg/Bool')
         clockPub=simROS2.createPublisher('/coppeliasim/clock','builtin_interfaces/msg/Time')
         statsPub=simROS2.createPublisher('/coppeliasim/stats','std_msgs/msg/String')
+        modelsPub=simROS2.createPublisher('/coppeliasim/models','std_msgs/msg/String')
+        posesPub=simROS2.createPublisher('/coppeliasim/poses','std_msgs/msg/String')
         auxPub=simROS2.createPublisher('/privateMsgAux', 'std_msgs/msg/Bool')
         auxSub=simROS2.createSubscription('/privateMsgAux', 'std_msgs/msg/Bool', 'aux_callback')
         
@@ -496,6 +498,49 @@ function publishStats()
     simROS2.publish(statsPub, {data = statsJson})
 end
 
+function publishModels()
+    -- Enumerate top-level objects in the scene tree and collect models
+    local handles = sim.getObjectsInTree(sim.handle_scene, sim.handle_all, 2)
+    local items = {}
+    -- Set of default handles to exclude
+    local exclude = { [0]=true, [1]=true, [8]=true, [13]=true }
+    if handles then
+        for i=1,#handles,1 do
+            local h = handles[i]
+            if not exclude[h] then
+                local name = sim.getObjectAlias(h, 1) or sim.getObjectName(h) or ("obj_"..tostring(h))
+                items[#items+1] = string.format('{"name":"%s","handle":%d}', name, h)
+            end
+        end
+    end
+    local json = '[' .. table.concat(items, ',') .. ']'
+    simROS2.publish(modelsPub, {data=json})
+end
+
+function publishPoses()
+    -- Enumerate top-level objects in the scene tree and collect poses
+    local handles = sim.getObjectsInTree(sim.handle_scene, sim.handle_all, 2)
+    local items = {}
+    -- Set of default handles to exclude
+    local exclude = { [0]=true, [1]=true, [8]=true, [13]=true }
+    if handles then
+        for i=1,#handles,1 do
+            local h = handles[i]
+            if not exclude[h] then
+                local name = sim.getObjectAlias(h, 1) or sim.getObjectName(h) or ("obj_"..tostring(h))
+                local pose = sim.getObjectPose(h, -1)
+                if pose and #pose >= 7 then
+                    -- Format: [x,y,z,qx,qy,qz,qw]
+                    items[#items+1] = string.format('{"name":"%s","handle":%d,"pose":[%.6f,%.6f,%.6f,%.6f,%.6f,%.6f,%.6f]}',
+                        name, h, pose[1], pose[2], pose[3], pose[4], pose[5], pose[6], pose[7])
+                end
+            end
+        end
+    end
+    local json = '[' .. table.concat(items, ',') .. ']'
+    simROS2.publish(posesPub, {data=json})
+end
+
 function publishThrottledStats()
     -- Use real time for throttling to work even when simulation is paused/stopped
     local currentRealTime = sim.getSystemTime()
@@ -507,6 +552,10 @@ function publishThrottledStats()
     if currentRealTime - lastRealTime >= 1.0 then
         -- Publish stats (throttled to 1Hz)
         publishStats()
+        -- Publish models list (throttled to 1Hz)
+        publishModels()
+        -- Publish poses list (throttled to 1Hz)
+        publishPoses()
         
         lastRealTime = currentRealTime
     end
@@ -570,6 +619,8 @@ function sysCall_cleanup()
         simROS2.shutdownPublisher(simStepDonePub)
         simROS2.shutdownPublisher(clockPub)
         simROS2.shutdownPublisher(statsPub)
+        simROS2.shutdownPublisher(modelsPub)
+        simROS2.shutdownPublisher(posesPub)
     end
 end
 
