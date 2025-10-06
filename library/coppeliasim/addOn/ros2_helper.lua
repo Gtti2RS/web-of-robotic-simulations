@@ -18,14 +18,16 @@ function sysCall_init()
         triggerNextStepSub=simROS2.createSubscription('/triggerNextStep', 'std_msgs/msg/Bool', 'triggerNextStep_callback')
 
         simStepDonePub=simROS2.createPublisher('/simulationStepDone', 'std_msgs/msg/Bool')
-        simStatePub=simROS2.createPublisher('/simulationState','std_msgs/msg/Int32')
-        simTimePub=simROS2.createPublisher('/simulationTime','std_msgs/msg/Float32')
+        clockPub=simROS2.createPublisher('/coppeliasim/clock','builtin_interfaces/msg/Time')
+        statsPub=simROS2.createPublisher('/coppeliasim/stats','std_msgs/msg/String')
         auxPub=simROS2.createPublisher('/privateMsgAux', 'std_msgs/msg/Bool')
         auxSub=simROS2.createSubscription('/privateMsgAux', 'std_msgs/msg/Bool', 'aux_callback')
         
         rosInterfaceSynModeEnabled=false
         haltMainScript=false
         currentSpeedFactor=0
+        lastPublishTime=nil
+        lastRealTime=nil
     else
         sim.addLog(sim.verbosity_scripterrors,"ROS2 interface was not found. Cannot run.")
     end
@@ -425,23 +427,96 @@ function aux_callback(msg)
     simROS2.publish(simStepDonePub,{data=true})
 end
 
-function publishSimState()
-    local state=0 -- simulation not running
-    local s=sim.getSimulationState()
-    if s==sim.simulation_paused then
-        state=2 -- simulation paused
-    elseif s==sim.simulation_stopped then
-        state=0 -- simulation stopped
-    else
-        state=1 -- simulation running
+
+function publishClock()
+    -- Get simulation time
+    local simTime = 0
+    local s = sim.getSimulationState()
+    if s ~= sim.simulation_stopped then
+        simTime = sim.getSimulationTime()
     end
-    simROS2.publish(simStatePub,{data=state})
+    
+    -- Convert to seconds and nanoseconds
+    local sec = math.floor(simTime)
+    local fractionalPart = simTime - sec
+    
+    -- Convert fractional part to nanoseconds
+    local nsecFloat = fractionalPart * 1000000000
+    local nsec = math.floor(nsecFloat + 0.5) -- Round to nearest integer
+    
+    -- Ensure nsec is within valid range
+    if nsec >= 1000000000 then
+        nsec = 999999999
+    elseif nsec < 0 then
+        nsec = 0
+    end
+    
+    -- Publish clock message (no throttling)
+    simROS2.publish(clockPub, {
+        sec = sec,
+        nanosec = nsec
+    })
+end
+
+function publishStats()
+    -- Get simulation state
+    local state = 0 -- simulation not running
+    local s = sim.getSimulationState()
+    if s == sim.simulation_paused then
+        state = 2 -- simulation paused
+    elseif s == sim.simulation_stopped then
+        state = 0 -- simulation stopped
+    else
+        state = 1 -- simulation running
+    end
+    
+    -- Get simulation time and convert to sec/nsec format
+    local simTime = 0
+    if s ~= sim.simulation_stopped then
+        simTime = sim.getSimulationTime()
+    end
+    local simSec = math.floor(simTime)
+    local simNsec = math.floor((simTime * 1000000000) % 1000000000)
+    
+    -- Get real time and convert to sec/nsec format
+    local realTime = sim.getSystemTime()
+    local realSec = math.floor(realTime)
+    local realNsec = math.floor((realTime * 1000000000) % 1000000000)
+    
+    -- Create JSON message with simplified field names
+    local statsJson = string.format('{"simTime":{"sec":%d,"nsec":%d},"simState":%d,"speedFactor":%d,"realTime":{"sec":%d,"nsec":%d},"timestamp":"%s"}',
+        simSec, simNsec,
+        state,
+        currentSpeedFactor,
+        realSec, realNsec,
+        os.date("%Y-%m-%d %H:%M:%S")
+    )
+    
+    -- Publish stats message (throttled to 1Hz)
+    simROS2.publish(statsPub, {data = statsJson})
+end
+
+function publishThrottledStats()
+    -- Use real time for throttling to work even when simulation is paused/stopped
+    local currentRealTime = sim.getSystemTime()
+    if not lastRealTime then
+        lastRealTime = currentRealTime
+    end
+    
+    -- Publish every 1 second (1Hz) based on real time
+    if currentRealTime - lastRealTime >= 1.0 then
+        -- Publish stats (throttled to 1Hz)
+        publishStats()
+        
+        lastRealTime = currentRealTime
+    end
 end
 
 
 function sysCall_nonSimulation()
     if simROS2 then
-        publishSimState()
+        publishThrottledStats()
+        publishClock()  -- Publish clock when simulation is stopped
     end
 end
 
@@ -451,8 +526,8 @@ end
 
 function sysCall_actuation()
     if simROS2 then
-        publishSimState()
-        simROS2.publish(simTimePub,{data=sim.getSimulationTime()})
+        publishThrottledStats()
+        publishClock()  -- Publish clock at full simulation frequency (no throttling)
     end
 end
 
@@ -465,13 +540,15 @@ end
 
 function sysCall_suspended()
     if simROS2 then
-        publishSimState()
+        publishThrottledStats()
+        publishClock()  -- Publish clock when simulation is paused
     end
 end
 
 function sysCall_afterSimulation()
     if simROS2 then
-        publishSimState()
+        publishThrottledStats()
+        publishClock()  -- Publish clock after simulation ends
     end
 end
 
@@ -491,8 +568,8 @@ function sysCall_cleanup()
         simROS2.shutdownSubscription(auxSub)
         simROS2.shutdownPublisher(auxPub)
         simROS2.shutdownPublisher(simStepDonePub)
-        simROS2.shutdownPublisher(simStatePub)
-        simROS2.shutdownPublisher(simTimePub)
+        simROS2.shutdownPublisher(clockPub)
+        simROS2.shutdownPublisher(statsPub)
     end
 end
 
