@@ -1,0 +1,172 @@
+{
+  "$schema": "https://www.w3.org/2022/wot/td/v1.1",
+  "title": "cs_controller",
+  "id": "urn:dev:wot:coppeliasim-controller",
+  "base": "http://localhost:8081/",
+  "actions": {
+    "simControl": {
+      "description": "Control CoppeliaSim simulation: run, pause, reset",
+      "input": {
+        "type": "object",
+        "properties": {
+          "mode": {
+            "type": "string",
+            "enum": [
+              "run",
+              "pause", 
+              "reset"
+            ],
+            "description": "Simulation control mode"
+          }
+        },
+        "required": [
+          "mode"
+        ]
+      },
+      "output": {
+        "type": "object",
+        "properties": {
+          "success": {
+            "type": "boolean",
+            "description": "Whether the operation was successful"
+          },
+          "message": {
+            "type": "string", 
+            "description": "Response message from CoppeliaSim"
+          }
+        }
+      }
+    }
+  },
+  "properties": {
+    "simStats": {
+      "type": "object",
+      "readOnly": true,
+      "observable": true,
+      "description": "Current CoppeliaSim simulation statistics from ROS2 /coppeliasim/stats topic",
+      "properties": {
+        "timestamp": {
+          "type": "string",
+          "format": "date-time",
+          "description": "Timestamp when the message was received"
+        },
+        "simTime": {
+          "type": "object",
+          "description": "Simulation time",
+          "properties": {
+            "sec": { "type": "integer" },
+            "nsec": { "type": "integer" }
+          }
+        },
+        "simState": {
+          "type": "integer",
+          "description": "Simulation state: 0=stopped, 1=running, 2=paused"
+        },
+        "speedFactor": {
+          "type": "integer",
+          "description": "Current simulation speed factor"
+        },
+        "realTime": {
+          "type": "object",
+          "description": "Real time",
+          "properties": {
+            "sec": { "type": "integer" },
+            "nsec": { "type": "integer" }
+          }
+        }
+      },
+      "forms": [
+        {
+          "href": "http://localhost:8081/cs_controller/properties/simStats",
+          "op": ["readproperty"],
+          "contentType": "application/json"
+        },
+        {
+          "href": "http://localhost:8081/cs_controller/properties/simStats/observable",
+          "op": ["observeproperty"],
+          "subprotocol": "sse",
+          "contentType": "text/event-stream"
+        }
+      ]
+    },
+    "models": {
+      "type": "object",
+      "readOnly": true,
+      "observable": true,
+      "description": "Available models in CoppeliaSim scene from ROS2 /coppeliasim/models topic",
+      "properties": {
+        "timestamp": {
+          "type": "string",
+          "format": "date-time",
+          "description": "Timestamp when the message was received"
+        },
+        "models": {
+          "type": "array",
+          "description": "Array of available models",
+          "items": {
+            "type": "object",
+            "properties": {
+              "name": { "type": "string" },
+              "handle": { "type": "integer" }
+            }
+          }
+        }
+      },
+      "forms": [
+        {
+          "href": "http://localhost:8081/cs_controller/properties/models",
+          "op": ["readproperty"],
+          "contentType": "application/json"
+        },
+        {
+          "href": "http://localhost:8081/cs_controller/properties/models/observable",
+          "op": ["observeproperty"],
+          "subprotocol": "sse",
+          "contentType": "text/event-stream"
+        }
+      ]
+    },
+    "poses": {
+      "type": "object",
+      "readOnly": true,
+      "observable": true,
+      "description": "Current object poses in CoppeliaSim from ROS2 /coppeliasim/poses topic",
+      "properties": {
+        "timestamp": {
+          "type": "string",
+          "format": "date-time",
+          "description": "Timestamp when the message was received"
+        },
+        "poses": {
+          "type": "array",
+          "description": "Array of object poses",
+          "items": {
+            "type": "object",
+            "properties": {
+              "name": { "type": "string" },
+              "handle": { "type": "integer" },
+              "pose": {
+                "type": "array",
+                "description": "Pose as [x,y,z,qx,qy,qz,qw]",
+                "items": { "type": "number" }
+              }
+            }
+          }
+        }
+      },
+      "forms": [
+        {
+          "href": "http://localhost:8081/cs_controller/properties/poses",
+          "op": ["readproperty"],
+          "contentType": "application/json"
+        },
+        {
+          "href": "http://localhost:8081/cs_controller/properties/poses/observable",
+          "op": ["observeproperty"],
+          "subprotocol": "sse",
+          "contentType": "text/event-stream"
+        }
+      ]
+    }
+  }
+}
