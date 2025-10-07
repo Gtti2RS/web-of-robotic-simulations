@@ -4,7 +4,7 @@ const rclnodejs = require("rclnodejs");
 const { Servient } = require("@node-wot/core");
 const { HttpServer } = require("@node-wot/binding-http");
 
-const { callService } = require("../library/common/ros2_service_helper");
+const { makeSimControl } = require("../library/coppeliasim/cs_action_handlers");
 
 class CoppeliaSimController {
   constructor(tdPath = "./cs_controller.json", rosTopic = "wot_topic", port = 8080) {
@@ -31,7 +31,7 @@ class CoppeliaSimController {
     this.thing = await wot.produce(td);
 
     // Set up action handlers
-    this.thing.setActionHandler("simControl", this.makeSimControl(this.node));
+    this.thing.setActionHandler("simControl", makeSimControl(this.node));
 
     // Set up property handlers (placeholder for now)
     this.thing.setPropertyReadHandler("simStats", this.readSimStats.bind(this));
@@ -67,75 +67,6 @@ class CoppeliaSimController {
     await rclnodejs.shutdown();
 
     console.log("Gracefully shut down CoppeliaSim Controller.");
-  }
-
-  /**
-   * Create simControl action handler for CoppeliaSim
-   * Maps WoT modes to CoppeliaSim ROS2 services:
-   * - run -> /startCoppeliaSim
-   * - pause -> /pauseCoppeliaSim  
-   * - reset -> /stopCoppeliaSim
-   */
-  makeSimControl(node, { timeoutMs = 1000 } = {}) {
-    return async function simControlAction(input) {
-      const data = await input.value();
-      const mode = data?.mode;
-
-      if (!mode) {
-        throw new Error("Missing mode for simControl");
-      }
-
-      let serviceName, serviceType;
-      
-      switch (mode) {
-        case "run":
-          serviceName = "/startCoppeliaSim";
-          serviceType = "std_srvs/srv/Trigger";
-          break;
-        case "pause":
-          serviceName = "/pauseCoppeliaSim";
-          serviceType = "std_srvs/srv/Trigger";
-          break;
-        case "reset":
-          serviceName = "/stopCoppeliaSim";
-          serviceType = "std_srvs/srv/Trigger";
-          break;
-        default:
-          throw new Error(`Invalid mode: ${mode}. Valid modes are: run, pause, reset`);
-      }
-
-      try {
-        console.log(`[${new Date().toISOString()}] [simControl] Calling ${serviceName} for mode: ${mode}`);
-        
-        const { resp } = await callService(
-          node,
-          {
-            srvType: serviceType,
-            serviceName: serviceName,
-            payload: {} // std_srvs/srv/Trigger has no request fields
-          },
-          { timeoutMs }
-        );
-
-        // std_srvs/srv/Trigger response has success (bool) and message (string) fields
-        const success = resp?.success ?? false;
-        const message = resp?.message ?? "No message from CoppeliaSim";
-
-        console.log(`[${new Date().toISOString()}] [simControl] Response: success=${success}, message=${message}`);
-
-        return {
-          success: success,
-          message: message
-        };
-
-      } catch (error) {
-        console.error(`[${new Date().toISOString()}] [simControl] Error calling ${serviceName}:`, error.message);
-        return {
-          success: false,
-          message: `Failed to ${mode} simulation: ${error.message}`
-        };
-      }
-    };
   }
 
   /**

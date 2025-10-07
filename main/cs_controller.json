@@ -5,7 +5,7 @@
   "base": "http://localhost:8081/",
   "actions": {
     "simControl": {
-      "description": "Control CoppeliaSim simulation: run, pause, reset",
+      "description": "Control CoppeliaSim simulation: run, pause, stop, faster, slower",
       "input": {
         "type": "object",
         "properties": {
@@ -14,7 +14,9 @@
             "enum": [
               "run",
               "pause", 
-              "reset"
+              "stop",
+              "faster",
+              "slower"
             ],
             "description": "Simulation control mode"
           }
