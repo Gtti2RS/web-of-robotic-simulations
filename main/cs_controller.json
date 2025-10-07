@@ -38,9 +38,80 @@
           }
         }
       }
+    },
+    "manageScene": {
+      "description": "Manage CoppeliaSim scenes: load, close, save",
+      "input": {
+        "type": "object",
+        "properties": {
+          "mode": {
+            "type": "string",
+            "enum": [
+              "load",
+              "close",
+              "save"
+            ],
+            "description": "Scene management mode"
+          },
+          "fileName": {
+            "type": "string",
+            "description": "Scene filename (.ttt) - for load: searches Assets directory; for save: saves to Assets/coppeliasim/scenes/saved/ - required for load and save operations"
+          }
+        },
+        "required": [
+          "mode"
+        ]
+      },
+      "output": {
+        "type": "object",
+        "properties": {
+          "success": {
+            "type": "boolean",
+            "description": "Whether the operation was successful"
+          },
+          "message": {
+            "type": "string",
+            "description": "Response message from CoppeliaSim"
+          }
+        }
+      }
     }
   },
   "properties": {
+    "assets": {
+      "description": "Lists all available CoppeliaSim assets organized by category",
+      "readOnly": true,
+      "type": "object",
+      "properties": {
+        "coppeliasim": {
+          "type": "object",
+          "description": "CoppeliaSim assets including scenes, models, etc.",
+          "additionalProperties": {
+            "type": "object",
+            "description": "Category subdirectories (e.g., scenes, models)",
+            "additionalProperties": {
+              "oneOf": [
+                {
+                  "type": "array",
+                  "items": {
+                    "type": "string"
+                  }
+                },
+                {
+                  "type": "object",
+                  "additionalProperties": {
+                    "type": "array",
+                    "items": {
+                      "type": "string"
+                    }
+                  }
+                }
+              ]
+            }
+          }
+        }
+      }
+    },
     "simStats": {
       "type": "object",
       "readOnly": true,

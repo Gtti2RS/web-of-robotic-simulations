@@ -4,7 +4,8 @@ const rclnodejs = require("rclnodejs");
 const { Servient } = require("@node-wot/core");
 const { HttpServer } = require("@node-wot/binding-http");
 
-const { makeSimControl } = require("../library/coppeliasim/cs_action_handlers");
+const { makeSimControl, makeManageScene } = require("../library/coppeliasim/cs_action_handlers");
+const { readCoppeliaSimAssets } = require("../library/common/fileUtils");
 
 class CoppeliaSimController {
   constructor(tdPath = "./cs_controller.json", rosTopic = "wot_topic", port = 8080) {
@@ -32,8 +33,10 @@ class CoppeliaSimController {
 
     // Set up action handlers
     this.thing.setActionHandler("simControl", makeSimControl(this.node));
+    this.thing.setActionHandler("manageScene", makeManageScene(this.node));
 
-    // Set up property handlers (placeholder for now)
+    // Set up property handlers
+    this.thing.setPropertyReadHandler("assets", readCoppeliaSimAssets);
     this.thing.setPropertyReadHandler("simStats", this.readSimStats.bind(this));
     this.thing.setPropertyReadHandler("models", this.readModels.bind(this));
     this.thing.setPropertyReadHandler("poses", this.readPoses.bind(this));

@@ -38,6 +38,54 @@ async function readGazeboAssets() {
 }
 
 /**
+ * Read assets from coppeliasim category and merge with vendor assets
+ * @returns {Promise<Object>} - Object with coppeliasim asset structure (user + vendor)
+ */
+async function readCoppeliaSimAssets() {
+    try {
+        // Read user assets from /Assets/coppeliasim and /Assets/urdf
+        const userAssets = await readAvailableResources(["urdf", "coppeliasim"]);
+        
+        // Try to load vendor assets from vendor_assets.json
+        let vendorAssets = {};
+        try {
+            const vendorJsonPath = path.join(__dirname, '../coppeliasim/vendor_assets.json');
+            const vendorData = await fs.readFile(vendorJsonPath, 'utf8');
+            const vendorJson = JSON.parse(vendorData);
+            
+            if (vendorJson.assets) {
+                vendorAssets = vendorJson.assets;
+            }
+        } catch (vendorError) {
+            console.warn('[readCoppeliaSimAssets] No vendor assets found or error reading vendor_assets.json:', vendorError.message);
+        }
+        
+        // Merge user and vendor assets, with vendor assets coming after user assets
+        const mergedAssets = { ...userAssets };
+        
+        if (!mergedAssets.coppeliasim) {
+            mergedAssets.coppeliasim = {};
+        }
+        
+        // Merge vendor assets for each category (scenes, models, etc.)
+        for (const [category, vendorContent] of Object.entries(vendorAssets)) {
+            if (!mergedAssets.coppeliasim[category]) {
+                // If category doesn't exist in user assets, add it with vendor subdirectory
+                mergedAssets.coppeliasim[category] = { vendor: vendorContent };
+            } else if (typeof mergedAssets.coppeliasim[category] === 'object' && !Array.isArray(mergedAssets.coppeliasim[category])) {
+                // If it's an object (with subdirectories), add vendor as a subdirectory at the end
+                mergedAssets.coppeliasim[category].vendor = vendorContent;
+            }
+        }
+        
+        return mergedAssets;
+    } catch (error) {
+        console.error('[readCoppeliaSimAssets] Error reading assets:', error);
+        throw new Error(`Failed to read assets: ${error.message}`);
+    }
+}
+
+/**
  * List available files under specified categories in Assets folder.
  * @param {string[]} categories - Array of category names to search (e.g., ["urdf", "gazebo"])
  * @returns {Object} Object with category structure and files (without extensions)
@@ -78,9 +126,8 @@ async function buildCategoryStructure(dirPath) {
             if (entry.isDirectory()) {
                 // Recursively build subdirectory structure
                 const subStructure = await buildCategoryStructure(fullPath);
-                if (Object.keys(subStructure).length > 0) {
-                    structure[entry.name] = subStructure;
-                }
+                // Include directory even if empty (changed from checking length > 0)
+                structure[entry.name] = subStructure;
             } else if (entry.isFile()) {
                 // Only include files with specified extensions
                 if (hasValidExtension(entry.name)) {
@@ -102,7 +149,7 @@ async function buildCategoryStructure(dirPath) {
             } else if (typeof value === 'object') {
                 // Check if all values in this object are arrays
                 const allArrays = Object.values(value).every(v => Array.isArray(v));
-                if (allArrays && key !== "models" && key !== "worlds" && key !== "launch") {
+                if (allArrays && key !== "models" && key !== "worlds" && key !== "launch" && key !== "scenes") {
                     // Merge all arrays into one
                     const mergedArray = [];
                     for (const arr of Object.values(value)) {
@@ -176,10 +223,15 @@ async function saveFile(filePath, data) {
  * @param {string} fileName - The file name to check (with extension)
  * @returns {Promise<boolean>} - True if conflict exists
  */
-async function checkFileConflict(fileName) {
+async function checkFileConflict(fileName, simulator = 'gazebo') {
     try {
-        // Get all existing files using readGazeboAssets
-        const assets = await readGazeboAssets();
+        // Get all existing files based on simulator type
+        let assets;
+        if (simulator === 'coppeliasim') {
+            assets = await readCoppeliaSimAssets();
+        } else {
+            assets = await readGazeboAssets();
+        }
         
         // Convert assets to JSON string and check if fileName exists
         const assetsString = JSON.stringify(assets);
@@ -292,10 +344,21 @@ function generateModelConfig(modelName, fileName, fileExt) {
 // ============================================================================
 
 async function resolveFilePath(fileName) {
+    // First, search in user Assets directory
     const foundPath = await searchRecursively(path.join(BASE_PATH, "Assets"), fileName);
     
     if (foundPath) {
         return foundPath;
+    }
+    
+    // If not found in user assets, search in vendor assets
+    try {
+        const vendorPath = await searchVendorAssets(fileName);
+        if (vendorPath) {
+            return vendorPath;
+        }
+    } catch (error) {
+        console.warn("Error searching vendor assets:", error.message);
     }
     
     console.warn("File NOT FOUND:", fileName);
@@ -326,8 +389,62 @@ async function searchRecursively(dirPath, fileName) {
     return null;
 }
 
+/**
+ * Search for a file in vendor assets JSON
+ * @param {string} fileName - File name to search for
+ * @returns {Promise<string|null>} - Full path to vendor file or null
+ */
+async function searchVendorAssets(fileName) {
+    try {
+        const vendorJsonPath = path.join(__dirname, '../coppeliasim/vendor_assets.json');
+        const vendorData = await fs.readFile(vendorJsonPath, 'utf8');
+        const vendorJson = JSON.parse(vendorData);
+        
+        if (!vendorJson.assets || !vendorJson.metadata?.vendorRoot) {
+            return null;
+        }
+        
+        const vendorRoot = vendorJson.metadata.vendorRoot;
+        
+        // Recursively search through the vendor assets structure
+        function searchInStructure(structure, currentPath) {
+            for (const [key, value] of Object.entries(structure)) {
+                if (Array.isArray(value)) {
+                    // Check if fileName is in this array
+                    if (value.includes(fileName)) {
+                        // Key is the subdirectory name, add it to path before filename
+                        return path.join(currentPath, key, fileName);
+                    }
+                } else if (typeof value === 'object') {
+                    // Recursively search in nested structure
+                    const found = searchInStructure(value, path.join(currentPath, key));
+                    if (found) {
+                        return found;
+                    }
+                }
+            }
+            return null;
+        }
+        
+        // Search in each category (scenes, models, etc.)
+        for (const [category, content] of Object.entries(vendorJson.assets)) {
+            const categoryPath = path.join(vendorRoot, category);
+            const found = searchInStructure(content, categoryPath);
+            if (found) {
+                return found;
+            }
+        }
+        
+        return null;
+    } catch (error) {
+        console.warn('[searchVendorAssets] Error:', error.message);
+        return null;
+    }
+}
+
 module.exports = {
     readGazeboAssets,
+    readCoppeliaSimAssets,
     saveFile,
     handleGazeboUpload,
     resolveFilePath,
