@@ -21,6 +21,7 @@
 
 const { callService } = require('../common/ros2_service_helper');
 const { resolveFilePath, checkFileConflict } = require('../common/fileUtils');
+const { deg2quat } = require('../common/deg2quat');
 const fs = require('fs').promises;
 const path = require('path');
 
@@ -335,8 +336,344 @@ function makeManageScene(node, { timeoutMs = 5000 } = {}) {
   };
 }
 
+/**
+ * Create manageModel action handler for CoppeliaSim
+ * Manages model operations via ROS2 topic publishing:
+ * - load -> Load a model file (URDF or TTM)
+ * - remove -> Remove a model by handle
+ * - setPose -> Set pose of a model by handle
+ * 
+ * @param {Object} node - ROS 2 node instance
+ * @param {Object} options - Configuration options
+ * @param {number} options.timeoutMs - Response timeout in milliseconds (default: 5000)
+ * @returns {Function} WoT action handler function
+ */
+function makeManageModel(node, { timeoutMs = 5000 } = {}) {
+  return async function manageModelAction(input) {
+    const data = await input.value();
+    const mode = data?.mode;
+    const fileName = data?.fileName;
+    let handle = data?.handle;
+    const name = data?.name;
+    const objectName = data?.objectName;
+    const position = data?.position;
+    const orientation = data?.orientation;
+
+    if (!mode) {
+      throw new Error("Missing mode for manageModel");
+    }
+
+    // Validate inputs based on mode
+    if (mode === 'load' && !fileName) {
+      throw new Error("fileName is required for load operation");
+    }
+    if (mode === 'remove' && !handle && !name) {
+      throw new Error("Either handle or name is required for remove operation");
+    }
+    if (mode === 'setPose' && !handle) {
+      throw new Error("handle is required for setPose operation");
+    }
+    if (mode === 'setPose' && !orientation) {
+      throw new Error("orientation is required for setPose operation");
+    }
+
+    // For remove operation by name, resolve name to handle
+    if (mode === 'remove' && name && !handle) {
+      try {
+        // Get current models from the models topic
+        const modelsPromise = new Promise((resolve, reject) => {
+          let modelsHandled = false;
+          const modelsSub = node.createSubscription(
+            'std_msgs/msg/String',
+            '/coppeliasim/models',
+            (msg) => {
+              if (modelsHandled) return;
+              modelsHandled = true;
+              node.destroySubscription(modelsSub);
+              
+              try {
+                const models = JSON.parse(msg.data);
+                resolve(models);
+              } catch (e) {
+                reject(new Error('Failed to parse models'));
+              }
+            }
+          );
+
+          setTimeout(() => {
+            if (modelsHandled) return;
+            modelsHandled = true;
+            node.destroySubscription(modelsSub);
+            reject(new Error('Timeout getting models list'));
+          }, 1000);
+        });
+
+        const models = await modelsPromise;
+        
+        // Find model by name (check both with and without leading slash)
+        if (Array.isArray(models)) {
+          const model = models.find(m => {
+            const cleanName = m.name && m.name.startsWith('/') ? m.name.substring(1) : m.name;
+            return cleanName === name || m.name === name;
+          });
+          
+          if (model) {
+            handle = model.handle;
+            console.log(`[${new Date().toISOString()}] [manageModel] Resolved name '${name}' to handle ${handle}`);
+          } else {
+            return {
+              success: false,
+              message: `Object with name '${name}' not found in the scene.`
+            };
+          }
+        }
+      } catch (error) {
+        console.warn(`[${new Date().toISOString()}] [manageModel] Could not resolve name to handle:`, error.message);
+        return {
+          success: false,
+          message: `Failed to resolve name '${name}' to handle: ${error.message}`
+        };
+      }
+    }
+
+    // For remove operation by handle, verify object exists
+    if (mode === 'remove' && handle !== undefined) {
+      try {
+        // Get current models from the models topic
+        const modelsPromise = new Promise((resolve, reject) => {
+          let modelsHandled = false;
+          const modelsSub = node.createSubscription(
+            'std_msgs/msg/String',
+            '/coppeliasim/models',
+            (msg) => {
+              if (modelsHandled) return;
+              modelsHandled = true;
+              node.destroySubscription(modelsSub);
+              
+              try {
+                const models = JSON.parse(msg.data);
+                resolve(models);
+              } catch (e) {
+                reject(new Error('Failed to parse models'));
+              }
+            }
+          );
+
+          setTimeout(() => {
+            if (modelsHandled) return;
+            modelsHandled = true;
+            node.destroySubscription(modelsSub);
+            reject(new Error('Timeout getting models list'));
+          }, 1000);
+        });
+
+        const models = await modelsPromise;
+        // Check if handle exists
+        if (Array.isArray(models)) {
+          const handleExists = models.some(model => model.handle === handle);
+          if (!handleExists) {
+            return {
+              success: false,
+              message: `Object with handle ${handle} does not exist. It may have already been removed.`
+            };
+          }
+        }
+      } catch (error) {
+        console.warn(`[${new Date().toISOString()}] [manageModel] Could not verify object existence:`, error.message);
+        // Continue anyway - let CoppeliaSim handle it
+      }
+    }
+
+    // For load operation, resolve the file path
+    let resolvedPath = fileName;
+    if (mode === 'load' && fileName) {
+      try {
+        resolvedPath = await resolveFilePath(fileName);
+        if (!resolvedPath) {
+          return {
+            success: false,
+            message: `Model file '${fileName}' not found in Assets directory. Please check the filename and try again.`
+          };
+        }
+        console.log(`[${new Date().toISOString()}] [manageModel] Resolved '${fileName}' to '${resolvedPath}'`);
+      } catch (error) {
+        return {
+          success: false,
+          message: `Error resolving file path: ${error.message}`
+        };
+      }
+
+      // Check for object name conflict if objectName is provided
+      if (objectName) {
+        try {
+          // Get current models from the models topic
+          const modelsPromise = new Promise((resolve, reject) => {
+            let modelsHandled = false;
+            const modelsSub = node.createSubscription(
+              'std_msgs/msg/String',
+              '/coppeliasim/models',
+              (msg) => {
+                if (modelsHandled) return;
+                modelsHandled = true;
+                node.destroySubscription(modelsSub);
+                
+                try {
+                  const models = JSON.parse(msg.data);
+                  resolve(models);
+                } catch (e) {
+                  reject(new Error('Failed to parse models'));
+                }
+              }
+            );
+
+            setTimeout(() => {
+              if (modelsHandled) return;
+              modelsHandled = true;
+              node.destroySubscription(modelsSub);
+              reject(new Error('Timeout getting models list'));
+            }, 1000);
+          });
+
+          const models = await modelsPromise;
+          
+          // Check if objectName already exists (check both with and without leading slash)
+          if (Array.isArray(models)) {
+            const nameExists = models.some(m => {
+              const cleanName = m.name && m.name.startsWith('/') ? m.name.substring(1) : m.name;
+              return cleanName === objectName || m.name === objectName;
+            });
+            
+            if (nameExists) {
+              return {
+                success: false,
+                message: `Object name '${objectName}' is already in use. Please choose a different name.`
+              };
+            }
+          }
+        } catch (error) {
+          console.warn(`[${new Date().toISOString()}] [manageModel] Could not check name conflict:`, error.message);
+          // Continue anyway - let CoppeliaSim handle it
+        }
+      }
+    }
+
+    // Convert position object to array if provided
+    let positionArray = null;
+    if (position && typeof position === 'object') {
+      positionArray = [
+        position.x ?? 0,
+        position.y ?? 0,
+        position.z ?? 0
+      ];
+    }
+
+    // Convert orientation from Euler angles (degrees) to quaternion if provided
+    let orientationArray = null;
+    let poseArray = null;
+    
+    if (orientation && typeof orientation === 'object') {
+      const { qx, qy, qz, qw } = deg2quat({
+        roll: orientation.roll ?? 0,
+        pitch: orientation.pitch ?? 0,
+        yaw: orientation.yaw ?? 0
+      });
+      orientationArray = [qx, qy, qz, qw];
+      
+      // For setPose, combine position and orientation into pose array
+      if (mode === 'setPose') {
+        if (!position || typeof position !== 'object') {
+          throw new Error("position is required for setPose operation");
+        }
+        poseArray = [
+          position.x ?? 0,
+          position.y ?? 0,
+          position.z ?? 0,
+          qx, qy, qz, qw
+        ];
+      }
+    }
+
+    // Create command JSON
+    const command = {
+      operation: mode,
+      ...(resolvedPath && { modelPath: resolvedPath }),
+      ...(handle !== undefined && { handle: handle }),
+      ...(objectName && { objectName: objectName }),
+      ...(positionArray && mode === 'load' && { position: positionArray }),
+      ...(orientationArray && mode === 'load' && { orientation: orientationArray }),
+      ...(poseArray && mode === 'setPose' && { pose: poseArray })
+    };
+
+    try {
+      console.log(`[${new Date().toISOString()}] [manageModel] Publishing command:`, command);
+
+      // Create publisher and subscriber for request/response pattern
+      const commandPub = node.createPublisher('std_msgs/msg/String', '/coppeliasim/manageModel');
+      
+      // Set up response listener
+      const responsePromise = new Promise((resolve, reject) => {
+        let isHandled = false;
+        
+        const responseSub = node.createSubscription(
+          'std_msgs/msg/String',
+          '/coppeliasim/manageModelResponse',
+          (msg) => {
+            if (isHandled) return; // Prevent multiple responses
+            
+            try {
+              const response = JSON.parse(msg.data);
+              isHandled = true;
+              clearTimeout(timeoutHandle);
+              node.destroySubscription(responseSub);
+              resolve(response);
+            } catch (e) {
+              isHandled = true;
+              clearTimeout(timeoutHandle);
+              node.destroySubscription(responseSub);
+              reject(new Error(`Failed to parse response: ${e.message}`));
+            }
+          }
+        );
+
+        // Set timeout
+        const timeoutHandle = setTimeout(() => {
+          if (isHandled) return; // Already handled
+          isHandled = true;
+          node.destroySubscription(responseSub);
+          reject(new Error('Response timeout'));
+        }, timeoutMs);
+      });
+
+      // Publish command
+      commandPub.publish({ data: JSON.stringify(command) });
+
+      // Wait for response
+      const response = await responsePromise;
+      
+      console.log(`[${new Date().toISOString()}] [manageModel] Response:`, response);
+
+      // Clean up publisher
+      node.destroyPublisher(commandPub);
+
+      return {
+        success: response.success ?? false,
+        message: response.message ?? "No message from CoppeliaSim",
+        ...(response.handle !== undefined && { handle: response.handle })
+      };
+
+    } catch (error) {
+      console.error(`[${new Date().toISOString()}] [manageModel] Error:`, error.message);
+      return {
+        success: false,
+        message: `Failed to ${mode} model: ${error.message}`
+      };
+    }
+  };
+}
+
 module.exports = {
   makeSimControl,
-  makeManageScene
+  makeManageScene,
+  makeManageModel
 };
 

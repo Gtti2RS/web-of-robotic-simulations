@@ -22,90 +22,14 @@
  */
 
 const rclnodejs = require("rclnodejs");
-
-// Generic SSE manager for observable properties
-class SSEManager {
-  constructor() {
-    this.clients = new Map(); // Map of property name -> Set of clients
-    this.data = new Map(); // Map of property name -> current data
-    this.keepAliveInterval = null;
-    this.startKeepAlive();
-  }
-
-  startKeepAlive() {
-    if (this.keepAliveInterval) return;
-    this.keepAliveInterval = setInterval(() => {
-      for (const [propertyName, clients] of this.clients) {
-        for (const res of clients) {
-          res.write(": keep-alive\n\n");
-        }
-      }
-    }, 15000);
-  }
-
-  registerProperty(propertyName, initialData = null) {
-    if (!this.clients.has(propertyName)) {
-      this.clients.set(propertyName, new Set());
-      this.data.set(propertyName, initialData);
-    }
-  }
-
-  addClient(propertyName, res) {
-    if (!this.clients.has(propertyName)) {
-      this.registerProperty(propertyName);
-    }
-    
-    const clients = this.clients.get(propertyName);
-    clients.add(res);
-    
-    const currentData = this.data.get(propertyName);
-    if (currentData !== null) {
-      res.write(`data: ${JSON.stringify(currentData)}\n\n`);
-    }
-    
-    res.on("close", () => clients.delete(res));
-  }
-
-  updateData(propertyName, data) {
-    this.data.set(propertyName, data);
-    const clients = this.clients.get(propertyName);
-    if (clients) {
-      const line = `data: ${JSON.stringify(data)}\n\n`;
-      for (const res of clients) {
-        res.write(line);
-      }
-    }
-  }
-
-  getData(propertyName) {
-    return this.data.get(propertyName);
-  }
-
-  createSSEMiddleware(propertyName, ssePath) {
-    return async (req, res, next) => {
-      if (req.method === "GET" && req.url.split("?")[0] === ssePath) {
-        res.writeHead(200, {
-          "Content-Type": "text/event-stream",
-          "Cache-Control": "no-cache",
-          "Connection": "keep-alive",
-          "Access-Control-Allow-Origin": "*"
-        });
-        this.addClient(propertyName, res);
-        return;
-      }
-      next();
-    };
-  }
-
-  cleanup() {
-    if (this.keepAliveInterval) {
-      clearInterval(this.keepAliveInterval);
-      this.keepAliveInterval = null;
-    }
-    this.clients.clear();
-    this.data.clear();
-  }
-}
+const { SSEManager } = require("../common/sse_manager");
+const { 
+  createROS2TopicSubscription, 
+  jsonMessageHandler, 
+  cleanupSubscriptions: cleanupSubs,
+  createCombinedSSEMiddleware,
+  createReadHandlers
+} = require("../common/observable_utils");
 
 // Global SSE manager instance
 const sseManager = new SSEManager();
@@ -142,51 +66,6 @@ Object.entries(PROPERTIES).forEach(([name, config]) => {
   sseManager.registerProperty(name, config.initialData);
 });
 
-// Generic ROS2 topic subscription creator
-function createROS2TopicSubscription(node, topicName, messageType, propertyName, messageHandler) {
-  if (!node) {
-    console.warn("ROS2 node not available for subscription");
-    return null;
-  }
-
-  try {
-    const subscriber = node.createSubscription(messageType, topicName, (msg) => {
-      try {
-        const processedData = messageHandler ? messageHandler(msg) : msg;
-        
-        // Only update if the handler didn't already process the data (returned null)
-        if (processedData !== null) {
-          sseManager.updateData(propertyName, {
-            ...processedData,
-            timestamp: new Date().toISOString()
-          });
-        }
-      } catch (error) {
-        console.error(`Error processing message from ${topicName}:`, error);
-        sseManager.updateData(propertyName, {
-          error: `Failed to process message from ${topicName}`,
-          raw_data: msg,
-          timestamp: new Date().toISOString()
-        });
-      }
-    });
-    
-    console.log(`[${new Date().toISOString()}] [createROS2TopicSubscription] Subscribed to ROS2 topic ${topicName} for ${propertyName}`);
-    return subscriber;
-  } catch (error) {
-    console.error(`[${new Date().toISOString()}] [createROS2TopicSubscription] Error setting up subscription for ${topicName}:`, error);
-    return null;
-  }
-}
-
-// JSON message handler for string topics
-const jsonMessageHandler = (msg) => {
-  try {
-    return JSON.parse(msg.data);
-  } catch (error) {
-    throw new Error(`Failed to parse JSON: ${error.message}`);
-  }
-};
 
 // Shared pose message handler - processes pose data for both poses and models properties
 const sharedPoseMessageHandler = (msg) => {
@@ -304,7 +183,8 @@ async function setupAllObservableProperties(node) {
       config.topic, 
       config.messageType, 
       propertyName, 
-      messageHandler
+      messageHandler,
+      sseManager
     );
     if (subscriber) {
       subscriptions.push(subscriber);
@@ -319,31 +199,13 @@ async function setupAllObservableProperties(node) {
 }
 
 // Combined SSE middleware for all properties
-const combinedSSEMiddleware = async (req, res, next) => {
-  for (const [propertyName, config] of Object.entries(PROPERTIES)) {
-    if (req.method === "GET" && req.url.split("?")[0] === config.ssePath) {
-      return sseManager.createSSEMiddleware(propertyName, config.ssePath)(req, res, next);
-    }
-  }
-  next();
-};
+const combinedSSEMiddleware = createCombinedSSEMiddleware(PROPERTIES, sseManager);
 
 // Read handlers for all properties
-const readHandlers = {};
-Object.keys(PROPERTIES).forEach(propertyName => {
-  readHandlers[propertyName] = async () => sseManager.getData(propertyName);
-});
+const readHandlers = createReadHandlers(['sim_stats', 'poses', 'models'], sseManager);
 
-// Cleanup function
-function cleanupSubscriptions(subscriptions) {
-  if (subscriptions && Array.isArray(subscriptions)) {
-    subscriptions.forEach(sub => {
-      if (sub && typeof sub.destroy === 'function') {
-        sub.destroy();
-      }
-    });
-  }
-}
+// Cleanup function (re-export from common)
+const cleanupSubscriptions = cleanupSubs;
 
 // Generic property creator for future use
 function createObservableProperty(propertyName, initialData = null, ssePath = null) {

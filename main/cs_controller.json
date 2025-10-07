@@ -75,6 +75,99 @@
           }
         }
       }
+    },
+    "manageModel": {
+      "title": "Manage CoppeliaSim models",
+      "description": "Load, remove, or set pose of models in CoppeliaSim",
+      "input": {
+        "type": "object",
+        "properties": {
+          "mode": {
+            "type": "string",
+            "enum": [
+              "load",
+              "remove",
+              "setPose"
+            ],
+            "description": "Model management mode"
+          },
+          "fileName": {
+            "type": "string",
+            "description": "Model filename (.ttm, .urdf) - searches Assets directory - required for load operation"
+          },
+          "handle": {
+            "type": "integer",
+            "description": "Object handle - required for setPose, optional for remove (can use name instead)"
+          },
+          "name": {
+            "type": "string",
+            "description": "Object name - optional for remove (alternative to handle)"
+          },
+          "objectName": {
+            "type": "string",
+            "description": "Custom object name/alias - optional for load operation"
+          },
+          "position": {
+            "type": "object",
+            "description": "Position coordinates - optional for load operation",
+            "properties": {
+              "x": {
+                "type": "number",
+                "default": 0
+              },
+              "y": {
+                "type": "number",
+                "default": 0
+              },
+              "z": {
+                "type": "number",
+                "default": 0
+              }
+            }
+          },
+          "orientation": {
+            "type": "object",
+            "description": "Euler angles in degrees - optional for load and setPose operations",
+            "properties": {
+              "roll": {
+                "type": "number",
+                "default": 0,
+                "description": "Roll in degrees"
+              },
+              "pitch": {
+                "type": "number",
+                "default": 0,
+                "description": "Pitch in degrees"
+              },
+              "yaw": {
+                "type": "number",
+                "default": 0,
+                "description": "Yaw in degrees"
+              }
+            }
+          }
+        },
+        "required": [
+          "mode"
+        ]
+      },
+      "output": {
+        "type": "object",
+        "properties": {
+          "success": {
+            "type": "boolean",
+            "description": "Whether the operation was successful"
+          },
+          "message": {
+            "type": "string",
+            "description": "Response message from CoppeliaSim"
+          },
+          "handle": {
+            "type": "integer",
+            "description": "Object handle (returned for load operation)"
+          }
+        }
+      }
     }
   },
   "properties": {
@@ -132,12 +225,13 @@
           }
         },
         "simState": {
-          "type": "integer",
-          "description": "Simulation state: 0=stopped, 1=running, 2=paused"
+          "type": "string",
+          "enum": ["stopped", "running", "paused"],
+          "description": "Simulation state"
         },
-        "speedFactor": {
-          "type": "integer",
-          "description": "Current simulation speed factor"
+        "speedMultiplier": {
+          "type": "number",
+          "description": "Current simulation speed multiplier (0.1 to 64)"
         },
         "realTime": {
           "type": "object",
@@ -216,15 +310,39 @@
           "items": {
             "type": "object",
             "properties": {
-              "name": { "type": "string" },
-              "handle": { "type": "integer" },
-              "pose": {
-                "type": "array",
-                "description": "Pose as [x,y,z,qx,qy,qz,qw]",
-                "items": { "type": "number" }
+              "name": { 
+                "type": "string",
+                "description": "Object name"
+              },
+              "handle": { 
+                "type": "integer",
+                "description": "Object handle"
+              },
+              "position": {
+                "type": "object",
+                "description": "Position coordinates",
+                "properties": {
+                  "x": { "type": "number" },
+                  "y": { "type": "number" },
+                  "z": { "type": "number" }
+                }
+              },
+              "orientation": {
+                "type": "object",
+                "description": "Orientation quaternion",
+                "properties": {
+                  "x": { "type": "number", "description": "qx" },
+                  "y": { "type": "number", "description": "qy" },
+                  "z": { "type": "number", "description": "qz" },
+                  "w": { "type": "number", "description": "qw" }
+                }
               }
             }
           }
+        },
+        "totalCount": {
+          "type": "integer",
+          "description": "Total number of objects"
         }
       },
       "forms": [

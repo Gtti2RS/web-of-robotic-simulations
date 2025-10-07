@@ -4,8 +4,9 @@ const rclnodejs = require("rclnodejs");
 const { Servient } = require("@node-wot/core");
 const { HttpServer } = require("@node-wot/binding-http");
 
-const { makeSimControl, makeManageScene } = require("../library/coppeliasim/cs_action_handlers");
+const { makeSimControl, makeManageScene, makeManageModel } = require("../library/coppeliasim/cs_action_handlers");
 const { readCoppeliaSimAssets } = require("../library/common/fileUtils");
+const { readSimStats, readModels, readPoses, combinedSSEMiddleware, setupAllObservableProperties, cleanupSubscriptions } = require("../library/coppeliasim/cs_observable_topics");
 
 class CoppeliaSimController {
   constructor(tdPath = "./cs_controller.json", rosTopic = "wot_topic", port = 8080) {
@@ -24,7 +25,7 @@ class CoppeliaSimController {
     this.startSpin();
 
     this.servient = new Servient();
-    this.servient.addServer(new HttpServer({ port: this.port }));
+    this.servient.addServer(new HttpServer({ port: this.port, middleware: combinedSSEMiddleware }));
 
     const td = JSON.parse(fs.readFileSync(this.tdPath, "utf8"));
 
@@ -34,12 +35,18 @@ class CoppeliaSimController {
     // Set up action handlers
     this.thing.setActionHandler("simControl", makeSimControl(this.node));
     this.thing.setActionHandler("manageScene", makeManageScene(this.node));
+    this.thing.setActionHandler("manageModel", makeManageModel(this.node));
 
     // Set up property handlers
     this.thing.setPropertyReadHandler("assets", readCoppeliaSimAssets);
-    this.thing.setPropertyReadHandler("simStats", this.readSimStats.bind(this));
-    this.thing.setPropertyReadHandler("models", this.readModels.bind(this));
-    this.thing.setPropertyReadHandler("poses", this.readPoses.bind(this));
+    this.thing.setPropertyReadHandler("simStats", readSimStats);
+    this.thing.setPropertyReadHandler("models", readModels);
+    this.thing.setPropertyReadHandler("poses", readPoses);
+
+    // Setup observable property subscriptions
+    const subscriptions = await setupAllObservableProperties(this.node);
+    this.observableSubscriptions = subscriptions;
+    console.log(`Set up ${subscriptions.length} observable property subscriptions`);
 
     await this.thing.expose();
     console.log(`CoppeliaSim Thing exposed at http://localhost:${this.port}/cs_controller`);
@@ -57,11 +64,7 @@ class CoppeliaSimController {
     }
     
     // Cleanup observable property subscriptions
-    this.observableSubscriptions.forEach(sub => {
-      if (sub && typeof sub.destroy === 'function') {
-        sub.destroy();
-      }
-    });
+    cleanupSubscriptions(this.observableSubscriptions);
     this.observableSubscriptions = [];
     
     if (this.node) {
@@ -70,45 +73,6 @@ class CoppeliaSimController {
     await rclnodejs.shutdown();
 
     console.log("Gracefully shut down CoppeliaSim Controller.");
-  }
-
-  /**
-   * Read simulation statistics from CoppeliaSim
-   * Placeholder implementation - would subscribe to /coppeliasim/stats topic
-   */
-  async readSimStats() {
-    // TODO: Implement subscription to /coppeliasim/stats topic
-    return {
-      timestamp: new Date().toISOString(),
-      simTime: { sec: 0, nsec: 0 },
-      simState: 0,
-      speedFactor: 0,
-      realTime: { sec: 0, nsec: 0 }
-    };
-  }
-
-  /**
-   * Read available models from CoppeliaSim
-   * Placeholder implementation - would subscribe to /coppeliasim/models topic
-   */
-  async readModels() {
-    // TODO: Implement subscription to /coppeliasim/models topic
-    return {
-      timestamp: new Date().toISOString(),
-      models: []
-    };
-  }
-
-  /**
-   * Read object poses from CoppeliaSim
-   * Placeholder implementation - would subscribe to /coppeliasim/poses topic
-   */
-  async readPoses() {
-    // TODO: Implement subscription to /coppeliasim/poses topic
-    return {
-      timestamp: new Date().toISOString(),
-      poses: []
-    };
   }
 }
 
