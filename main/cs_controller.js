@@ -6,6 +6,7 @@ const { HttpServer } = require("@node-wot/binding-http");
 
 const { makeSimControl, makeManageScene, makeManageModel } = require("../library/coppeliasim/cs_action_handlers");
 const { readCoppeliaSimAssets } = require("../library/common/fileUtils");
+const { makePublishMessage, makeSendRos2Cmd } = require("../library/common/ros2_utils");
 const { readSimStats, readModels, readPoses, combinedSSEMiddleware, setupAllObservableProperties, cleanupSubscriptions } = require("../library/coppeliasim/cs_observable_topics");
 
 class CoppeliaSimController {
@@ -36,6 +37,8 @@ class CoppeliaSimController {
     this.thing.setActionHandler("simControl", makeSimControl(this.node));
     this.thing.setActionHandler("manageScene", makeManageScene(this.node));
     this.thing.setActionHandler("manageModel", makeManageModel(this.node));
+    this.thing.setActionHandler("publishMessage", makePublishMessage(this.node));
+    this.thing.setActionHandler("sendRos2Cmd", makeSendRos2Cmd(this.node));
 
     // Set up property handlers
     this.thing.setPropertyReadHandler("assets", readCoppeliaSimAssets);

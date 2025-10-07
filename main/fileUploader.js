@@ -6,25 +6,13 @@ const path = require('path');
 const app = express();
 const PORT = 8082;
 
-// Generic upload directories (fallback for non-simulator uploads)
-const uploadDirs = {
-  world: path.join("/project-root", "upload", "world"),
-  model: path.join("/project-root", "upload", "model"),
-  launch: path.join("/project-root", "upload", "launch")
-};
-
 // Simulator-specific upload handlers
 const simulatorHandlers = {
   gazebo: require('../library/common/fileUtils').handleGazeboUpload,
+  coppeliasim: require('../library/common/fileUtils').handleCoppeliaUpload,
   // Add other simulators here in the future
-  // coppeliasim: require('./library/coppeliasim/coppeliaUpload').handleCoppeliaUpload,
   // unity: require('./library/unity/unityUpload').handleUnityUpload,
 };
-
-// Ensure upload folders exist
-Object.values(uploadDirs).forEach(dir => {
-  if (!fs.existsSync(dir)) fs.mkdirSync(dir, { recursive: true });
-});
 
 /**
  * Handle simulator-specific uploads
@@ -67,7 +55,11 @@ app.post('/upload', (req, res) => {
 
     if (err) {
       console.error('Form parse error:', err);
-      return res.status(400).json({ error: 'Error parsing the file upload' });
+      return res.status(400).json({ 
+        success: false,
+        error: 'Error parsing the file upload',
+        details: { timestamp: new Date().toISOString() }
+      });
     }
 
     let target = fields.target;
@@ -78,53 +70,84 @@ app.post('/upload', (req, res) => {
     if (Array.isArray(simulator)) simulator = simulator[0];
     if (Array.isArray(file)) file = file[0];
 
-    if (!file || typeof target !== 'string' || !(target in uploadDirs)) {
-      console.warn('Rejected upload:', { target, file });
-      return res.status(400).json({ error: 'Invalid target or missing file' });
+    if (!file) {
+      console.warn('Rejected upload: missing file');
+      return res.status(400).json({ 
+        success: false,
+        error: 'Missing file',
+        details: { 
+          requiredFields: ['file', 'simulator'],
+          timestamp: new Date().toISOString()
+        }
+      });
     }
 
-    // Handle simulator-specific uploads
-    if (simulator && simulatorHandlers[simulator]) {
-      try {
-        const result = await handleSimulatorUpload(simulator, file, target);
-        
-        // Clean up temporary file
-        fs.unlink(file.filepath, (unlinkErr) => {
-          if (unlinkErr) {
-            console.warn('Failed to delete temporary file:', unlinkErr);
-          }
-        });
-
-        console.log(`${simulator} file uploaded: ${result}`);
-        res.json({ message: result, simulator: simulator });
-        return;
-      } catch (error) {
-        console.error(`${simulator} upload error:`, error);
-        return res.status(500).json({ error: `${simulator} upload failed: ${error.message}` });
-      }
+    // Simulator is mandatory
+    if (!simulator) {
+      console.warn('Rejected upload: missing simulator');
+      return res.status(400).json({ 
+        success: false,
+        error: 'Simulator parameter is required',
+        details: {
+          supportedSimulators: Object.keys(simulatorHandlers),
+          timestamp: new Date().toISOString()
+        }
+      });
     }
 
-    // Default upload behavior (generic file upload)
-    const oldPath = file.filepath;
-    const newPath = path.join(uploadDirs[target], file.originalFilename);
+    // Validate simulator handler exists
+    if (!simulatorHandlers[simulator]) {
+      console.warn(`Rejected upload: unknown simulator '${simulator}'`);
+      return res.status(400).json({ 
+        success: false,
+        error: `Unknown simulator '${simulator}'`,
+        details: {
+          providedSimulator: simulator,
+          supportedSimulators: Object.keys(simulatorHandlers),
+          timestamp: new Date().toISOString()
+        }
+      });
+    }
 
-    // Use copyFile + unlink instead of rename to handle cross-device moves
-    fs.copyFile(oldPath, newPath, (err) => {
-      if (err) {
-        console.error('File copy error:', err);
-        return res.status(500).json({ error: 'File copy failed' });
-      }
-
-      // Delete the temporary file after successful copy
-      fs.unlink(oldPath, (unlinkErr) => {
+    // Handle simulator-specific upload
+    try {
+      const result = await handleSimulatorUpload(simulator, file, target);
+      
+      // Clean up temporary file
+      fs.unlink(file.filepath, (unlinkErr) => {
         if (unlinkErr) {
           console.warn('Failed to delete temporary file:', unlinkErr);
         }
       });
 
-      console.log(`File uploaded to: ${newPath}`);
-      res.json({ message: 'File uploaded successfully', path: newPath });
-    });
+      const fileExtension = path.extname(file.originalFilename);
+      const fileSize = file.size;
+      const fileSizeKB = (fileSize / 1024).toFixed(2);
+
+      console.log(`${simulator} file uploaded: ${result}`);
+      res.json({ 
+        success: true,
+        message: result,
+        details: {
+          simulator: simulator,
+          fileName: file.originalFilename,
+          fileExtension: fileExtension,
+          fileSize: `${fileSizeKB} KB`,
+          uploadedAt: new Date().toISOString()
+        }
+      });
+    } catch (error) {
+      console.error(`${simulator} upload error:`, error);
+      return res.status(500).json({ 
+        success: false,
+        error: error.message,
+        details: {
+          simulator: simulator,
+          fileName: file?.originalFilename || 'unknown',
+          timestamp: new Date().toISOString()
+        }
+      });
+    }
   });
 });
 

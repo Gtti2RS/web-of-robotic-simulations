@@ -18,7 +18,6 @@ const fs = require("fs/promises");
 const path = require("path");
 
 const BASE_PATH = "/project-root";
-const folderTypes = ["world", "model", "launch"];
 
 // ============================================================================
 // PUBLIC API FUNCTIONS
@@ -119,6 +118,7 @@ async function buildCategoryStructure(dirPath) {
     try {
         const entries = await fs.readdir(dirPath, { withFileTypes: true });
         const structure = {};
+        const filesInThisDir = [];
         
         for (const entry of entries) {
             const fullPath = path.join(dirPath, entry.name);
@@ -131,17 +131,29 @@ async function buildCategoryStructure(dirPath) {
             } else if (entry.isFile()) {
                 // Only include files with specified extensions
                 if (hasValidExtension(entry.name)) {
-                    // Get the immediate parent directory name
-                    const parentDir = path.basename(dirPath);
-                    if (!structure[parentDir]) {
-                        structure[parentDir] = [];
-                    }
-                    structure[parentDir].push(entry.name);
+                    // Add files to the current directory array
+                    filesInThisDir.push(entry.name);
                 }
             }
         }
         
+        // If there are files in this directory, check if we should add them directly or nested
+        if (filesInThisDir.length > 0) {
+            // If this directory has subdirectories, group files under parent dir name
+            // Otherwise, return files directly as an array
+            if (Object.keys(structure).length > 0) {
+                const parentDir = path.basename(dirPath);
+                structure[parentDir] = filesInThisDir;
+            } else {
+                // Only files, no subdirectories - return as array
+                return filesInThisDir;
+            }
+        }
+        
         // Flatten the structure - if a directory only contains arrays, merge them
+        // Preserve structure for certain key directories
+        const preserveStructure = ["models", "worlds", "launch", "scenes", "examples", "uploaded", "objects", "robots"];
+        
         const flattened = {};
         for (const [key, value] of Object.entries(structure)) {
             if (Array.isArray(value)) {
@@ -149,7 +161,7 @@ async function buildCategoryStructure(dirPath) {
             } else if (typeof value === 'object') {
                 // Check if all values in this object are arrays
                 const allArrays = Object.values(value).every(v => Array.isArray(v));
-                if (allArrays && key !== "models" && key !== "worlds" && key !== "launch" && key !== "scenes") {
+                if (allArrays && !preserveStructure.includes(key)) {
                     // Merge all arrays into one
                     const mergedArray = [];
                     for (const arr of Object.values(value)) {
@@ -243,36 +255,45 @@ async function checkFileConflict(fileName, simulator = 'gazebo') {
 }
 
 /**
- * Handle Gazebo model upload with automatic model.config generation
- * @param {Object} input - Input data containing name, content, and target
+ * Handle Gazebo file upload with automatic routing based on extension and content
+ * @param {Object} input - Input data containing name and content
  * @returns {Promise<string>} - Success message
  */
 async function handleGazeboUpload(input) {
     const data = await input.value();
-    const { name, content, target } = data;
+    const { name, content } = data;
 
-    if (!name || !content || !target || !folderTypes.includes(target)) {
-        throw new Error("Invalid upload parameters");
+    if (!name || !content) {
+        throw new Error("Invalid upload parameters: name and content are required");
     }
 
     // Extract filename without extension for model name
     const fileName = path.parse(name).name;
-    const fileExt = path.parse(name).ext;
+    const fileExt = path.parse(name).ext.toLowerCase();
     
-    // Map target types to Assets subdirectories
+    // Determine target based on file extension and content
+    let target;
     let assetsSubDir;
-    switch (target) {
-        case 'model':
-            assetsSubDir = path.join('Assets', 'gazebo', 'models', 'uploaded');
-            break;
-        case 'world':
+    
+    if (fileExt === '.py') {
+        // Python files are launch files
+        target = 'launch';
+        assetsSubDir = path.join('Assets', 'gazebo', 'launch', 'uploaded');
+    } else if (fileExt === '.sdf') {
+        // Check if SDF file is a world or model by looking for <world> tag
+        if (content.includes('<world')) {
+            target = 'world';
             assetsSubDir = path.join('Assets', 'gazebo', 'worlds', 'uploaded');
-            break;
-        case 'launch':
-            assetsSubDir = path.join('Assets', 'gazebo', 'launch', 'uploaded');
-            break;
-        default:
-            throw new Error(`Unknown target type: ${target}`);
+        } else {
+            target = 'model';
+            assetsSubDir = path.join('Assets', 'gazebo', 'models', 'uploaded');
+        }
+    } else if (fileExt === '.urdf') {
+        // URDF files are always models
+        target = 'model';
+        assetsSubDir = path.join('Assets', 'gazebo', 'models', 'uploaded');
+    } else {
+        throw new Error(`Unsupported file extension '${fileExt}'. Supported: .sdf (world/model), .urdf (model), .py (launch)`);
     }
     
     let filePath;
@@ -284,7 +305,7 @@ async function handleGazeboUpload(input) {
         filePath = path.join(modelDir, name);
         
         // Check for conflicts before creating directory
-        const hasConflict = await checkFileConflict(name);
+        const hasConflict = await checkFileConflict(name, 'gazebo');
         if (hasConflict) {
             throw new Error(`Model '${fileName}' already exists. Please choose a different name.`);
         }
@@ -305,7 +326,7 @@ async function handleGazeboUpload(input) {
         filePath = path.join(BASE_PATH, assetsSubDir, name);
         
         // Check for conflicts before saving file
-        const hasConflict = await checkFileConflict(name);
+        const hasConflict = await checkFileConflict(name, 'gazebo');
         if (hasConflict) {
             throw new Error(`File '${name}' already exists. Please choose a different name.`);
         }
@@ -337,6 +358,57 @@ function generateModelConfig(modelName, fileName, fileExt) {
   <author><name>Auto-generated</name></author>
   <description>${description}</description>
 </model>`;
+}
+
+/**
+ * Handle CoppeliaSim file upload with automatic routing based on file extension
+ * @param {Object} input - Input data containing name and content
+ * @returns {Promise<string>} - Success message
+ */
+async function handleCoppeliaUpload(input) {
+    const data = await input.value();
+    const { name, content } = data;
+
+    // Validate input parameters
+    if (!name || !content) {
+        throw new Error("Invalid upload parameters: name and content are required");
+    }
+
+    // Extract file extension
+    const fileExt = path.parse(name).ext.toLowerCase();
+    
+    // Determine target directory based on file extension
+    let assetsSubDir;
+    let targetType;
+    
+    switch (fileExt) {
+        case '.ttt':
+            assetsSubDir = path.join('Assets', 'coppeliasim', 'scenes', 'uploaded');
+            targetType = 'scene';
+            break;
+        case '.ttm':
+            assetsSubDir = path.join('Assets', 'coppeliasim', 'models', 'uploaded');
+            targetType = 'model';
+            break;
+        case '.urdf':
+            assetsSubDir = path.join('Assets', 'urdf', 'uploaded');
+            targetType = 'URDF model';
+            break;
+        default:
+            throw new Error(`Unsupported file extension '${fileExt}'. Supported: .ttt (scenes), .ttm (models), .urdf (URDF models)`);
+    }
+
+    // Check for conflicts before saving file
+    const hasConflict = await checkFileConflict(name, 'coppeliasim');
+    if (hasConflict) {
+        throw new Error(`File '${name}' already exists. Please choose a different name.`);
+    }
+
+    // Save the file
+    const filePath = path.join(BASE_PATH, assetsSubDir, name);
+    await saveFile(filePath, content);
+
+    return `CoppeliaSim ${targetType} '${name}' uploaded to '${filePath}'`;
 }
 
 // ============================================================================
@@ -447,6 +519,7 @@ module.exports = {
     readCoppeliaSimAssets,
     saveFile,
     handleGazeboUpload,
+    handleCoppeliaUpload,
     resolveFilePath,
     checkFileConflict
 };

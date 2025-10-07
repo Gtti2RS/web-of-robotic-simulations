@@ -7,8 +7,8 @@ const rcl = require('rclnodejs');
 const fs = require('fs');
 const path = require('path');
 
-const { callService, callAction } = require('../../../../library/common/ros2_service_helper');
-const { deg2quat } = require('../../../../library/common/deg2quat');
+const { callService, callAction } = require('../../../../../library/common/ros2_service_helper');
+const { deg2quat } = require('../../../../../library/common/deg2quat');
 const PORT = 8083;
 
 // Helper function to convert degrees to radians

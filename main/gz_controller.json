@@ -11,29 +11,22 @@
       }
     },
     "uploadFile": {
-      "description": "Upload a file to world/model/launch directory",
+      "description": "Upload a Gazebo file (automatically routed: .sdf files with <world> tag → worlds, other .sdf → models, .urdf → models, .py → launch)",
       "input": {
         "type": "object",
         "properties": {
           "name": {
-            "type": "string"
+            "type": "string",
+            "description": "File name with extension (.sdf, .urdf, or .py)"
           },
           "content": {
-            "type": "string"
-          },
-          "target": {
             "type": "string",
-            "enum": [
-              "world",
-              "model",
-              "launch"
-            ]
+            "description": "File content as string"
           }
         },
         "required": [
           "name",
-          "content",
-          "target"
+          "content"
         ]
       }
     },

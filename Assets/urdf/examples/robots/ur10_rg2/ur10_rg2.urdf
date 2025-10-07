@@ -2,24 +2,21 @@
 <robot name="ur10">
 
 
-  <link name="base_link">
-    <inertial>
-      <mass value="0.001" />
-      <origin xyz="0 0 0" rpy="0 0 0" />
-      <inertia ixx="1e-6" ixy="0" ixz="0" iyy="1e-6" iyz="0" izz="1e-6" />
-    </inertial>
-  </link>
+  <link name="world" />
+
+
+  <link name="base_link" />
   <link name="base_link_inertia">
     <visual>
       <origin rpy="0 0 3.141592653589793" xyz="0 0 0" />
       <geometry>
-        <mesh filename="file:///project-root/Assets/urdf/robots/ur10_rg2/meshes/visual/ur10/base.dae" />
+        <mesh filename="file:///project-root/Assets/urdf/examples/robots/ur10_rg2/meshes/visual/ur10/base.dae" />
       </geometry>
     </visual>
     <collision>
       <origin rpy="0 0 3.141592653589793" xyz="0 0 0" />
       <geometry>
-        <mesh filename="file:///project-root/Assets/urdf/robots/ur10_rg2/meshes/collision/ur10/base.stl" />
+        <mesh filename="file:///project-root/Assets/urdf/examples/robots/ur10_rg2/meshes/collision/ur10/base.stl" />
       </geometry>
     </collision>
     <inertial>
@@ -33,13 +30,13 @@
     <visual>
       <origin rpy="0 0 3.141592653589793" xyz="0 0 0" />
       <geometry>
-        <mesh filename="file:///project-root/Assets/urdf/robots/ur10_rg2/meshes/visual/ur10/shoulder.dae" />
+        <mesh filename="file:///project-root/Assets/urdf/examples/robots/ur10_rg2/meshes/visual/ur10/shoulder.dae" />
       </geometry>
     </visual>
     <collision>
       <origin rpy="0 0 3.141592653589793" xyz="0 0 0" />
       <geometry>
-        <mesh filename="file:///project-root/Assets/urdf/robots/ur10_rg2/meshes/collision/ur10/shoulder.stl" />
+        <mesh filename="file:///project-root/Assets/urdf/examples/robots/ur10_rg2/meshes/collision/ur10/shoulder.stl" />
       </geometry>
     </collision>
     <inertial>
@@ -52,13 +49,13 @@
     <visual>
       <origin rpy="1.5707963267948966 0 -1.5707963267948966" xyz="0 0 0.220941" />
       <geometry>
-        <mesh filename="file:///project-root/Assets/urdf/robots/ur10_rg2/meshes/visual/ur10/upperarm.dae" />
+        <mesh filename="file:///project-root/Assets/urdf/examples/robots/ur10_rg2/meshes/visual/ur10/upperarm.dae" />
       </geometry>
     </visual>
     <collision>
       <origin rpy="1.5707963267948966 0 -1.5707963267948966" xyz="0 0 0.220941" />
       <geometry>
-        <mesh filename="file:///project-root/Assets/urdf/robots/ur10_rg2/meshes/collision/ur10/upperarm.stl" />
+        <mesh filename="file:///project-root/Assets/urdf/examples/robots/ur10_rg2/meshes/collision/ur10/upperarm.stl" />
       </geometry>
     </collision>
     <inertial>
@@ -71,13 +68,13 @@
     <visual>
       <origin rpy="1.5707963267948966 0 -1.5707963267948966" xyz="0 0 0.049042" />
       <geometry>
-        <mesh filename="file:///project-root/Assets/urdf/robots/ur10_rg2/meshes/visual/ur10/forearm.dae" />
+        <mesh filename="file:///project-root/Assets/urdf/examples/robots/ur10_rg2/meshes/visual/ur10/forearm.dae" />
       </geometry>
     </visual>
     <collision>
       <origin rpy="1.5707963267948966 0 -1.5707963267948966" xyz="0 0 0.049042" />
       <geometry>
-        <mesh filename="file:///project-root/Assets/urdf/robots/ur10_rg2/meshes/collision/ur10/forearm.stl" />
+        <mesh filename="file:///project-root/Assets/urdf/examples/robots/ur10_rg2/meshes/collision/ur10/forearm.stl" />
       </geometry>
     </collision>
     <inertial>
@@ -90,13 +87,13 @@
     <visual>
       <origin rpy="1.5707963267948966 0 0" xyz="0 0 -0.1149" />
       <geometry>
-        <mesh filename="file:///project-root/Assets/urdf/robots/ur10_rg2/meshes/visual/ur10/wrist1.dae" />
+        <mesh filename="file:///project-root/Assets/urdf/examples/robots/ur10_rg2/meshes/visual/ur10/wrist1.dae" />
       </geometry>
     </visual>
     <collision>
       <origin rpy="1.5707963267948966 0 0" xyz="0 0 -0.1149" />
       <geometry>
-        <mesh filename="file:///project-root/Assets/urdf/robots/ur10_rg2/meshes/collision/ur10/wrist1.stl" />
+        <mesh filename="file:///project-root/Assets/urdf/examples/robots/ur10_rg2/meshes/collision/ur10/wrist1.stl" />
       </geometry>
     </collision>
     <inertial>
@@ -109,13 +106,13 @@
     <visual>
       <origin rpy="0 0 0" xyz="0 0 -0.1158" />
       <geometry>
-        <mesh filename="file:///project-root/Assets/urdf/robots/ur10_rg2/meshes/visual/ur10/wrist2.dae" />
+        <mesh filename="file:///project-root/Assets/urdf/examples/robots/ur10_rg2/meshes/visual/ur10/wrist2.dae" />
       </geometry>
     </visual>
     <collision>
       <origin rpy="0 0 0" xyz="0 0 -0.1158" />
       <geometry>
-        <mesh filename="file:///project-root/Assets/urdf/robots/ur10_rg2/meshes/collision/ur10/wrist2.stl" />
+        <mesh filename="file:///project-root/Assets/urdf/examples/robots/ur10_rg2/meshes/collision/ur10/wrist2.stl" />
       </geometry>
     </collision>
     <inertial>
@@ -128,13 +125,13 @@
     <visual>
       <origin rpy="1.5707963267948966 0 0" xyz="0 0 -0.0922" />
       <geometry>
-        <mesh filename="file:///project-root/Assets/urdf/robots/ur10_rg2/meshes/visual/ur10/wrist3.dae" />
+        <mesh filename="file:///project-root/Assets/urdf/examples/robots/ur10_rg2/meshes/visual/ur10/wrist3.dae" />
       </geometry>
     </visual>
     <collision>
       <origin rpy="1.5707963267948966 0 0" xyz="0 0 -0.0922" />
       <geometry>
-        <mesh filename="file:///project-root/Assets/urdf/robots/ur10_rg2/meshes/collision/ur10/wrist3.stl" />
+        <mesh filename="file:///project-root/Assets/urdf/examples/robots/ur10_rg2/meshes/collision/ur10/wrist3.stl" />
       </geometry>
     </collision>
     <inertial>
@@ -143,7 +140,13 @@
       <inertia ixx="0.0004" ixy="0.0" ixz="0.0" iyy="0.00041" iyz="0.0" izz="0.00034" />
     </inertial>
   </link>
-	
+
+  <joint name="base_joint" type="fixed">
+    <origin rpy="0 0 0" xyz="0 0 0" />
+    <parent link="world" />
+    <child link="base_link" />
+  </joint>
+
   <joint name="base_link-base_link_inertia" type="fixed">
     <parent link="base_link" />
     <child link="base_link_inertia" />
@@ -216,26 +219,14 @@
       soft_upper_limit="6.133185307179586" />
     <dynamics damping="0" friction="0" />
   </joint>
-  <link name="ft_frame">
-    <inertial>
-      <mass value="0.001" />
-      <origin xyz="0 0 0" rpy="0 0 0" />
-      <inertia ixx="1e-6" ixy="0" ixz="0" iyy="1e-6" iyz="0" izz="1e-6" />
-    </inertial>
-  </link>
+  <link name="ft_frame" />
   <joint name="wrist_3_link-ft_frame" type="fixed">
     <parent link="wrist_3_link" />
     <child link="ft_frame" />
     <origin rpy="3.141592653589793 0 0" xyz="0 0 0" />
   </joint>
 
-  <link name="base">
-    <inertial>
-      <mass value="0.001" />
-      <origin xyz="0 0 0" rpy="0 0 0" />
-      <inertia ixx="1e-6" ixy="0" ixz="0" iyy="1e-6" iyz="0" izz="1e-6" />
-    </inertial>
-  </link>
+  <link name="base" />
   <joint name="base_link-base_fixed_joint" type="fixed">
 
     <origin rpy="0 0 3.141592653589793" xyz="0 0 0" />
@@ -243,26 +234,14 @@
     <child link="base" />
   </joint>
 
-  <link name="flange">
-    <inertial>
-      <mass value="0.001" />
-      <origin xyz="0 0 0" rpy="0 0 0" />
-      <inertia ixx="1e-6" ixy="0" ixz="0" iyy="1e-6" iyz="0" izz="1e-6" />
-    </inertial>
-  </link>
+  <link name="flange" />
   <joint name="wrist_3-flange" type="fixed">
     <parent link="wrist_3_link" />
     <child link="flange" />
     <origin rpy="0 -1.5707963267948966 -1.5707963267948966" xyz="0 0 0" />
   </joint>
 
-  <link name="tool0">
-    <inertial>
-      <mass value="0.001" />
-      <origin xyz="0 0 0" rpy="0 0 0" />
-      <inertia ixx="1e-6" ixy="0" ixz="0" iyy="1e-6" iyz="0" izz="1e-6" />
-    </inertial>
-  </link>
+  <link name="tool0" />
   <joint name="flange-tool0" type="fixed">
 
     <origin rpy="1.5707963267948966 0 1.5707963267948966" xyz="0 0 0" />
@@ -321,19 +300,20 @@
     <plugin filename="/opt/ros/jazzy/lib/libgz_ros2_control-system.so"
       name="gz_ros2_control::GazeboSimROS2ControlPlugin">
 
-      <parameters>/project-root/Assets/urdf/robots/ur10_rg2/ur10_controllers.yaml</parameters>
+      <parameters>/project-root/Assets/urdf/examples/robots/ur10_rg2/ur10_controllers.yaml</parameters>
     </plugin>
   </gazebo>
-	
+
+
   <link name="rg2_hand">
     <visual name="rg2_hand_visual">
       <geometry>
-        <mesh filename="file:///project-root/Assets/urdf/robots/ur10_rg2/meshes/visual/rg2/hand.dae" />
+        <mesh filename="file:///project-root/Assets/urdf/examples/robots/ur10_rg2/meshes/visual/rg2/hand.dae" />
       </geometry>
     </visual>
     <collision name="rg2_hand_collision">
       <geometry>
-        <mesh filename="file:///project-root/Assets/urdf/robots/ur10_rg2/meshes/collision/rg2/hand.stl" />
+        <mesh filename="file:///project-root/Assets/urdf/examples/robots/ur10_rg2/meshes/collision/rg2/hand.stl" />
       </geometry>
     </collision>
     <inertial>
@@ -342,15 +322,16 @@
       <inertia ixx="0.0008" iyy="0.0008" izz="0.0008" ixy="0.0" ixz="0.0" iyz="0.0" />
     </inertial>
   </link>
+
   <link name="rg2_leftfinger">
     <visual>
       <geometry>
-        <mesh filename="file:///project-root/Assets/urdf/robots/ur10_rg2/meshes/visual/rg2/finger.dae" />
+        <mesh filename="file:///project-root/Assets/urdf/examples/robots/ur10_rg2/meshes/visual/rg2/finger.dae" />
       </geometry>
     </visual>
     <collision>
       <geometry>
-        <mesh filename="file:///project-root/Assets/urdf/robots/ur10_rg2/meshes/collision/rg2/finger.stl" />
+        <mesh filename="file:///project-root/Assets/urdf/examples/robots/ur10_rg2/meshes/collision/rg2/finger.stl" />
       </geometry>
     </collision>
     <inertial>
@@ -364,13 +345,13 @@
     <visual>
       <origin rpy="3.141592653589793 0 0" xyz="0 0 0" />
       <geometry>
-        <mesh filename="file:///project-root/Assets/urdf/robots/ur10_rg2/meshes/visual/rg2/finger.dae" />
+        <mesh filename="file:///project-root/Assets/urdf/examples/robots/ur10_rg2/meshes/visual/rg2/finger.dae" />
       </geometry>
     </visual>
     <collision>
       <origin rpy="3.141592653589793 0 0" xyz="0 0 0" />
       <geometry>
-        <mesh filename="file:///project-root/Assets/urdf/robots/ur10_rg2/meshes/collision/rg2/finger.stl" />
+        <mesh filename="file:///project-root/Assets/urdf/examples/robots/ur10_rg2/meshes/collision/rg2/finger.stl" />
       </geometry>
     </collision>
     <inertial>
@@ -379,13 +360,8 @@
       <inertia ixx="0.0002" iyy="0.0002" izz="0.0002" ixy="0.0" ixz="0.0" iyz="0.0" />
     </inertial>
   </link>
-  <link name="rg2_tipp">
-    <inertial>
-      <mass value="0.001" />
-      <origin xyz="0 0 0" rpy="0 0 0" />
-      <inertia ixx="1e-6" ixy="0" ixz="0" iyy="1e-6" iyz="0" izz="1e-6" />
-    </inertial>
-  </link>
+
+  <link name="rg2_tipp" />
 
 
   <joint name="tool0_rg2_mount" type="fixed">
@@ -419,7 +395,6 @@
     <child link="rg2_tipp" />
     <origin rpy="0 0 0" xyz="0.21 0 0" />
   </joint>
-
 
 
 </robot>
