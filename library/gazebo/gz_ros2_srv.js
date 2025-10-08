@@ -38,6 +38,7 @@ let vizState = false;
 let simProcessName = null; // Track the simulation process name
 let topicSubscriptions = []; // Track topic subscriptions
 let ur10Processes = new Map(); // Track UR10 processes by entity name: { config: processName, controller: childProcess }
+let currentRtf = 1.0; // Track current Real-Time Factor (default: 1.0)
 
 // Helper function to stop web video server
 async function stopWebVideoServer(node, { timeoutMs = 1000 } = {}) {
@@ -304,7 +305,7 @@ function makeSpawnEntity(node, { timeoutMs = 1000 } = {}) {
 
 /**
  * Control simulation via ROS 2 bridged service (ros_gz_interfaces/ControlWorld)
- * Input: { mode: 'pause' | 'run' | 'resume' | 'reset' }
+ * Input: { mode: 'pause' | 'run' | 'resume' | 'stop' | 'faster' | 'slower' }
  */
 function makeSimControl(node, { timeoutMs = 1000 } = {}) {
   return async function simControlAction(input) {
@@ -312,6 +313,51 @@ function makeSimControl(node, { timeoutMs = 1000 } = {}) {
 
     const world = get_world();
     if (!world) throw new Error('No active world found');
+
+    // Handle faster/slower modes
+    if (mode === 'faster' || mode === 'slower') {
+      const RTF_MIN = 0.1;
+      const RTF_MAX = 1.5;
+      const RTF_STEP = 0.1;
+      
+      let newRtf = currentRtf;
+      
+      if (mode === 'faster') {
+        newRtf = Math.min(currentRtf + RTF_STEP, RTF_MAX);
+        if (newRtf === currentRtf) {
+          return `Already at maximum RTF: ${currentRtf.toFixed(1)}`;
+        }
+      } else { // slower
+        newRtf = Math.max(currentRtf - RTF_STEP, RTF_MIN);
+        if (newRtf === currentRtf) {
+          return `Already at minimum RTF: ${currentRtf.toFixed(1)}`;
+        }
+      }
+      
+      // Call setRtf service
+      try {
+        const { resp } = await callService(
+          node,
+          {
+            srvType: 'gz_physics_bridge/srv/SetPhysics',
+            serviceName: `/world/${world}/set_physics`,
+            payload: {
+              real_time_factor: Number(newRtf)
+            }
+          },
+          { timeoutMs }
+        );
+        
+        if (resp?.success ?? resp?.ok ?? resp?.boolean) {
+          currentRtf = newRtf;
+          return `Current RTF: ${currentRtf.toFixed(1)}`;
+        } else {
+          throw new Error(resp?.message ? `SetRtf failed: ${resp.message}` : 'SetRtf failed');
+        }
+      } catch (error) {
+        throw new Error(`Failed to adjust RTF: ${error.message}`);
+      }
+    }
 
     let world_control;
     switch (mode) {
@@ -322,13 +368,13 @@ function makeSimControl(node, { timeoutMs = 1000 } = {}) {
       case 'resume':
         world_control = { pause: false };
         break;
-      case 'reset':
+      case 'stop':
         // fix gazebo reset bug to enable clean reset of visualization
         await makeResetVisualization(node, { timeoutMs });
         
         // The control service is now called inside makeResetVisualization
         // Return success message directly
-        return `reset successfully.`;
+        return `stop successfully.`;
       default:
         throw new Error(`Invalid mode: ${mode}`);
     }
@@ -382,11 +428,13 @@ async function makeResetVisualization(node, { timeoutMs = 1000 } = {}) {
       console.log(`[${new Date().toISOString()}] [makeResetVisualization] Gazebo control service succeeded`);
     }
     
-    // If visualization is enabled, refresh it using makeSetVisualization
+    // If visualization is enabled, refresh it using makeVisualizeWrite
     if (vizState) {
       console.log(`[${new Date().toISOString()}] [makeResetVisualization] Visualization is enabled, refreshing visualization`);
-      const setVisualization = makeSetVisualization(node, { timeoutMs });
-      await setVisualization({ value: async () => true });
+      const visualizeWrite = makeVisualizeWrite(node, { timeoutMs });
+      // Turn off then back on to refresh
+      await visualizeWrite(false);
+      await visualizeWrite(true);
       console.log(`[${new Date().toISOString()}] [makeResetVisualization] Visualization refreshed successfully`);
     }
     
@@ -400,90 +448,144 @@ async function makeResetVisualization(node, { timeoutMs = 1000 } = {}) {
 }
 
 /**
- * Read handler for WoT Property `visualization`.
- * Keeps state inside this module.
+ * Read handler for WoT Property `visualize`.
+ * Returns the current visualization state.
  */
-function visualizationRead() {
+function visualizeRead() {
   return vizState;
 }
 
 /**
- * Toggle visualization by spawning/removing camera model via ROS 2 services.
- * Input: boolean (true to enable, false to disable)
+ * Write handler for WoT Property `visualize`.
+ * Toggles visualization by spawning/removing camera and starting/stopping streams.
  */
-function makeSetVisualization(node, { timeoutMs = 1000 } = {}) {
-  return async function setVisualizationAction(input) {
-    const desired = await input.value();
-        
-    if (desired == vizState) {
-      return `Visualization already ${vizState ? 'enabled' : 'disabled'}`;
+function makeVisualizeWrite(node, { timeoutMs = 1000 } = {}) {
+  return async function visualizeWrite(interactionInput) {
+    // Extract the actual value from the InteractionInput object
+    let rawValue;
+    if (typeof interactionInput === 'object' && interactionInput !== null && 'value' in interactionInput) {
+      // If it's a WoT InteractionInput with a value method
+      rawValue = typeof interactionInput.value === 'function' ? await interactionInput.value() : interactionInput.value;
+    } else {
+      // Direct value
+      rawValue = interactionInput;
+    }
+    
+    // Debug: log the raw value and type
+    console.log(`[${new Date().toISOString()}] [makeVisualizeWrite] Raw value: ${JSON.stringify(rawValue)}, Type: ${typeof rawValue}`);
+    
+    // Properly parse boolean value (handles string "false" correctly)
+    let desired;
+    if (typeof rawValue === 'boolean') {
+      desired = rawValue;
+    } else if (typeof rawValue === 'string') {
+      desired = rawValue.toLowerCase() === 'true';
+    } else {
+      desired = Boolean(rawValue);
+    }
+    
+    console.log(`[${new Date().toISOString()}] [makeVisualizeWrite] Requested: ${desired}, Current: ${vizState}`);
+    
+    if (desired === vizState) {
+      console.log(`[${new Date().toISOString()}] [makeVisualizeWrite] Visualization already ${vizState ? 'enabled' : 'disabled'}`);
+      return { success: true, message: `Visualization already ${vizState ? 'enabled' : 'disabled'}` };
     }
 
     const world = get_world();
-    if (!world) throw new Error('No active world found');
+    if (!world) {
+      const error = 'No active world found';
+      console.warn(`[${new Date().toISOString()}] [makeVisualizeWrite] ${error}`);
+      throw new Error(error);
+    }
 
-    if (desired) {
-      // Spawn camera if not exists
-      if (!(await entityExists(CAMERA_NAME))) {
-        const spawn_camera = makeSpawnEntity(node, { timeoutMs });
-        await spawn_camera({ value: async () => ({
-          entity_name: CAMERA_NAME,
-          file_name: 'camera.sdf',
-          position: { x: -10, y: 0, z: 10 },
-          orientation: { roll: 0, pitch: 40, yaw: 0 }
-        }) });
-      }
-      
-      // Start image bridge using bridge manager
-      if (world) {
-        await setupBridge(node, 'image_bridge', world, { timeoutMs });
-      }
-      
-      // Start web_video_server using ROS2 process management service
-      try {
-        const webVideoCmd = `ros2 run web_video_server web_video_server --ros-args -p port:=8081 -p address:=0.0.0.0 -p server_threads:=2 -p ros_threads:=3 -p default_stream_type:=mjpeg`;
+    try {
+      if (desired) {
+        // Enable visualization
+        console.log(`[${new Date().toISOString()}] [makeVisualizeWrite] Enabling visualization...`);
         
-        const { resp: webVideoResp } = await callService(
-          node,
-          {
-            srvType: 'sim_process_supervisor_interfaces/srv/ManagedStart',
-            serviceName: '/process/managed/start',
-            payload: {
-              name: 'web_video_server',
-              cmd: webVideoCmd
-            }
-          },
-          { timeoutMs }
-        );
-        
-        if (webVideoResp?.success ?? webVideoResp?.ok ?? webVideoResp?.boolean) {
-          console.log(`[makeSetVisualization] Web video server process started via ROS2 service`);
-        } else {
-          console.warn(`[makeSetVisualization] Failed to start web video server process: ${webVideoResp?.message || 'Unknown error'}`);
+        if (!(await entityExists(CAMERA_NAME))) {
+          const spawn_camera = makeSpawnEntity(node, { timeoutMs });
+          await spawn_camera({ value: async () => ({
+            entity_name: CAMERA_NAME,
+            file_name: 'camera.sdf',
+            position: { x: -10, y: 0, z: 10 },
+            orientation: { roll: 0, pitch: 40, yaw: 0 }
+          }) });
+          console.log(`[${new Date().toISOString()}] [makeVisualizeWrite] Camera spawned`);
         }
-      } catch (error) {
-        console.error(`[makeSetVisualization] Error starting web video server process: ${error.message}`);
+        
+        // Start image bridge
+        if (world) {
+          await setupBridge(node, 'image_bridge', world, { timeoutMs });
+          console.log(`[${new Date().toISOString()}] [makeVisualizeWrite] Image bridge started`);
+        }
+        
+        // Start web_video_server
+        try {
+          const webVideoCmd = `ros2 run web_video_server web_video_server --ros-args -p port:=8081 -p address:=0.0.0.0 -p server_threads:=2 -p ros_threads:=3 -p default_stream_type:=mjpeg`;
+          
+          const { resp: webVideoResp } = await callService(
+            node,
+            {
+              srvType: 'sim_process_supervisor_interfaces/srv/ManagedStart',
+              serviceName: '/process/managed/start',
+              payload: {
+                name: 'web_video_server',
+                cmd: webVideoCmd
+              }
+            },
+            { timeoutMs }
+          );
+          
+          if (webVideoResp?.success ?? webVideoResp?.ok ?? webVideoResp?.boolean) {
+            console.log(`[${new Date().toISOString()}] [makeVisualizeWrite] Web video server started`);
+          } else {
+            console.warn(`[${new Date().toISOString()}] [makeVisualizeWrite] Failed to start web video server: ${webVideoResp?.message || 'Unknown error'}`);
+          }
+        } catch (error) {
+          console.error(`[${new Date().toISOString()}] [makeVisualizeWrite] Error starting web video server: ${error.message}`);
+        }
+        
+        vizState = true;
+        console.log(`[${new Date().toISOString()}] [makeVisualizeWrite] Visualization enabled successfully`);
+        return { success: true, message: 'Visualization enabled successfully' };
+      } else {
+        // Disable visualization
+        console.log(`[${new Date().toISOString()}] [makeVisualizeWrite] Disabling visualization...`);
+        
+        try {
+          if (await entityExists(CAMERA_NAME)) {
+            const remove_camera = makeDeleteEntity(node, { timeoutMs });
+            await remove_camera({ value: async () => ({ name: CAMERA_NAME }) });
+            console.log(`[${new Date().toISOString()}] [makeVisualizeWrite] Camera removed`);
+          }
+        } catch (error) {
+          console.error(`[${new Date().toISOString()}] [makeVisualizeWrite] Error removing camera: ${error.message}`);
+        }
+        
+        // Stop image bridge
+        try {
+          await stopBridge(node, 'image_bridge', { timeoutMs });
+          console.log(`[${new Date().toISOString()}] [makeVisualizeWrite] Image bridge stopped`);
+        } catch (error) {
+          console.error(`[${new Date().toISOString()}] [makeVisualizeWrite] Error stopping image bridge: ${error.message}`);
+        }
+        
+        // Stop web video server
+        try {
+          await stopWebVideoServer(node, { timeoutMs });
+          console.log(`[${new Date().toISOString()}] [makeVisualizeWrite] Web video server stopped`);
+        } catch (error) {
+          console.error(`[${new Date().toISOString()}] [makeVisualizeWrite] Error stopping web video server: ${error.message}`);
+        }
+        
+        vizState = false;
+        console.log(`[${new Date().toISOString()}] [makeVisualizeWrite] Visualization disabled successfully`);
+        return { success: true, message: 'Visualization disabled successfully' };
       }
-      
-      vizState = true;
-      console.log(`[makeSetVisualization] Visualization enabled`);
-      return 'Visualization enabled (camera and streams ensured via ROS2 process management).';
-    } else {
-      // Remove camera if exists
-      if (await entityExists(CAMERA_NAME)) {
-        const remove_camera = makeDeleteEntity(node, { timeoutMs });
-        await remove_camera({ value: async () => ({ name: CAMERA_NAME }) });
-      }
-      
-      // Stop image bridge using bridge manager
-      await stopBridge(node, 'image_bridge', { timeoutMs });
-      
-      // Stop web video server
-      await stopWebVideoServer(node, { timeoutMs });
-      
-      vizState = false;
-      console.log(`[makeSetVisualization] Visualization disabled`);
-      return 'Visualization disabled (camera removed if present, processes stopped via ROS2 service).';
+    } catch (error) {
+      console.error(`[${new Date().toISOString()}] [makeVisualizeWrite] Error toggling visualization: ${error.message}`);
+      return { success: false, message: `Failed to toggle visualization: ${error.message}` };
     }
   };
 }
@@ -749,6 +851,7 @@ function makeExitSimulation(node, { timeoutMs = 1000 } = {}) {
         
         // Reset state
         vizState = false;
+        currentRtf = 1.0; // Reset RTF to default
         clear_world();
         
         return `Simulation exited successfully.`;
@@ -762,6 +865,7 @@ function makeExitSimulation(node, { timeoutMs = 1000 } = {}) {
       // Fallback cleanup in case of error
       simProcessName = null;
       vizState = false;
+      currentRtf = 1.0; // Reset RTF to default
       ur10Processes.clear(); // Clear UR10 processes in fallback cleanup
       
       
@@ -1216,6 +1320,340 @@ async function handleUr10Deletion(node, entityName, { timeoutMs = 1000 } = {}) {
   return null;
 }
 
+/**
+ * Create manageModel action handler for Gazebo (wrapper for CoppeliaSim-style model management)
+ * Maps WoT model operations to Gazebo equivalents:
+ * - load -> Spawn entity
+ * - remove -> Remove entity
+ * - setPose -> Set entity pose
+ * 
+ * @param {Object} node - ROS 2 node instance
+ * @param {Object} options - Configuration options
+ * @param {number} options.timeoutMs - Operation timeout in milliseconds (default: 5000)
+ * @returns {Function} WoT action handler function
+ */
+function makeManageModel(node, { timeoutMs = 5000 } = {}) {
+  return async function manageModelAction(input) {
+    const data = await input.value();
+    const mode = data?.mode;
+
+    if (!mode) {
+      throw new Error("Missing mode for manageModel");
+    }
+
+    try {
+      switch (mode) {
+        case 'load': {
+          // Load operation: spawn entity
+          const fileName = data?.fileName;
+          const modelName = data?.modelName;
+          const position = data?.position;
+          const orientation = data?.orientation;
+
+          if (!fileName) {
+            throw new Error("fileName is required for load operation");
+          }
+
+          console.log(`[${new Date().toISOString()}] [manageModel] Load operation: ${fileName}`);
+
+          // Verify file extension is .sdf or .urdf
+          const fileExtension = fileName.toLowerCase();
+          if (!fileExtension.endsWith('.sdf') && !fileExtension.endsWith('.urdf')) {
+            return {
+              success: false,
+              message: `Invalid file extension. Model files must have .sdf or .urdf extension. Received: ${fileName}`
+            };
+          }
+
+          // Verify file exists by attempting to resolve the path
+          const resolvedPath = await resolveFilePath(fileName);
+          if (!resolvedPath) {
+            return {
+              success: false,
+              message: `Model file '${fileName}' not found in Assets directory. Please check the filename and try again.`
+            };
+          }
+
+          console.log(`[${new Date().toISOString()}] [manageModel] File verified: ${resolvedPath}`);
+
+          // Use modelName if provided, otherwise extract from fileName (without extension)
+          const entityName = modelName || path.basename(fileName, path.extname(fileName));
+
+          // Check if entity name already exists
+          const exists = await entityExists(entityName);
+          if (exists) {
+            return {
+              success: false,
+              message: `Entity '${entityName}' already exists. Please choose a different name or remove the existing entity first.`
+            };
+          }
+
+          // Spawn the entity
+          const spawnEntity = makeSpawnEntity(node, { timeoutMs });
+          const result = await spawnEntity({
+            value: async () => ({
+              entity_name: entityName,
+              file_name: fileName,
+              position: position || { x: 0, y: 0, z: 0 },
+              orientation: orientation || { roll: 0, pitch: 0, yaw: 0 }
+            })
+          });
+
+          return {
+            success: true,
+            message: result,
+            id: entityName // Return entity name as id
+          };
+        }
+
+        case 'remove': {
+          // Remove operation: remove entity
+          const id = data?.id;
+          const modelName = data?.modelName;
+
+          if (!id && !modelName) {
+            throw new Error("Either id or modelName is required for remove operation");
+          }
+
+          console.log(`[${new Date().toISOString()}] [manageModel] Remove operation: ${id || modelName}`);
+
+          // Use modelName if provided, otherwise use id as name
+          const entityName = modelName || id;
+
+          // Check if entity exists
+          const exists = await entityExists(entityName);
+          if (!exists) {
+            return {
+              success: false,
+              message: `Entity '${entityName}' not found.`
+            };
+          }
+
+          // Remove the entity
+          const deleteEntity = makeDeleteEntity(node, { timeoutMs });
+          const result = await deleteEntity({
+            value: async () => ({ name: entityName })
+          });
+
+          return {
+            success: true,
+            message: result
+          };
+        }
+
+        case 'setPose': {
+          // SetPose operation: set entity pose
+          const id = data?.id;
+          const modelName = data?.modelName;
+          const position = data?.position;
+          const orientation = data?.orientation;
+
+          if (!id && !modelName) {
+            throw new Error("Either id or modelName is required for setPose operation");
+          }
+
+          if (!orientation) {
+            throw new Error("orientation is required for setPose operation");
+          }
+
+          console.log(`[${new Date().toISOString()}] [manageModel] SetPose operation: ${id || modelName}`);
+
+          // Use modelName if provided, otherwise use id as name
+          const entityName = modelName || id;
+
+          // Check if entity exists
+          const exists = await entityExists(entityName);
+          if (!exists) {
+            return {
+              success: false,
+              message: `Entity '${entityName}' not found.`
+            };
+          }
+
+          // Set entity pose
+          const setEntityPose = makeSetEntityPose(node, { timeoutMs });
+          const result = await setEntityPose({
+            value: async () => ({
+              name: entityName,
+              position: position || { x: 0, y: 0, z: 0 },
+              orientation: orientation
+            })
+          });
+
+          return {
+            success: true,
+            message: result
+          };
+        }
+
+        default:
+          throw new Error(`Invalid mode: ${mode}. Valid modes are: load, remove, setPose`);
+      }
+    } catch (error) {
+      console.error(`[${new Date().toISOString()}] [manageModel] Error:`, error.message);
+      return {
+        success: false,
+        message: `Failed to ${mode} model: ${error.message}`
+      };
+    }
+  };
+}
+
+/**
+ * Create manageScene action handler for Gazebo (wrapper for CoppeliaSim-style scene management)
+ * Maps WoT scene operations to Gazebo equivalents:
+ * - load -> Stop current simulation + launch new scene
+ * - save -> Save current world
+ * - close -> Exit simulation
+ * 
+ * @param {Object} node - ROS 2 node instance
+ * @param {Object} options - Configuration options
+ * @param {number} options.timeoutMs - Operation timeout in milliseconds (default: 5000)
+ * @returns {Function} WoT action handler function
+ */
+function makeManageScene(node, { timeoutMs = 5000 } = {}) {
+  return async function manageSceneAction(input) {
+    const data = await input.value();
+    const mode = data?.mode;
+    const fileName = data?.fileName;
+
+    if (!mode) {
+      throw new Error("Missing mode for manageScene");
+    }
+
+    try {
+      switch (mode) {
+        case 'load': {
+          // Load operation: stop current simulation (if any) and launch new scene
+          if (!fileName) {
+            throw new Error("fileName is required for load operation");
+          }
+
+          console.log(`[${new Date().toISOString()}] [manageScene] Load operation: ${fileName}`);
+
+          // Verify file extension is .sdf or .py
+          const fileExtension = fileName.toLowerCase();
+          if (!fileExtension.endsWith('.sdf') && !fileExtension.endsWith('.py')) {
+            return {
+              success: false,
+              message: `Invalid file extension. Scene files must have .sdf or .py extension. Received: ${fileName}`
+            };
+          }
+
+          // Verify file exists by attempting to resolve the path
+          const resolvedPath = await resolveFilePath(fileName);
+          if (!resolvedPath) {
+            return {
+              success: false,
+              message: `Scene file '${fileName}' not found in Assets directory. Please check the filename and try again.`
+            };
+          }
+          
+          console.log(`[${new Date().toISOString()}] [manageScene] File verified: ${resolvedPath}`);
+
+          // Stop current simulation if running
+          if (simProcessName) {
+            console.log(`[${new Date().toISOString()}] [manageScene] Stopping current simulation before loading new scene`);
+            const exitSimulation = makeExitSimulation(node, { timeoutMs });
+            await exitSimulation({ value: async () => ({}) });
+          }
+
+          // Launch new simulation
+          console.log(`[${new Date().toISOString()}] [manageScene] Launching new scene: ${fileName}`);
+          const launchSimulation = makeLaunchSimulation(node, { timeoutMs });
+          const result = await launchSimulation({ 
+            value: async () => ({ 
+              fileName: fileName,
+              autoRun: true,
+              headless: true 
+            }) 
+          });
+
+          return {
+            success: true,
+            message: `Scene loaded successfully: ${result}`
+          };
+        }
+
+        case 'save': {
+          // Save operation: save current world
+          if (!fileName) {
+            throw new Error("fileName is required for save operation");
+          }
+
+          console.log(`[${new Date().toISOString()}] [manageScene] Save operation: ${fileName}`);
+
+          // Check if simulation is running
+          if (!simProcessName) {
+            return {
+              success: false,
+              message: "No active simulation to save. Please load a scene first."
+            };
+          }
+
+          // Remove .sdf extension if present (makeSaveWorld will add it)
+          const baseName = fileName.replace(/\.sdf$/i, '');
+
+          const saveWorld = makeSaveWorld(node, { timeoutMs });
+          const result = await saveWorld({ value: async () => ({ name: baseName }) });
+
+          return {
+            success: true,
+            message: result
+          };
+        }
+
+        case 'close': {
+          // Close operation: exit current simulation and load default empty.sdf
+          console.log(`[${new Date().toISOString()}] [manageScene] Close operation`);
+
+          if (!simProcessName) {
+            console.log(`[${new Date().toISOString()}] [manageScene] No simulation running, loading default scene`);
+          } else {
+            // Exit current simulation
+            console.log(`[${new Date().toISOString()}] [manageScene] Stopping current simulation`);
+            const exitSimulation = makeExitSimulation(node, { timeoutMs });
+            await exitSimulation({ value: async () => ({}) });
+          }
+
+          // Load default empty.sdf scene
+          console.log(`[${new Date().toISOString()}] [manageScene] Loading default scene (empty.sdf)`);
+          try {
+            const launchSimulation = makeLaunchSimulation(node, { timeoutMs });
+            await launchSimulation({ 
+              value: async () => ({ 
+                fileName: 'empty.sdf',
+                autoRun: true,
+                headless: true 
+              }) 
+            });
+
+            return {
+              success: true,
+              message: "Scene closed successfully. Default scene (empty.sdf) loaded."
+            };
+          } catch (error) {
+            console.error(`[${new Date().toISOString()}] [manageScene] Failed to load default scene:`, error.message);
+            return {
+              success: false,
+              message: `Scene closed but failed to load default scene: ${error.message}`
+            };
+          }
+        }
+
+        default:
+          throw new Error(`Invalid mode: ${mode}. Valid modes are: load, save, close`);
+      }
+    } catch (error) {
+      console.error(`[${new Date().toISOString()}] [manageScene] Error:`, error.message);
+      return {
+        success: false,
+        message: `Failed to ${mode} scene: ${error.message}`
+      };
+    }
+  };
+}
+
 module.exports = {
   makeSetRtf,
   makeDeleteEntity,
@@ -1223,9 +1661,11 @@ module.exports = {
   makeSpawnEntity,
   makeSimControl,
   makeResetVisualization,
-  makeSetVisualization,
   makeSaveWorld,
   makeLaunchSimulation,
   makeExitSimulation,
-  visualizationRead,
+  makeManageScene,
+  makeManageModel,
+  visualizeRead,
+  makeVisualizeWrite,
 };

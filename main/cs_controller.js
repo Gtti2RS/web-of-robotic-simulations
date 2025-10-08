@@ -41,6 +41,7 @@ class CoppeliaSimController {
     this.thing.setActionHandler("sendRos2Cmd", makeSendRos2Cmd(this.node));
 
     // Set up property handlers
+    this.thing.setPropertyReadHandler("visualize", () => true); // CoppeliaSim always has visualization
     this.thing.setPropertyReadHandler("assets", readCoppeliaSimAssets);
     this.thing.setPropertyReadHandler("simStats", readSimStats);
     this.thing.setPropertyReadHandler("models", readModels);

@@ -4,40 +4,41 @@
   "id": "urn:dev:wot:coppeliasim-controller",
   "base": "http://localhost:8081/",
   "actions": {
-    "simControl": {
-      "description": "Control CoppeliaSim simulation: run, pause, stop, faster, slower",
+    "publishMessage": {
+      "description": "Publish a ROS 2 string message",
       "input": {
-        "type": "object",
-        "properties": {
-          "mode": {
-            "type": "string",
-            "enum": [
-              "run",
-              "pause", 
-              "stop",
-              "faster",
-              "slower"
-            ],
-            "description": "Simulation control mode"
-          }
-        },
-        "required": [
-          "mode"
-        ]
+        "type": "string"
+      }
+    },
+    "sendRos2Cmd": {
+      "description": "Send a full ROS 2 CLI command as a string, starting with 'ros2'",
+      "input": {
+        "type": "string"
       },
       "output": {
         "type": "object",
         "properties": {
-          "success": {
-            "type": "boolean",
-            "description": "Whether the operation was successful"
+          "lines": {
+            "type": "array",
+            "items": {
+              "type": "string"
+            }
           },
-          "message": {
-            "type": "string", 
-            "description": "Response message from CoppeliaSim"
+          "raw": {
+            "type": "string"
           }
         }
       }
+    },
+    "uploadFile": {
+      "description": "Upload file via auxiliary fileUploader in multipart/form-data. Files are automatically routed to upload folders with catagories.",
+      "links": [
+        {
+          "rel": "upload",
+          "href": "http://10.157.150.3:8082/upload",
+          "type": "multipart/form-data"
+        }
+      ]
     },
     "manageScene": {
       "description": "Manage CoppeliaSim scenes: load, close, save",
@@ -169,28 +170,37 @@
         }
       }
     },
-    "publishMessage": {
-      "description": "Publish a ROS 2 string message",
+    "simControl": {
+      "description": "Control CoppeliaSim simulation: run, pause, stop, faster, slower",
       "input": {
-        "type": "string"
-      }
-    },
-    "sendRos2Cmd": {
-      "description": "Send a full ROS 2 CLI command as a string, starting with 'ros2'",
-      "input": {
-        "type": "string"
+        "type": "object",
+        "properties": {
+          "mode": {
+            "type": "string",
+            "enum": [
+              "run",
+              "pause", 
+              "stop",
+              "faster",
+              "slower"
+            ],
+            "description": "Simulation control mode"
+          }
+        },
+        "required": [
+          "mode"
+        ]
       },
       "output": {
         "type": "object",
         "properties": {
-          "lines": {
-            "type": "array",
-            "items": {
-              "type": "string"
-            }
+          "success": {
+            "type": "boolean",
+            "description": "Whether the operation was successful"
           },
-          "raw": {
-            "type": "string"
+          "message": {
+            "type": "string", 
+            "description": "Response message from CoppeliaSim"
           }
         }
       }
@@ -384,6 +394,11 @@
           "contentType": "text/event-stream"
         }
       ]
+    },
+    "visualize": {
+      "type": "boolean",
+      "readOnly": true,
+      "description": "Visualization state (always enabled for CoppeliaSim)"
     }
   }
 }
