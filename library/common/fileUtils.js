@@ -485,7 +485,12 @@ async function searchVendorAssets(fileName) {
                     // Check if fileName is in this array
                     if (value.includes(fileName)) {
                         // Key is the subdirectory name, add it to path before filename
-                        return path.join(currentPath, key, fileName);
+                        // BUT skip "ungrouped" as it's not an actual directory in the filesystem
+                        if (key === 'ungrouped') {
+                            return path.join(currentPath, fileName);
+                        } else {
+                            return path.join(currentPath, key, fileName);
+                        }
                     }
                 } else if (typeof value === 'object') {
                     // Recursively search in nested structure
