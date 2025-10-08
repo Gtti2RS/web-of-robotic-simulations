@@ -401,8 +401,8 @@
     <child link="rg2_leftfinger" />
     <origin rpy="0 0 0" xyz="0.105 0.017 0" />
     <axis xyz="0 0 1" />
-    <limit effort="20.0" lower="0.0" upper="1.18" velocity="2.0" />
-    <dynamics damping="0.5" friction="0.2" />
+    <limit effort="0.1" lower="0" upper="0.5" velocity="0.5" />
+    <dynamics damping="3.0" friction="0.8" />
   </joint>
 
   <joint name="rg2_finger_joint2" type="revolute">
@@ -410,8 +410,8 @@
     <child link="rg2_rightfinger" />
     <origin rpy="0 0 0" xyz="0.105 -0.017 0" />
     <axis xyz="0 0 -1" />
-    <limit effort="20.0" lower="0.0" upper="1.18" velocity="2.0" />
-    <dynamics damping="0.5" friction="0.2" />
+    <limit effort="0.1" lower="-0.5" upper="0" velocity="0.5" />
+    <dynamics damping="3.0" friction="0.8" />
   </joint>
 
   <joint name="rg2_hand-rg2_tipp" type="fixed">

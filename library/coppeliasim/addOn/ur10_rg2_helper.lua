@@ -8,9 +8,11 @@ ur10_base_handle = nil
 rg2_hand_handle = nil
 ur10_joint_handles = {}
 rg2_pose_publisher = nil
+joint_state_publisher = nil
 trajectory_subscriber = nil
 rg2_publish_frequency = 10.0 -- Hz
 rg2_last_publish_time = 0
+joint_state_last_publish_time = 0
 rg2_publisher_active = false
 trajectory_subscriber_active = false
 
@@ -70,19 +72,29 @@ function startUR10RG2Helper(ur10_handle)
     -- Create ROS2 publisher for pose (using String message with JSON format)
     rg2_pose_publisher = simROS2.createPublisher('/coppeliasim/rg2_tipp/pose', 'std_msgs/msg/String')
     
-    -- Create ROS2 subscriber for trajectory commands
-    trajectory_subscriber = simROS2.createSubscription('/ur10_rg2/trajectory', 'std_msgs/msg/String', 'trajectory_callback')
+    -- Create ROS2 publisher for joint states (using String message with JSON format)
+    joint_state_publisher = simROS2.createPublisher('/coppeliasim/joint_states_string', 'std_msgs/msg/String')
+    
+    -- Create ROS2 subscriber for UR10 arm joint commands (6 joints)
+    ur10_subscriber = simROS2.createSubscription('/ur10_rg2/ur10_joints', 'std_msgs/msg/String', 'ur10_callback')
+    
+    -- Create ROS2 subscriber for RG2 gripper commands (2 joints)
+    gripper_subscriber = simROS2.createSubscription('/ur10_rg2/gripper', 'std_msgs/msg/String', 'gripper_callback')
     
     rg2_publisher_active = true
     trajectory_subscriber_active = true
     rg2_last_publish_time = sim.getSimulationTime()
     
+    joint_state_last_publish_time = sim.getSimulationTime()
+    
     sim.addLog(sim.verbosity_msgs, "UR10 RG2 Helper started successfully")
     sim.addLog(sim.verbosity_msgs, "UR10 base handle: " .. tostring(ur10_base_handle))
     sim.addLog(sim.verbosity_msgs, "RG2 hand handle: " .. tostring(rg2_hand_handle))
-    sim.addLog(sim.verbosity_msgs, "Found " .. #ur10_joint_handles .. " joint handles")
+    sim.addLog(sim.verbosity_msgs, "Found " .. #ur10_joint_handles .. " joint handles (6 UR10 + 2 RG2)")
     sim.addLog(sim.verbosity_msgs, "Pose topic: /coppeliasim/rg2_tipp/pose")
-    sim.addLog(sim.verbosity_msgs, "Trajectory topic: /ur10_rg2/trajectory")
+    sim.addLog(sim.verbosity_msgs, "Joint states topic: /coppeliasim/joint_states_string")
+    sim.addLog(sim.verbosity_msgs, "UR10 arm topic: /ur10_rg2/ur10_joints")
+    sim.addLog(sim.verbosity_msgs, "RG2 gripper topic: /ur10_rg2/gripper")
     sim.addLog(sim.verbosity_msgs, "Frequency: " .. rg2_publish_frequency .. " Hz")
     
     return true
@@ -99,15 +111,23 @@ function stopUR10RG2Helper()
         if rg2_pose_publisher then
             simROS2.shutdownPublisher(rg2_pose_publisher)
         end
-        if trajectory_subscriber then
-            simROS2.shutdownSubscription(trajectory_subscriber)
+        if joint_state_publisher then
+            simROS2.shutdownPublisher(joint_state_publisher)
+        end
+        if ur10_subscriber then
+            simROS2.shutdownSubscription(ur10_subscriber)
+        end
+        if gripper_subscriber then
+            simROS2.shutdownSubscription(gripper_subscriber)
         end
     end
     
     rg2_publisher_active = false
     trajectory_subscriber_active = false
     rg2_pose_publisher = nil
-    trajectory_subscriber = nil
+    joint_state_publisher = nil
+    ur10_subscriber = nil
+    gripper_subscriber = nil
     ur10_base_handle = nil
     rg2_hand_handle = nil
     ur10_joint_handles = {}
@@ -190,7 +210,160 @@ function getUR10JointHandles(baseHandle)
     return jointHandles
 end
 
--- Trajectory callback function
+-- UR10 arm joints callback function (controls first 6 joints only)
+function ur10_callback(msg)
+    if not trajectory_subscriber_active then
+        return
+    end
+    
+    local ur10Data = msg.data
+    
+    -- Debug: log received data
+    sim.addLog(sim.verbosity_msgs, "UR10 callback received: " .. tostring(ur10Data))
+    
+    -- Parse JSON string
+    local success, result = pcall(function()
+        -- Simple JSON parsing for UR10 command format
+        local handleMatch = string.match(ur10Data, '"handle"%s*:%s*([^,}]+)')
+        local positionsMatch = string.match(ur10Data, '"positions"%s*:%s*%[([^%]]+)%]')
+        
+        if not handleMatch then
+            error("Invalid JSON format: missing 'handle' field")
+        end
+        
+        if not positionsMatch then
+            error("Invalid JSON format: missing or empty 'positions' array")
+        end
+        
+        local handle = tonumber(handleMatch:gsub("^%s*(.-)%s*$", "%1"))
+        if not handle then
+            error("Invalid handle")
+        end
+        
+        -- Parse positions array (should be 6 values for UR10)
+        local positions = {}
+        for num in string.gmatch(positionsMatch, '[-+%d%.eE]+') do
+            positions[#positions+1] = tonumber(num)
+        end
+        
+        if #positions < 6 then
+            error("Need at least 6 UR10 joint positions")
+        end
+        
+        return {handle = handle, positions = positions}
+    end)
+    
+    if not success then
+        sim.addLog(sim.verbosity_scripterrors, "Failed to parse UR10 command: " .. tostring(result))
+        return
+    end
+    
+    local handle = result.handle
+    local positions = result.positions
+    
+    -- Verify the handle matches our UR10 base
+    if handle ~= ur10_base_handle then
+        sim.addLog(sim.verbosity_scripterrors, "Handle mismatch. Expected: " .. ur10_base_handle .. ", got: " .. handle)
+        return
+    end
+    
+    -- Set UR10 joint target positions only (first 6 joints)
+    local success = true
+    for i = 1, math.min(#positions, 6) do
+        local jointHandle = ur10_joint_handles[i]
+        local position = positions[i]
+        
+        if jointHandle then
+            local setSuccess, errorMsg = pcall(sim.setJointTargetPosition, jointHandle, position)
+            if not setSuccess then
+                sim.addLog(sim.verbosity_scripterrors, "Failed to set UR10 joint " .. i .. " target position: " .. tostring(errorMsg))
+                success = false
+            end
+        end
+    end
+    
+    if success then
+        sim.addLog(sim.verbosity_msgs, "Successfully set UR10 arm target positions")
+    else
+        sim.addLog(sim.verbosity_scripterrors, "Some UR10 joint positions failed to set")
+    end
+end
+
+-- Gripper callback function (controls gripper joints only)
+function gripper_callback(msg)
+    if not trajectory_subscriber_active then
+        return
+    end
+    
+    local gripperData = msg.data
+    
+    -- Parse JSON string
+    local success, result = pcall(function()
+        -- Simple JSON parsing for gripper command format
+        local handleMatch = string.match(gripperData, '"handle"%s*:%s*([^,}]+)')
+        local positionsMatch = string.match(gripperData, '"positions"%s*:%s*%[([^%]]+)%]')
+        
+        if not handleMatch or not positionsMatch then
+            error("Invalid JSON format")
+        end
+        
+        local handle = tonumber(handleMatch:gsub("^%s*(.-)%s*$", "%1"))
+        if not handle then
+            error("Invalid handle")
+        end
+        
+        -- Parse positions array (should be 2 values for gripper)
+        local positions = {}
+        for num in string.gmatch(positionsMatch, '[-+%d%.eE]+') do
+            positions[#positions+1] = tonumber(num)
+        end
+        
+        if #positions < 2 then
+            error("Need at least 2 gripper joint positions")
+        end
+        
+        return {handle = handle, positions = positions}
+    end)
+    
+    if not success then
+        sim.addLog(sim.verbosity_scripterrors, "Failed to parse gripper command: " .. tostring(result))
+        return
+    end
+    
+    local handle = result.handle
+    local positions = result.positions
+    
+    -- Verify the handle matches our UR10 base
+    if handle ~= ur10_base_handle then
+        sim.addLog(sim.verbosity_scripterrors, "Handle mismatch. Expected: " .. ur10_base_handle .. ", got: " .. handle)
+        return
+    end
+    
+    -- Set gripper joint target positions only (last 2 joints)
+    local gripperStartIndex = #ur10_joint_handles - 1  -- Index of first gripper joint
+    local success = true
+    for i = 1, math.min(#positions, 2) do
+        local jointIndex = gripperStartIndex + i - 1
+        local jointHandle = ur10_joint_handles[jointIndex]
+        local position = positions[i]
+        
+        if jointHandle then
+            local setSuccess, errorMsg = pcall(sim.setJointTargetPosition, jointHandle, position)
+            if not setSuccess then
+                sim.addLog(sim.verbosity_scripterrors, "Failed to set gripper joint " .. i .. " target position: " .. tostring(errorMsg))
+                success = false
+            end
+        end
+    end
+    
+    if success then
+        sim.addLog(sim.verbosity_msgs, "Successfully set RG2 gripper target positions")
+    else
+        sim.addLog(sim.verbosity_scripterrors, "Some gripper joint positions failed to set")
+    end
+end
+
+-- Legacy trajectory callback function (for backward compatibility - controls all 8 joints)
 function trajectory_callback(msg)
     if not trajectory_subscriber_active then
         return
@@ -297,6 +470,46 @@ function publishRG2HandPoseOnce()
     return true
 end
 
+-- Function to publish joint states as JSON string
+function publishJointStates()
+    if not joint_state_publisher or not rg2_publisher_active then
+        return
+    end
+    
+    -- Get joint names
+    local joint_names = {
+        "shoulder_pan_joint",
+        "shoulder_lift_joint", 
+        "elbow_joint",
+        "wrist_1_joint",
+        "wrist_2_joint",
+        "wrist_3_joint",
+        "rg2_finger_joint1",
+        "rg2_finger_joint2"
+    }
+    
+    -- Get joint positions from all joints (UR10 + RG2)
+    local positions = {}
+    for i = 1, #ur10_joint_handles do
+        positions[i] = sim.getJointPosition(ur10_joint_handles[i])
+    end
+    
+    -- If we have less than 8 joints, pad with zeros
+    while #positions < 8 do
+        positions[#positions + 1] = 0.0
+    end
+    
+    -- Build JSON string
+    local names_str = '["' .. table.concat(joint_names, '","') .. '"]'
+    local positions_str = "[" .. table.concat(positions, ",") .. "]"
+    
+    local joint_state_json = string.format('{"names":%s,"positions":%s,"velocities":[],"efforts":[]}',
+        names_str, positions_str)
+    
+    -- Publish
+    simROS2.publish(joint_state_publisher, {data = joint_state_json})
+end
+
 -- Function to set publish frequency
 function setRG2PublishFrequency(frequency)
     if frequency > 0 then
@@ -362,14 +575,20 @@ function sysCall_actuation()
         original_actuation()
     end
     
-    -- Publish RG2 hand pose if active
+    -- Publish RG2 hand pose and joint states if active
     if rg2_publisher_active and simROS2 then
         local current_time = sim.getSimulationTime()
         local time_diff = current_time - rg2_last_publish_time
+        local joint_time_diff = current_time - joint_state_last_publish_time
         
         if time_diff >= (1.0 / rg2_publish_frequency) then
             publishRG2HandPose()
             rg2_last_publish_time = current_time
+        end
+        
+        if joint_time_diff >= (1.0 / rg2_publish_frequency) then
+            publishJointStates()
+            joint_state_last_publish_time = current_time
         end
     end
 end
@@ -455,11 +674,16 @@ function showHelp()
     sim.addLog(sim.verbosity_msgs, "")
     sim.addLog(sim.verbosity_msgs, "ROS2 Topics:")
     sim.addLog(sim.verbosity_msgs, "  /coppeliasim/rg2_tipp/pose - RG2 hand pose (std_msgs/msg/String)")
-    sim.addLog(sim.verbosity_msgs, "  /ur10_rg2/trajectory - Trajectory commands (std_msgs/msg/String)")
+    sim.addLog(sim.verbosity_msgs, "  /ur10_rg2/ur10_joints - UR10 arm control (6 joints, std_msgs/msg/String)")
+    sim.addLog(sim.verbosity_msgs, "  /ur10_rg2/gripper - RG2 gripper control (2 joints, std_msgs/msg/String)")
     sim.addLog(sim.verbosity_msgs, "")
-    sim.addLog(sim.verbosity_msgs, "Trajectory Format:")
-    sim.addLog(sim.verbosity_msgs, '  {"handle":30,"positions":[j1,j2,j3,j4,j5,j6,j7,j8]}')
-    sim.addLog(sim.verbosity_msgs, "  Joint order: shoulder_pan, shoulder_lift, elbow, wrist_1, wrist_2, wrist_3, rg2_finger1, rg2_finger2")
+    sim.addLog(sim.verbosity_msgs, "UR10 Joints Format:")
+    sim.addLog(sim.verbosity_msgs, '  {"handle":30,"positions":[j1,j2,j3,j4,j5,j6]}')
+    sim.addLog(sim.verbosity_msgs, "  Joint order: shoulder_pan, shoulder_lift, elbow, wrist_1, wrist_2, wrist_3")
+    sim.addLog(sim.verbosity_msgs, "")
+    sim.addLog(sim.verbosity_msgs, "Gripper Format:")
+    sim.addLog(sim.verbosity_msgs, '  {"handle":30,"positions":[finger1, finger2]}')
+    sim.addLog(sim.verbosity_msgs, "  finger1 = rg2_finger_joint1, finger2 = rg2_finger_joint2")
 end
 
 -- Initialization message

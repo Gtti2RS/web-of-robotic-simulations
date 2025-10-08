@@ -4,6 +4,12 @@ apt install ros-jazzy-ros2controlcli
 apt install ros-jazzy-ros2-controllers ros-jazzy-joint-state-broadcaster
 apt install ros-jazzy-ur
 rclnodejs generate msgs
+# for coppeliasim:
+apt install ros-jazzy-moveit
+apt install ros-jazzy-ur-moveit-config
+apt install ros-jazzy-ur-robot-driver
+sudo apt install python3-numpy python3-yaml python3-pydantic python3-toml python3-lxml
+export PYTHONPATH=/usr/lib/python3/dist-packages:$PYTHONPATH
 
 Robot notes:
 - currently only ur10_rg2 can be controlled, refer Assets/urdf/robots/ur10_rg2 to support more robots

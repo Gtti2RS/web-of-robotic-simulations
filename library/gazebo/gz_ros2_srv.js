@@ -799,8 +799,8 @@ function generateUr10ProcessNames(entityName) {
  */
 function getUr10ProcessCommands() {
   return {
-    config: 'bash /project-root/Assets/urdf/robots/ur10_rg2/ur10_config.sh',
-    controller: 'node /project-root/Assets/urdf/robots/ur10_rg2/ur10_server.js'
+    config: 'bash /project-root/Assets/urdf/examples/robots/ur10_rg2/ur10_config.sh',
+    controller: 'node /project-root/Assets/urdf/examples/robots/ur10_rg2/ur10_server.js'
   };
 }
 
@@ -924,7 +924,7 @@ async function startUr10Process(node, processName, command, { timeoutMs = 1000 }
  * Start UR10 controller as a child process
  */
 function startUr10ControllerChildProcess(entityName) {
-  const controllerPath = path.join(__dirname, '../../Assets/urdf/robots/ur10_rg2/ur10_server.js');
+  const controllerPath = path.join(__dirname, '../../Assets/urdf/examples/robots/ur10_rg2/ur10_server.js');
   
   console.log(`[${new Date().toISOString()}] [startUr10ControllerChildProcess] Starting UR10 controller child process for ${entityName}`);
   console.log(`[${new Date().toISOString()}] [startUr10ControllerChildProcess] Controller path: ${controllerPath}`);
