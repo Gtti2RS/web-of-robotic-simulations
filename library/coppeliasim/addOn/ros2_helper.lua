@@ -2,6 +2,23 @@ sim=require'sim'
 simROS2=require'simROS2'
 simURDF = require'simURDF'
 
+-- Load UR10 RG2 Helper functions
+-- Container path to the helper script
+local helperPath = "/project-root/library/coppeliasim/addOn/ur10_rg2_helper.lua"
+
+sim.addLog(sim.verbosity_msgs, "Loading UR10 RG2 Helper from: " .. helperPath)
+local success, result = pcall(dofile, helperPath)
+
+if success then
+    sim.addLog(sim.verbosity_msgs, "UR10 RG2 Helper loaded successfully!")
+else
+    local errorMsg = tostring(result)
+    sim.addLog(sim.verbosity_scripterrors, "CRITICAL: Failed to load UR10 RG2 Helper!")
+    sim.addLog(sim.verbosity_scripterrors, "Path tried: " .. helperPath)
+    sim.addLog(sim.verbosity_scripterrors, "Error: " .. errorMsg)
+    error("UR10 RG2 Helper is required but could not be loaded from: " .. helperPath)
+end
+
 function sysCall_init()
     if simROS2 then
         sim.addLog(sim.verbosity_msgs,"ROS2 interface was found.")
@@ -338,6 +355,12 @@ function manageModel_callback(msg)
                 end
             end
             
+            -- Check if UR10 RG2 helper should handle this model load
+            local ur10Message = ur10_rg2_handleModelLoad(modelPath, handle, isUrdf)
+            if ur10Message then
+                messages[#messages+1] = ur10Message
+            end
+            
             -- Build response message
             local message = isUrdf and "URDF model loaded successfully" or "Model loaded successfully"
             if #messages > 0 then
@@ -362,6 +385,9 @@ function manageModel_callback(msg)
             if not handle then
                 return '{"success":false,"message":"Invalid handle provided","timestamp":"' .. os.date("%Y-%m-%d %H:%M:%S") .. '"}'
             end
+            
+            -- Check if UR10 RG2 helper should handle this model removal
+            ur10_rg2_handleModelRemove(handle)
             
             local removeSuccess, errorMsg = pcall(sim.removeModel, handle)
             if removeSuccess then
@@ -578,6 +604,9 @@ function sysCall_actuation()
         publishThrottledStats()
         publishClock()  -- Publish clock at full simulation frequency (no throttling)
     end
+    
+    -- UR10 RG2 Helper actuation
+    ur10_rg2_actuation()
 end
 
 function sysCall_sensing()
@@ -602,6 +631,9 @@ function sysCall_afterSimulation()
 end
 
 function sysCall_cleanup()
+    -- UR10 RG2 Helper cleanup
+    ur10_rg2_cleanup()
+    
     if simROS2 then
         simROS2.shutdownService(startSimService)
         simROS2.shutdownService(pauseSimService)

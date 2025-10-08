@@ -567,31 +567,9 @@ function listRG2Objects()
     return rg2Objects
 end
 
--- Override the main script's actuation function to publish when active
-local original_actuation = sysCall_actuation
-function sysCall_actuation()
-    -- Call original actuation if it exists
-    if original_actuation then
-        original_actuation()
-    end
-    
-    -- Publish RG2 hand pose and joint states if active
-    if rg2_publisher_active and simROS2 then
-        local current_time = sim.getSimulationTime()
-        local time_diff = current_time - rg2_last_publish_time
-        local joint_time_diff = current_time - joint_state_last_publish_time
-        
-        if time_diff >= (1.0 / rg2_publish_frequency) then
-            publishRG2HandPose()
-            rg2_last_publish_time = current_time
-        end
-        
-        if joint_time_diff >= (1.0 / rg2_publish_frequency) then
-            publishJointStates()
-            joint_state_last_publish_time = current_time
-        end
-    end
-end
+-- Note: sysCall_actuation integration is now handled by ros2_helper.lua
+-- The actuation logic calls publishRG2HandPose() and publishJointStates()
+-- when rg2_publisher_active is true
 
 -- Function to debug and list all objects in scene
 function listAllObjects()
@@ -688,3 +666,64 @@ end
 
 -- Initialization message
 sim.addLog(sim.verbosity_msgs, "UR10 RG2 Helper script loaded. Type showHelp() for available functions.")
+
+--[[
+    Integration Functions for ros2_helper.lua
+    These wrapper functions allow ros2_helper to trigger UR10 RG2 actions
+    without containing UR10-specific logic
+]]
+
+-- Handle model load event - auto-start if it's the UR10 RG2 URDF
+function ur10_rg2_handleModelLoad(modelPath, handle, isUrdf)
+    -- Check if this is the UR10 RG2 URDF
+    if isUrdf and string.match(modelPath, "ur10_rg2_coppelia%.urdf") then
+        sim.addLog(sim.verbosity_msgs, "Detected UR10 RG2 URDF load. Auto-starting UR10 RG2 Helper...")
+        local helperStarted = startUR10RG2Helper(handle)
+        if helperStarted then
+            sim.addLog(sim.verbosity_msgs, "UR10 RG2 Helper started automatically for handle: " .. handle)
+            return "UR10 RG2 Helper auto-started"
+        else
+            sim.addLog(sim.verbosity_scripterrors, "Failed to auto-start UR10 RG2 Helper")
+            return "UR10 RG2 Helper failed to auto-start"
+        end
+    end
+    return nil  -- Not a UR10 RG2 model, no action taken
+end
+
+-- Handle model remove event - auto-stop if it's the active UR10 RG2 model
+function ur10_rg2_handleModelRemove(handle)
+    -- Check if this is the UR10 RG2 model and stop helper if active
+    if ur10_base_handle and handle == ur10_base_handle then
+        sim.addLog(sim.verbosity_msgs, "Detected UR10 RG2 model removal. Stopping UR10 RG2 Helper...")
+        stopUR10RG2Helper()
+        return true  -- Helper was stopped
+    end
+    return false  -- Not the UR10 RG2 model
+end
+
+-- Handle actuation cycle - publish RG2 pose and joint states if active
+function ur10_rg2_actuation()
+    if rg2_publisher_active and simROS2 then
+        local current_time = sim.getSimulationTime()
+        local time_diff = current_time - rg2_last_publish_time
+        local joint_time_diff = current_time - joint_state_last_publish_time
+        
+        if time_diff >= (1.0 / rg2_publish_frequency) then
+            publishRG2HandPose()
+            rg2_last_publish_time = current_time
+        end
+        
+        if joint_time_diff >= (1.0 / rg2_publish_frequency) then
+            publishJointStates()
+            joint_state_last_publish_time = current_time
+        end
+    end
+end
+
+-- Handle cleanup - stop helper if active
+function ur10_rg2_cleanup()
+    if rg2_publisher_active then
+        sim.addLog(sim.verbosity_msgs, "Cleanup: Stopping UR10 RG2 Helper...")
+        stopUR10RG2Helper()
+    end
+end
