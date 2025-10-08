@@ -7,10 +7,18 @@ const HttpServer = require('@node-wot/binding-http').HttpServer;
 const rcl = require('rclnodejs');
 const fs = require('fs');
 const path = require('path');
+const { spawn } = require('child_process'); // For child process management
 
 const { callService } = require('../../../../../library/common/ros2_service_helper');
 const { deg2quat } = require('../../../../../library/common/deg2quat');
 const PORT = 8082;
+
+// Track child processes (MoveIt stack)
+const childProcesses = {
+  robot_state_publisher: null,
+  joint_state_bridge: null,
+  move_group: null
+};
 
 // Helper function to convert degrees to radians
 function deg2rad(degrees) {

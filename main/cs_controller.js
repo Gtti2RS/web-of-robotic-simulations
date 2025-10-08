@@ -4,7 +4,7 @@ const rclnodejs = require("rclnodejs");
 const { Servient } = require("@node-wot/core");
 const { HttpServer } = require("@node-wot/binding-http");
 
-const { makeSimControl, makeManageScene, makeManageModel } = require("../library/coppeliasim/cs_action_handlers");
+const { makeSimControl, makeManageScene, makeManageModel, stopAllUR10Processes } = require("../library/coppeliasim/cs_action_handlers");
 const { readCoppeliaSimAssets } = require("../library/common/fileUtils");
 const { makePublishMessage, makeSendRos2Cmd } = require("../library/common/ros2_utils");
 const { readSimStats, readModels, readPoses, combinedSSEMiddleware, setupAllObservableProperties, cleanupSubscriptions } = require("../library/coppeliasim/cs_observable_topics");
@@ -65,6 +65,10 @@ class CoppeliaSimController {
     if (this.spinInterval) {
       clearInterval(this.spinInterval);
     }
+    
+    // Stop all UR10 child processes
+    console.log("Stopping UR10 child processes...");
+    stopAllUR10Processes();
     
     // Cleanup observable property subscriptions
     cleanupSubscriptions(this.observableSubscriptions);

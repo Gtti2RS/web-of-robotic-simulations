@@ -24,6 +24,10 @@ const { resolveFilePath, checkFileConflict } = require('../common/fileUtils');
 const { deg2quat } = require('../common/deg2quat');
 const fs = require('fs').promises;
 const path = require('path');
+const { spawn } = require('child_process'); // For UR10 child process management
+
+// Track UR10 processes by model handle: { moveit: childProcess, wotServer: childProcess }
+let ur10Processes = new Map();
 
 /**
  * Map CoppeliaSim speed factor (-3 to 6) to actual speed multiplier
@@ -44,6 +48,140 @@ function speedFactorToMultiplier(speedFactor) {
     '6': 64
   };
   return mapping[String(speedFactor)] ?? 1;
+}
+
+/**
+ * Check if a file is a UR10 RG2 model
+ */
+function isUR10Model(fileName) {
+  return fileName && fileName.includes('ur10_rg2_coppelia.urdf');
+}
+
+/**
+ * Spawn MoveIt stack child process for UR10 RG2
+ */
+function spawnMoveItStack(modelHandle) {
+  console.log(`[${new Date().toISOString()}] [spawnMoveItStack] Starting MoveIt stack for handle ${modelHandle}...`);
+  
+  const script = '/project-root/library/coppeliasim/start_moveit.sh';
+  const moveit = spawn('bash', [script], {
+    stdio: ['ignore', 'pipe', 'pipe'],
+    detached: false
+  });
+  
+  moveit.stdout.on('data', (data) => {
+    console.log(`[${new Date().toISOString()}] [moveit_${modelHandle}:stdout] ${data.toString().trim()}`);
+  });
+  
+  moveit.stderr.on('data', (data) => {
+    console.error(`[${new Date().toISOString()}] [moveit_${modelHandle}:stderr] ${data.toString().trim()}`);
+  });
+  
+  moveit.on('error', (error) => {
+    console.error(`[${new Date().toISOString()}] [spawnMoveItStack] Error for handle ${modelHandle}:`, error.message);
+  });
+  
+  moveit.on('exit', (code, signal) => {
+    console.log(`[${new Date().toISOString()}] [spawnMoveItStack] MoveIt stack exited for handle ${modelHandle}: code=${code}, signal=${signal}`);
+  });
+  
+  console.log(`[${new Date().toISOString()}] [spawnMoveItStack] MoveIt stack started, PID: ${moveit.pid}`);
+  return moveit;
+}
+
+/**
+ * Spawn WoT server child process for UR10 RG2
+ */
+function spawnWoTServer(modelHandle) {
+  console.log(`[${new Date().toISOString()}] [spawnWoTServer] Starting WoT server for handle ${modelHandle}...`);
+  
+  const serverPath = '/project-root/Assets/urdf/examples/robots/ur10_rg2/ur10_server_coppelia.js';
+  const wotServer = spawn('node', [serverPath], {
+    stdio: ['ignore', 'pipe', 'pipe'],
+    detached: false
+  });
+  
+  wotServer.stdout.on('data', (data) => {
+    console.log(`[${new Date().toISOString()}] [wot_server_${modelHandle}:stdout] ${data.toString().trim()}`);
+  });
+  
+  wotServer.stderr.on('data', (data) => {
+    console.error(`[${new Date().toISOString()}] [wot_server_${modelHandle}:stderr] ${data.toString().trim()}`);
+  });
+  
+  wotServer.on('error', (error) => {
+    console.error(`[${new Date().toISOString()}] [spawnWoTServer] Error for handle ${modelHandle}:`, error.message);
+  });
+  
+  wotServer.on('exit', (code, signal) => {
+    console.log(`[${new Date().toISOString()}] [spawnWoTServer] WoT server exited for handle ${modelHandle}: code=${code}, signal=${signal}`);
+  });
+  
+  console.log(`[${new Date().toISOString()}] [spawnWoTServer] WoT server started, PID: ${wotServer.pid}`);
+  return wotServer;
+}
+
+/**
+ * Stop UR10 processes for a specific model
+ */
+function stopUR10Processes(modelHandle) {
+  if (!ur10Processes.has(modelHandle)) {
+    console.log(`[${new Date().toISOString()}] [stopUR10Processes] No processes found for handle ${modelHandle}`);
+    return { success: true, message: 'No processes found' };
+  }
+  
+  const processes = ur10Processes.get(modelHandle);
+  console.log(`[${new Date().toISOString()}] [stopUR10Processes] Stopping processes for handle ${modelHandle}...`);
+  
+  const results = { moveit: false, wotServer: false };
+  
+  // Stop MoveIt stack
+  if (processes.moveit) {
+    try {
+      processes.moveit.kill('SIGTERM');
+      results.moveit = true;
+      console.log(`[${new Date().toISOString()}] [stopUR10Processes] MoveIt stack stopped, PID: ${processes.moveit.pid}`);
+    } catch (error) {
+      console.error(`[${new Date().toISOString()}] [stopUR10Processes] Error stopping MoveIt:`, error.message);
+    }
+  }
+  
+  // Stop WoT server
+  if (processes.wotServer) {
+    try {
+      processes.wotServer.kill('SIGTERM');
+      results.wotServer = true;
+      console.log(`[${new Date().toISOString()}] [stopUR10Processes] WoT server stopped, PID: ${processes.wotServer.pid}`);
+    } catch (error) {
+      console.error(`[${new Date().toISOString()}] [stopUR10Processes] Error stopping WoT server:`, error.message);
+    }
+  }
+  
+  ur10Processes.delete(modelHandle);
+  return { success: results.moveit || results.wotServer, results };
+}
+
+/**
+ * Stop all UR10 processes
+ */
+function stopAllUR10Processes() {
+  if (ur10Processes.size === 0) {
+    console.log(`[${new Date().toISOString()}] [stopAllUR10Processes] No processes to stop`);
+    return { success: true, stoppedCount: 0 };
+  }
+  
+  console.log(`[${new Date().toISOString()}] [stopAllUR10Processes] Stopping ${ur10Processes.size} UR10 instances...`);
+  let stoppedCount = 0;
+  
+  for (const [handle, processes] of ur10Processes) {
+    const result = stopUR10Processes(handle);
+    if (result.success) stoppedCount++;
+  }
+  
+  ur10Processes.clear();
+  console.log(`[${new Date().toISOString()}] [stopAllUR10Processes] Stopped ${stoppedCount} UR10 instances`);
+  
+  return { success: true, stoppedCount };
 }
 
 /**
@@ -655,9 +793,45 @@ function makeManageModel(node, { timeoutMs = 5000 } = {}) {
       // Clean up publisher
       node.destroyPublisher(commandPub);
 
+      // Handle UR10 process management
+      let ur10Message = null;
+      if (mode === 'load' && response.success && response.handle && isUR10Model(fileName)) {
+        console.log(`[${new Date().toISOString()}] [manageModel] UR10 model detected, spawning processes for handle ${response.handle}...`);
+        
+        try {
+          // Spawn MoveIt stack and WoT server as child processes
+          const moveitProcess = spawnMoveItStack(response.handle);
+          
+          // Wait a moment for MoveIt to initialize
+          await new Promise(resolve => setTimeout(resolve, 3000));
+          
+          const wotServerProcess = spawnWoTServer(response.handle);
+          
+          // Track the processes
+          ur10Processes.set(response.handle, {
+            moveit: moveitProcess,
+            wotServer: wotServerProcess
+          });
+          
+          ur10Message = ` UR10 processes spawned (MoveIt: PID ${moveitProcess.pid}, WoT Server: PID ${wotServerProcess.pid}, available at http://localhost:8082)`;
+        } catch (error) {
+          console.error(`[${new Date().toISOString()}] [manageModel] Error spawning UR10 processes:`, error.message);
+          ur10Message = ` Warning: UR10 model loaded but processes failed to start: ${error.message}`;
+        }
+      } else if (mode === 'remove' && response.success && handle) {
+        // Stop UR10 processes if this model had them
+        if (ur10Processes.has(handle)) {
+          console.log(`[${new Date().toISOString()}] [manageModel] Stopping UR10 processes for handle ${handle}...`);
+          const stopResult = stopUR10Processes(handle);
+          if (stopResult.success) {
+            ur10Message = ` UR10 processes stopped.`;
+          }
+        }
+      }
+
       return {
         success: response.success ?? false,
-        message: response.message ?? "No message from CoppeliaSim",
+        message: (response.message ?? "No message from CoppeliaSim") + (ur10Message || ''),
         ...(response.handle !== undefined && { handle: response.handle })
       };
 
@@ -674,6 +848,7 @@ function makeManageModel(node, { timeoutMs = 5000 } = {}) {
 module.exports = {
   makeSimControl,
   makeManageScene,
-  makeManageModel
+  makeManageModel,
+  stopAllUR10Processes  // Export for cleanup on controller shutdown
 };
 

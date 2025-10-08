@@ -1,6 +1,7 @@
--- RG2 Hand Pose Publisher - Console Executable Version
--- Usage: Run this script from CoppeliaSim console to start publishing RG2 hand pose
--- Usage: startUR10RG2Helper(ur10_handle) - where ur10_handle is the handle of the UR10 base object
+-- UR10 RG2 Helper - Standalone Addon
+-- Automatically detects and manages UR10 RG2 models loaded via ROS2
+-- Monitors model load/remove events and auto-starts/stops the helper
+sim=require'sim'
 simROS2=require'simROS2'
 
 -- Global variables
@@ -667,42 +668,62 @@ end
 -- Initialization message
 sim.addLog(sim.verbosity_msgs, "UR10 RG2 Helper script loaded. Type showHelp() for available functions.")
 
---[[
-    Integration Functions for ros2_helper.lua
-    These wrapper functions allow ros2_helper to trigger UR10 RG2 actions
-    without containing UR10-specific logic
-]]
+--------------------------------------------------------------------------------
+-- Standalone Addon System Callbacks
+--------------------------------------------------------------------------------
 
--- Handle model load event - auto-start if it's the UR10 RG2 URDF
-function ur10_rg2_handleModelLoad(modelPath, handle, isUrdf)
-    -- Check if this is the UR10 RG2 URDF
-    if isUrdf and string.match(modelPath, "ur10_rg2_coppelia%.urdf") then
-        sim.addLog(sim.verbosity_msgs, "Detected UR10 RG2 URDF load. Auto-starting UR10 RG2 Helper...")
-        local helperStarted = startUR10RG2Helper(handle)
-        if helperStarted then
-            sim.addLog(sim.verbosity_msgs, "UR10 RG2 Helper started automatically for handle: " .. handle)
-            return "UR10 RG2 Helper auto-started"
-        else
-            sim.addLog(sim.verbosity_scripterrors, "Failed to auto-start UR10 RG2 Helper")
-            return "UR10 RG2 Helper failed to auto-start"
+-- Subscription for monitoring model events
+local modelResponseSub = nil
+
+
+-- Callback for model management response
+function ur10_rg2_modelResponse_callback(msg)
+    local responseData = msg.data
+    
+    -- Parse JSON response to detect UR10 RG2 model loads
+    local modelPath = string.match(responseData, '"modelPath"%s*:%s*"([^"]+)"')
+    local handle = string.match(responseData, '"handle"%s*:%s*([^,}]+)')
+    local modelType = string.match(responseData, '"modelType"%s*:%s*"([^"]+)"')
+    
+    if modelPath and handle and modelType == "urdf" then
+        handle = tonumber(handle)
+        
+        -- Check if this is the UR10 RG2 URDF
+        if string.match(modelPath, "ur10_rg2_coppelia%.urdf") then
+            sim.addLog(sim.verbosity_msgs, "UR10 RG2 Helper: Detected UR10 RG2 URDF load. Auto-starting...")
+            
+            -- Start the UR10 RG2 Helper (ROS2 publishers/subscribers)
+            local helperStarted = startUR10RG2Helper(handle)
+            if helperStarted then
+                sim.addLog(sim.verbosity_msgs, "UR10 RG2 Helper: Started successfully for handle " .. handle)
+                sim.addLog(sim.verbosity_msgs, "Note: MoveIt stack and WoT server are managed by cs_controller.js")
+            else
+                sim.addLog(sim.verbosity_scripterrors, "UR10 RG2 Helper: Failed to auto-start")
+            end
         end
     end
-    return nil  -- Not a UR10 RG2 model, no action taken
 end
 
--- Handle model remove event - auto-stop if it's the active UR10 RG2 model
-function ur10_rg2_handleModelRemove(handle)
-    -- Check if this is the UR10 RG2 model and stop helper if active
-    if ur10_base_handle and handle == ur10_base_handle then
-        sim.addLog(sim.verbosity_msgs, "Detected UR10 RG2 model removal. Stopping UR10 RG2 Helper...")
-        stopUR10RG2Helper()
-        return true  -- Helper was stopped
+-- Initialize the addon
+function sysCall_init_ur10_rg2()
+    if simROS2 then
+        sim.addLog(sim.verbosity_msgs, "UR10 RG2 Helper: Initializing standalone addon...")
+        
+        -- Subscribe to model management responses to detect UR10 RG2 loads
+        modelResponseSub = simROS2.createSubscription(
+            '/coppeliasim/manageModelResponse',
+            'std_msgs/msg/String',
+            'ur10_rg2_modelResponse_callback'
+        )
+        
+        sim.addLog(sim.verbosity_msgs, "UR10 RG2 Helper: Monitoring for UR10 RG2 model loads...")
+    else
+        sim.addLog(sim.verbosity_scripterrors, "UR10 RG2 Helper: ROS2 interface not found!")
     end
-    return false  -- Not the UR10 RG2 model
 end
 
 -- Handle actuation cycle - publish RG2 pose and joint states if active
-function ur10_rg2_actuation()
+function sysCall_actuation_ur10_rg2()
     if rg2_publisher_active and simROS2 then
         local current_time = sim.getSimulationTime()
         local time_diff = current_time - rg2_last_publish_time
@@ -720,10 +741,17 @@ function ur10_rg2_actuation()
     end
 end
 
--- Handle cleanup - stop helper if active
-function ur10_rg2_cleanup()
+-- Cleanup on addon shutdown
+function sysCall_cleanup_ur10_rg2()
     if rg2_publisher_active then
-        sim.addLog(sim.verbosity_msgs, "Cleanup: Stopping UR10 RG2 Helper...")
+        sim.addLog(sim.verbosity_msgs, "UR10 RG2 Helper: Cleanup - Stopping helper...")
         stopUR10RG2Helper()
     end
+    
+    if simROS2 and modelResponseSub then
+        simROS2.shutdownSubscription(modelResponseSub)
+    end
+    
+    sim.addLog(sim.verbosity_msgs, "UR10 RG2 Helper: Addon shutdown complete")
+    sim.addLog(sim.verbosity_msgs, "Note: MoveIt stack and WoT server cleanup handled by cs_controller.js")
 end
