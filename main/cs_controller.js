@@ -54,6 +54,22 @@ class CoppeliaSimController {
 
     await this.thing.expose();
     console.log(`CoppeliaSim Thing exposed at http://localhost:${this.port}/cs_controller`);
+
+    // Automatically start simulation
+    console.log("Auto-starting simulation...");
+    try {
+      const simControlHandler = makeSimControl(this.node);
+      const result = await simControlHandler({
+        value: async () => ({ mode: 'run' })
+      });
+      if (result.success) {
+        console.log("✓ Simulation started automatically:", result.message);
+      } else {
+        console.warn("⚠ Failed to auto-start simulation:", result.message);
+      }
+    } catch (error) {
+      console.error("✗ Error auto-starting simulation:", error.message);
+    }
   }
 
   startSpin() {
