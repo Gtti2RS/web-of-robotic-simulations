@@ -73,13 +73,6 @@ const sharedPoseMessageHandler = (msg) => {
     const data = JSON.parse(msg.data);
     sharedPoseData = data;
     
-    // Update poses property with full pose data
-    sseManager.updateData("poses", {
-      ...data,
-      timestamp: new Date().toISOString()
-    });
-    
-    // Extract and update models property
     const poses = data.pose || [];
     
     // Find the first "link" entity (this marks the boundary between models and links)
@@ -91,22 +84,42 @@ const sharedPoseMessageHandler = (msg) => {
       }
     }
     
-    // Extract models (entities before the first "link")
-    const models = [];
+    // Determine the end index - stop before "link" entity
     const endIndex = linkIndex > 0 ? linkIndex : poses.length;
     
-    // System entities to exclude
+    // System entities to exclude from both poses and models
     const systemEntities = new Set([
       "ground_plane", "sun", "link", "visual", "collision", 
       "sunVisual", "base", "shoulder", "upperarm", "forearm", 
       "wrist1", "wrist2", "wrist3"
     ]);
     
+    // Filter poses - exclude ground_plane and everything from "link" onwards
+    const filteredPoses = [];
     for (let i = 0; i < endIndex; i++) {
       const entity = poses[i];
       const name = entity.name;
       
-      // Skip system entities
+      // Skip ground_plane specifically, but keep other system entities like "sun" for poses
+      if (name && name !== "ground_plane") {
+        filteredPoses.push(entity);
+      }
+    }
+    
+    // Update poses property with filtered data
+    sseManager.updateData("poses", {
+      header: data.header,
+      pose: filteredPoses,
+      timestamp: new Date().toISOString()
+    });
+    
+    // Extract models (entities before the first "link", excluding all system entities)
+    const models = [];
+    for (let i = 0; i < endIndex; i++) {
+      const entity = poses[i];
+      const name = entity.name;
+      
+      // Skip all system entities for models
       if (name && !systemEntities.has(name)) {
         // Include all non-system entities, including those with underscores (like box_0, cylinder_0)
         models.push({
