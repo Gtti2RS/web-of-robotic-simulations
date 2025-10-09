@@ -289,9 +289,9 @@ async function handleGazeboUpload(input) {
             assetsSubDir = path.join('Assets', 'gazebo', 'models', 'uploaded');
         }
     } else if (fileExt === '.urdf') {
-        // URDF files are always models
-        target = 'model';
-        assetsSubDir = path.join('Assets', 'gazebo', 'models', 'uploaded');
+        // URDF files go to shared urdf/uploaded folder
+        target = 'urdf';
+        assetsSubDir = path.join('Assets', 'urdf', 'uploaded');
     } else {
         throw new Error(`Unsupported file extension '${fileExt}'. Supported: .sdf (world/model), .urdf (model), .py (launch)`);
     }
@@ -299,8 +299,8 @@ async function handleGazeboUpload(input) {
     let filePath;
     let resultMessage;
     
-    if (target === 'model') {
-        // For models: create folder structure and model.config
+    if (target === 'model' || target === 'urdf') {
+        // For SDF and URDF models: create folder structure and model.config
         const modelDir = path.join(BASE_PATH, assetsSubDir, fileName);
         filePath = path.join(modelDir, name);
         
@@ -320,7 +320,8 @@ async function handleGazeboUpload(input) {
         const configPath = path.join(modelDir, 'model.config');
         await saveFile(configPath, modelConfigContent);
         
-        resultMessage = `Gazebo model '${fileName}' uploaded to '${modelDir}' with auto-generated model.config`;
+        const modelType = target === 'urdf' ? 'URDF model' : 'model';
+        resultMessage = `Gazebo ${modelType} '${fileName}' uploaded to '${modelDir}' with auto-generated model.config`;
     } else {
         // For world and launch files: save directly without creating subfolders
         filePath = path.join(BASE_PATH, assetsSubDir, name);
@@ -330,6 +331,9 @@ async function handleGazeboUpload(input) {
         if (hasConflict) {
             throw new Error(`File '${name}' already exists. Please choose a different name.`);
         }
+        
+        // Create directory if it doesn't exist
+        await fs.mkdir(path.join(BASE_PATH, assetsSubDir), { recursive: true });
         
         await saveFile(filePath, content);
         

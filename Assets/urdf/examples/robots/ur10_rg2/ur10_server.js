@@ -78,9 +78,9 @@ function checkTrajectoryResult(result) {
       default:
         errorMsg += `Trajectory execution failed with error code ${trajectoryErrorCode}.`;
     }
-    return errorMsg;
+    return { success: false, message: errorMsg };
   }
-  return 'Motion executed successfully.';
+  return { success: true, message: 'Motion executed successfully.' };
 }
 
 
@@ -206,7 +206,7 @@ async function main() {
         default:
           errorMsg += `IK solver failed with error code ${ikErrorCode}.`;
       }
-      return errorMsg;
+      return { success: false, message: errorMsg };
     }
 
     // Extract joint solution and send to FollowJointTrajectory action
@@ -318,7 +318,7 @@ async function main() {
     
     // Validate input object
     if (!data || typeof data !== 'object') {
-      return 'Motion failed: Invalid input. Expected object with joint positions.';
+      return { success: false, message: 'Motion failed: Invalid input. Expected object with joint positions.' };
     }
 
     const targetJointOrder = [
@@ -393,7 +393,7 @@ async function main() {
         return deg2rad(finalValue); // Convert degrees to radians
       });
     } catch (error) {
-      return `Motion failed: ${error.message}`;
+      return { success: false, message: `Motion failed: ${error.message}` };
     }
 
         // Execute movement (with automatic splitting if needed)
@@ -547,7 +547,7 @@ async function main() {
       { timeoutMs: 20000, collectFeedback: false }
     );
     console.log('[WoT.gripOpen] result:', JSON.stringify(result));
-    return result;
+    return checkTrajectoryResult(result);
   });
 
   thing.setActionHandler('gripClose', async () => {
@@ -565,7 +565,7 @@ async function main() {
       { timeoutMs: 20000, collectFeedback: false }
     );
     console.log('[WoT.gripClose] result:', JSON.stringify(result));
-    return result;
+    return checkTrajectoryResult(result);
   });
 
   await thing.expose();
@@ -710,7 +710,7 @@ async function executeSplitMovements(node, targetJointOrder, currentPositions, t
   console.log(`[WoT.moveTo${movementType === 'joint' ? 'Joint' : 'Cartesian'}] Splitting into ${cappedSplits} movements (max diff: ${maxDiff.toFixed(2)}°, ${num90Steps} x 90° steps + ${remainder.toFixed(2)}° remainder)`);
 
   let currentPositionsCopy = { ...currentPositions };
-  let lastResult = 'Motion executed successfully.';
+  let lastResult = { success: true, message: 'Motion executed successfully.' };
 
   // Execute each split movement
   for (let i = 0; i < cappedSplits; i++) {
@@ -826,7 +826,7 @@ async function executeSplitMovements(node, targetJointOrder, currentPositions, t
     
     // Check result
     lastResult = checkTrajectoryResult(splitResult);
-    if (lastResult !== 'Motion executed successfully.') {
+    if (!lastResult.success) {
       return lastResult;
     }
 
