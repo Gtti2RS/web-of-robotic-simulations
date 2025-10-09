@@ -38,11 +38,11 @@ const sseManager = new SSEManager();
 
 // Property configurations - topics will be dynamically updated with world name
 const PROPERTIES = {
-  sim_stats: {
+  simStats: {
     topic: "/stats_json", // Will be updated to /world/${world}/stats_json
     messageType: "std_msgs/msg/String",
     initialData: { timestamp: new Date().toISOString(), message: "No stats received yet" },
-    ssePath: "/gz_controller/properties/sim_stats/observable"
+    ssePath: "/gz_controller/properties/simStats/observable"
   },
   poses: {
     topic: "/pose/info_json", // Will be updated to /world/${world}/pose/info_json
@@ -143,7 +143,7 @@ async function setupAllObservableProperties(node) {
     
     if (world) {
       // Update topics to include world name
-      PROPERTIES.sim_stats.topic = `/world/${world}/stats_json`;
+      PROPERTIES.simStats.topic = `/world/${world}/stats_json`;
       PROPERTIES.poses.topic = `/world/${world}/pose/info_json`;
       PROPERTIES.models.topic = `/world/${world}/pose/info_json`;
       
@@ -202,7 +202,7 @@ async function setupAllObservableProperties(node) {
 const combinedSSEMiddleware = createCombinedSSEMiddleware(PROPERTIES, sseManager);
 
 // Read handlers for all properties
-const readHandlers = createReadHandlers(['sim_stats', 'poses', 'models'], sseManager);
+const readHandlers = createReadHandlers(['simStats', 'poses', 'models'], sseManager);
 
 // Cleanup function (re-export from common)
 const cleanupSubscriptions = cleanupSubs;
@@ -226,7 +226,7 @@ function createROS2ObservableProperty(node, propertyName, topicName, messageType
 
 module.exports = {
   // Read handlers
-  readSimStats: readHandlers.sim_stats,
+  readSimStats: readHandlers.simStats,
   readPoses: readHandlers.poses,
   readModels: readHandlers.models,
   
