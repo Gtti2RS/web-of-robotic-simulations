@@ -66,10 +66,10 @@ const modelsMessageHandler = (msg) => {
   try {
     const models = JSON.parse(msg.data);
     
-    // Remove leading slash from model names
+    // Remove leading slash from model names and map handle to id
     const cleanedModels = Array.isArray(models) ? models.map(model => ({
-      ...model,
-      name: model.name && model.name.startsWith('/') ? model.name.substring(1) : model.name
+      name: model.name && model.name.startsWith('/') ? model.name.substring(1) : model.name,
+      id: model.handle  // Map handle to id
     })) : models;
     
     return {
@@ -86,7 +86,7 @@ const posesMessageHandler = (msg) => {
   try {
     const poses = JSON.parse(msg.data);
     
-    // Transform poses: remove leading slash and convert pose array to position/orientation objects
+    // Transform poses: remove leading slash, map handle to id, and convert pose array to position/orientation objects
     const transformedPoses = Array.isArray(poses) ? poses.map(poseData => {
       const cleanName = poseData.name && poseData.name.startsWith('/') ? poseData.name.substring(1) : poseData.name;
       
@@ -108,7 +108,7 @@ const posesMessageHandler = (msg) => {
       
       return {
         name: cleanName,
-        handle: poseData.handle,
+        id: poseData.handle,  // Map handle to id
         ...(position && { position }),
         ...(orientation && { orientation })
       };

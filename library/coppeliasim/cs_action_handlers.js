@@ -204,7 +204,10 @@ function makeSimControl(node, { timeoutMs = 1000 } = {}) {
     const mode = data?.mode;
 
     if (!mode) {
-      throw new Error("Missing mode for simControl");
+      return {
+        success: false,
+        message: "Missing mode for simControl"
+      };
     }
 
     let serviceName, serviceType;
@@ -231,7 +234,10 @@ function makeSimControl(node, { timeoutMs = 1000 } = {}) {
         serviceType = "std_srvs/srv/Trigger";
         break;
       default:
-        throw new Error(`Invalid mode: ${mode}. Valid modes are: run, pause, stop, faster, slower`);
+        return {
+          success: false,
+          message: `Invalid mode: ${mode}. Valid modes are: run, pause, stop, faster, slower`
+        };
     }
 
     try {
@@ -312,12 +318,18 @@ function makeManageScene(node, { timeoutMs = 5000 } = {}) {
     const fileName = data?.fileName;
 
     if (!mode) {
-      throw new Error("Missing mode for manageScene");
+      return {
+        success: false,
+        message: "Missing mode for manageScene"
+      };
     }
 
     // Validate fileName for load and save operations
     if ((mode === 'load' || mode === 'save') && !fileName) {
-      throw new Error(`fileName is required for ${mode} operation`);
+      return {
+        success: false,
+        message: `fileName is required for ${mode} operation`
+      };
     }
 
     // For load operation, resolve the file path
@@ -491,32 +503,46 @@ function makeManageModel(node, { timeoutMs = 5000 } = {}) {
     const data = await input.value();
     const mode = data?.mode;
     const fileName = data?.fileName;
-    let handle = data?.handle;
-    const name = data?.name;
-    const objectName = data?.objectName;
+    let handle = data?.id; // id maps to handle directly
+    const modelName = data?.modelName;
     const position = data?.position;
     const orientation = data?.orientation;
 
     if (!mode) {
-      throw new Error("Missing mode for manageModel");
+      return {
+        success: false,
+        message: "Missing mode for manageModel"
+      };
     }
 
     // Validate inputs based on mode
     if (mode === 'load' && !fileName) {
-      throw new Error("fileName is required for load operation");
+      return {
+        success: false,
+        message: "fileName is required for load operation"
+      };
     }
-    if (mode === 'remove' && !handle && !name) {
-      throw new Error("Either handle or name is required for remove operation");
+    if (mode === 'remove' && !handle && !modelName) {
+      return {
+        success: false,
+        message: "Either id or modelName is required for remove operation"
+      };
     }
     if (mode === 'setPose' && !handle) {
-      throw new Error("handle is required for setPose operation");
+      return {
+        success: false,
+        message: "id is required for setPose operation"
+      };
     }
     if (mode === 'setPose' && !orientation) {
-      throw new Error("orientation is required for setPose operation");
+      return {
+        success: false,
+        message: "orientation is required for setPose operation"
+      };
     }
 
-    // For remove operation by name, resolve name to handle
-    if (mode === 'remove' && name && !handle) {
+    // For remove operation by modelName, resolve modelName to handle
+    if (mode === 'remove' && modelName && !handle) {
       try {
         // Get current models from the models topic
         const modelsPromise = new Promise((resolve, reject) => {
@@ -548,28 +574,28 @@ function makeManageModel(node, { timeoutMs = 5000 } = {}) {
 
         const models = await modelsPromise;
         
-        // Find model by name (check both with and without leading slash)
+        // Find model by modelName (check both with and without leading slash)
         if (Array.isArray(models)) {
           const model = models.find(m => {
             const cleanName = m.name && m.name.startsWith('/') ? m.name.substring(1) : m.name;
-            return cleanName === name || m.name === name;
+            return cleanName === modelName || m.name === modelName;
           });
           
           if (model) {
-            handle = model.handle;
-            console.log(`[${new Date().toISOString()}] [manageModel] Resolved name '${name}' to handle ${handle}`);
+            handle = model.handle; // Use model handle
+            console.log(`[${new Date().toISOString()}] [manageModel] Resolved modelName '${modelName}' to handle ${handle}`);
           } else {
             return {
               success: false,
-              message: `Object with name '${name}' not found in the scene.`
+              message: `Object with modelName '${modelName}' not found in the scene.`
             };
           }
         }
       } catch (error) {
-        console.warn(`[${new Date().toISOString()}] [manageModel] Could not resolve name to handle:`, error.message);
+        console.warn(`[${new Date().toISOString()}] [manageModel] Could not resolve modelName to handle:`, error.message);
         return {
           success: false,
-          message: `Failed to resolve name '${name}' to handle: ${error.message}`
+          message: `Failed to resolve modelName '${modelName}' to handle: ${error.message}`
         };
       }
     }
@@ -640,59 +666,6 @@ function makeManageModel(node, { timeoutMs = 5000 } = {}) {
           message: `Error resolving file path: ${error.message}`
         };
       }
-
-      // Check for object name conflict if objectName is provided
-      if (objectName) {
-        try {
-          // Get current models from the models topic
-          const modelsPromise = new Promise((resolve, reject) => {
-            let modelsHandled = false;
-            const modelsSub = node.createSubscription(
-              'std_msgs/msg/String',
-              '/coppeliasim/models',
-              (msg) => {
-                if (modelsHandled) return;
-                modelsHandled = true;
-                node.destroySubscription(modelsSub);
-                
-                try {
-                  const models = JSON.parse(msg.data);
-                  resolve(models);
-                } catch (e) {
-                  reject(new Error('Failed to parse models'));
-                }
-              }
-            );
-
-            setTimeout(() => {
-              if (modelsHandled) return;
-              modelsHandled = true;
-              node.destroySubscription(modelsSub);
-              reject(new Error('Timeout getting models list'));
-            }, 1000);
-          });
-
-          const models = await modelsPromise;
-          
-          // Check if objectName already exists (check both with and without leading slash)
-          if (Array.isArray(models)) {
-            const nameExists = models.some(m => {
-              const cleanName = m.name && m.name.startsWith('/') ? m.name.substring(1) : m.name;
-              return cleanName === objectName || m.name === objectName;
-            });
-            
-            if (nameExists) {
-              return {
-                success: false,
-                message: `Object name '${objectName}' is already in use. Please choose a different name.`
-              };
-            }
-          }
-        } catch (error) {
-          console.warn(`[${new Date().toISOString()}] [manageModel] Could not check name conflict:`, error.message);
-          // Continue anyway - let CoppeliaSim handle it
-        }
-      }
     }
 
     // Convert position object to array if provided
@@ -736,7 +709,7 @@ function makeManageModel(node, { timeoutMs = 5000 } = {}) {
       operation: mode,
       ...(resolvedPath && { modelPath: resolvedPath }),
       ...(handle !== undefined && { handle: handle }),
-      ...(objectName && { objectName: objectName }),
+      ...(modelName && mode === 'load' && { objectName: modelName }), // Use modelName as objectName for load
       ...(positionArray && mode === 'load' && { position: positionArray }),
       ...(orientationArray && mode === 'load' && { orientation: orientationArray }),
       ...(poseArray && mode === 'setPose' && { pose: poseArray })
@@ -829,10 +802,11 @@ function makeManageModel(node, { timeoutMs = 5000 } = {}) {
         }
       }
 
+      // Return handle as id directly (id is the handle)
       return {
         success: response.success ?? false,
         message: (response.message ?? "No message from CoppeliaSim") + (ur10Message || ''),
-        ...(response.handle !== undefined && { handle: response.handle })
+        ...(response.handle !== undefined && { id: response.handle })
       };
 
     } catch (error) {

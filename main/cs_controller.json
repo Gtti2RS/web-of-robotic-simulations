@@ -96,21 +96,17 @@
             "type": "string",
             "description": "Model filename (.ttm, .urdf) - searches Assets directory - required for load operation"
           },
-          "handle": {
+          "id": {
             "type": "integer",
-            "description": "Object handle - required for setPose, optional for remove (can use name instead)"
+            "description": "Object handle - required for setPose, optional for remove (can use modelName instead)"
           },
-          "name": {
+          "modelName": {
             "type": "string",
-            "description": "Object name - optional for remove (alternative to handle)"
-          },
-          "objectName": {
-            "type": "string",
-            "description": "Custom object name/alias - optional for load operation"
+            "description": "Entity name - optional for load (custom alias) and remove (alternative to id)"
           },
           "position": {
             "type": "object",
-            "description": "Position coordinates - optional for load operation",
+            "description": "Position coordinates - optional for load and setPose operations",
             "properties": {
               "x": {
                 "type": "number",
@@ -128,7 +124,7 @@
           },
           "orientation": {
             "type": "object",
-            "description": "Euler angles in degrees - optional for load and setPose operations",
+            "description": "Euler angles in degrees - optional for load, required for setPose operations",
             "properties": {
               "roll": {
                 "type": "number",
@@ -163,7 +159,7 @@
             "type": "string",
             "description": "Response message from CoppeliaSim"
           },
-          "handle": {
+          "id": {
             "type": "integer",
             "description": "Object handle (returned for load operation)"
           }
@@ -310,7 +306,7 @@
             "type": "object",
             "properties": {
               "name": { "type": "string" },
-              "handle": { "type": "integer" }
+              "id": { "type": "integer" }
             }
           }
         }
@@ -350,7 +346,7 @@
                 "type": "string",
                 "description": "Object name"
               },
-              "handle": { 
+              "id": { 
                 "type": "integer",
                 "description": "Object handle"
               },
