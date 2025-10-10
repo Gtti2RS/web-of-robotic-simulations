@@ -1,6 +1,24 @@
-// deg2quat.js
-// Convert orientation {roll, pitch, yaw} in degrees → quaternion {w, x, y, z}
+/**
+ * @fileoverview Degree to Quaternion Conversion Library
+ * 
+ * This module provides utilities for converting Euler angles to quaternions,
+ * commonly used in robotics and 3D simulations for representing orientations.
+ * 
+ * Key Features:
+ * - Convert Euler angles (roll, pitch, yaw) in degrees to quaternions
+ * - ZYX rotation order (yaw → pitch → roll)
+ * - Handles missing or undefined angle values with defaults
+ * 
+ * @author Yifan & Cursor & ChatGPT
+ * @version 1.0.0
+ */
 
+/**
+ * Convert degrees to radians
+ * 
+ * @param {number} deg - Angle in degrees
+ * @returns {number} Angle in radians
+ */
 function deg2rad(deg) {
   return deg * Math.PI / 180.0;
 }

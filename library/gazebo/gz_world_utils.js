@@ -1,5 +1,30 @@
+/**
+ * @fileoverview Gazebo World Utilities Library
+ * 
+ * This module provides utilities for working with Gazebo world files and entities,
+ * including world name extraction, entity management, and UR10 robot detection.
+ * 
+ * Key Features:
+ * - World name extraction from SDF and launch files
+ * - Entity existence checking and management
+ * - UR10 robot detection and configuration
+ * - World state management (clear, store, retrieve)
+ * - SDF file parsing and manipulation
+ * - Launch file analysis for world detection
+ * 
+ * Functions:
+ * - World name extraction and storage
+ * - Entity existence validation
+ * - UR10 robot identification and setup
+ * - World state management
+ * 
+ * @author Yifan & Cursor & ChatGPT
+ * @version 1.0.0
+ */
+
 const fs = require('fs');
-const { readModels } = require('./gz_topics');
+const path = require('path');
+const { readModels } = require('./gz_observable_topics');
 
 // Store the extracted world name
 let storedWorldName = null;
@@ -116,10 +141,119 @@ async function entityExists(idOrName) {
   }
 }
 
+/**
+ * Extract SDF file path from ROS2 launch file
+ * @param {string} launchFilePath - Path to the launch file
+ * @returns {Promise<string|null>} - SDF file path if found, null otherwise
+ */
+async function extractSdfFromLaunch(launchFilePath) {
+  try {
+    console.log(`[${new Date().toISOString()}] [extractSdfFromLaunch] Starting extraction from: ${launchFilePath}`);
+    
+    if (!launchFilePath) {
+      throw new Error('Launch file path is required');
+    }
+    
+    if (!fs.existsSync(launchFilePath)) {
+      throw new Error(`Launch file not found: ${launchFilePath}`);
+    }
+
+    const content = fs.readFileSync(launchFilePath, 'utf8');
+    
+    // Look for gz_args with SDF file references
+    // Pattern: 'gz_args': '-r -z 1000000 linear_battery_demo.sdf'
+    const gzArgsMatch = content.match(/['"]gz_args['"]\s*:\s*['"]([^'"]+)['"]/);
+    
+    if (gzArgsMatch && gzArgsMatch[1]) {
+      const gzArgs = gzArgsMatch[1];
+      console.log(`[${new Date().toISOString()}] [extractSdfFromLaunch] Found gz_args: ${gzArgs}`);
+      
+      // Extract SDF path from gz_args
+      // Look for .sdf files in the arguments (both relative and absolute paths)
+      const sdfMatch = gzArgs.match(/([^\s]+\.sdf)/);
+      
+      if (sdfMatch && sdfMatch[1]) {
+        const sdfPath = sdfMatch[1];
+        console.log(`[${new Date().toISOString()}] [extractSdfFromLaunch] Found SDF path: ${sdfPath}`);
+        
+        // Check if it's already an absolute path
+        if (path.isAbsolute(sdfPath)) {
+          // Verify the file exists
+          if (fs.existsSync(sdfPath)) {
+            console.log(`[${new Date().toISOString()}] [extractSdfFromLaunch] Using absolute SDF path: ${sdfPath}`);
+            return sdfPath;
+          } else {
+            console.warn(`[${new Date().toISOString()}] [extractSdfFromLaunch] Absolute SDF path does not exist: ${sdfPath}`);
+            return null;
+          }
+        } else {
+          // Try to resolve the relative path to the SDF file
+          const { resolveFilePath } = require('../common/fileUtils');
+          const resolvedSdfPath = await resolveFilePath(sdfPath);
+          
+          if (resolvedSdfPath) {
+            console.log(`[${new Date().toISOString()}] [extractSdfFromLaunch] Resolved SDF path: ${resolvedSdfPath}`);
+            return resolvedSdfPath;
+          } else {
+            console.warn(`[${new Date().toISOString()}] [extractSdfFromLaunch] Could not resolve SDF file: ${sdfPath}`);
+            return null;
+          }
+        }
+      }
+    }
+    
+    console.log(`[${new Date().toISOString()}] [extractSdfFromLaunch] No SDF file found in launch file`);
+    return null;
+  } catch (error) {
+    console.error(`[${new Date().toISOString()}] [extractSdfFromLaunch] Error: ${error.message}`);
+    return null;
+  }
+}
+
+/**
+ * Check if a world file contains UR10 robot references
+ * @param {string} sdfFilePath - Path to the SDF file
+ * @returns {Promise<boolean>} - True if UR10 is referenced, false otherwise
+ */
+async function ur10Exists(sdfFilePath) {
+  try {
+    console.log(`[${new Date().toISOString()}] [ur10Exists] Checking for UR10 in: ${sdfFilePath}`);
+    
+    if (!sdfFilePath) {
+      throw new Error('SDF file path is required');
+    }
+    
+    if (!fs.existsSync(sdfFilePath)) {
+      throw new Error(`SDF file not found: ${sdfFilePath}`);
+    }
+
+    const content = fs.readFileSync(sdfFilePath, 'utf8');
+    
+    // Check for UR10 references in the file
+    // Look for URI references to ur10_rg2
+    const ur10Patterns = [
+      /<uri>.*ur10_rg2.*<\/uri>/i,
+      /<uri>.*ur10.*<\/uri>/i,
+      /ur10_rg2/i,
+      /ur10\.urdf/i
+    ];
+    
+    const hasUr10 = ur10Patterns.some(pattern => pattern.test(content));
+    
+    console.log(`[${new Date().toISOString()}] [ur10Exists] UR10 found: ${hasUr10}`);
+    return hasUr10;
+  } catch (error) {
+    console.error(`[${new Date().toISOString()}] [ur10Exists] Error: ${error.message}`);
+    return false;
+  }
+}
+
 module.exports = {
   extract_world,
   get_world,
   clear_world,
   get_entity,
-  entityExists
+  entityExists,
+  extractSdfFromLaunch,
+  ur10Exists
 };

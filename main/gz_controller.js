@@ -4,10 +4,10 @@ const rclnodejs = require("rclnodejs");
 const { Servient } = require("@node-wot/core");
 const { HttpServer } = require("@node-wot/binding-http");
 
-const { handleUploadFile, readAvailableResources } = require("../library/common/fileUtils");
-const { publishMessage, makeSendRos2Cmd } = require("../library/common/ros2_utils");
-const {makeSetRtf, makeDeleteEntity, makeSetEntityPose, makeSpawnEntity, makeSimControl, makeSetVisualization, makeSaveWorld, makeLaunchSimulation, makeExitSimulation, visualizationRead} = require("../library/gazebo/gz_ros2_srv");
-const { readSimStats, readPoses, readModels, combinedSSEMiddleware, setupAllObservableProperties, cleanupSubscriptions } = require("../library/gazebo/gz_topics");
+const { readGazeboAssets } = require("../library/common/fileUtils");
+const { makePublishMessage, makeSendRos2Cmd } = require("../library/common/ros2_utils");
+const {makeSimControl, makeManageScene, makeManageModel, visualizeRead, makeVisualizeWrite} = require("../library/gazebo/gz_ros2_srv");
+const { readSimStats, readPoses, readModels, combinedSSEMiddleware, cleanupSubscriptions } = require("../library/gazebo/gz_observable_topics");
 
 class WotPublisherServer {
   constructor(tdPath = "./gz_controller.json", rosTopic = "wot_topic", port = 8080) {
@@ -40,28 +40,40 @@ class WotPublisherServer {
     const wot = await this.servient.start();
     this.thing = await wot.produce(td);
 
-    this.thing.setPropertyReadHandler("availableResources", readAvailableResources);
-    this.thing.setPropertyReadHandler('visualization', visualizationRead);
-    this.thing.setPropertyReadHandler('sim_stats', readSimStats);
+    this.thing.setPropertyReadHandler("assets", readGazeboAssets);
+    this.thing.setPropertyReadHandler('visualize', visualizeRead);
+    this.thing.setPropertyWriteHandler('visualize', makeVisualizeWrite(this.node));
+    this.thing.setPropertyReadHandler('simStats', readSimStats);
     this.thing.setPropertyReadHandler('poses', readPoses);
     this.thing.setPropertyReadHandler('models', readModels);
-    this.thing.setActionHandler("publishMessage", (input) =>
-      publishMessage(input, this.node)
-    );
-    this.thing.setActionHandler("launchSimulation", makeLaunchSimulation(this.node));
-    this.thing.setActionHandler("exitSimulation", makeExitSimulation(this.node));
-    this.thing.setActionHandler("uploadFile", handleUploadFile.bind(this));
-    this.thing.setActionHandler("send_ros2_cmd", makeSendRos2Cmd(this.node));
-    this.thing.setActionHandler('sim_control', makeSimControl(this.node));
-    this.thing.setActionHandler('spawn_entity', makeSpawnEntity(this.node));
-    this.thing.setActionHandler('set_entity_pose', makeSetEntityPose(this.node));
-    this.thing.setActionHandler('remove_entity', makeDeleteEntity(this.node));
-    this.thing.setActionHandler('save_world', makeSaveWorld(this.node));
-    this.thing.setActionHandler('set_visualization', makeSetVisualization(this.node));
-    this.thing.setActionHandler('setRtf', makeSetRtf(this.node));
+    this.thing.setActionHandler("publishMessage", makePublishMessage(this.node));
+    this.thing.setActionHandler("sendRos2Cmd", makeSendRos2Cmd(this.node));
+    this.thing.setActionHandler('simControl', makeSimControl(this.node));
+    this.thing.setActionHandler('manageScene', makeManageScene(this.node));
+    this.thing.setActionHandler('manageModel', makeManageModel(this.node));
 
     await this.thing.expose();
     console.log(`Thing exposed at http://localhost:${this.port}/gz_controller`);
+    
+    // Initialize with empty.sdf as the default scene using manageScene
+    try {
+      console.log('Initializing with empty.sdf as default scene...');
+      const manageScene = makeManageScene(this.node);
+      const result = await manageScene({ 
+        value: async () => ({ 
+          mode: 'load',
+          fileName: 'empty.sdf'
+        }) 
+      });
+      if (result.success) {
+        console.log('Default scene (empty.sdf) loaded successfully');
+      } else {
+        console.warn('Warning: Failed to load default scene:', result.message);
+      }
+    } catch (error) {
+      console.warn('Warning: Failed to load default scene (empty.sdf):', error.message);
+      console.warn('You can load a scene manually using the manageScene action');
+    }
   }
 
   startSpin() {

@@ -1,7 +1,10 @@
 node_modules/
-world/
-model/
-launch/
 quick_test/
-update_log/
-backup/
+upload/
+ros2_ws/
+uploaded/
+quick_test/
+saved/
+__pycache__/
+tmp/
+logs/

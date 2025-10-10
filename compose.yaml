@@ -1,28 +1,91 @@
 services:
-  gazebo:
-    image: osrf/ros:jazzy-desktop-noble
-    container_name: gz_sim
-    network_mode: host
-    ipc: host
-    runtime: nvidia   # relies on host setup (already present)
-    environment:
-      - NVIDIA_VISIBLE_DEVICES=all
-      - NVIDIA_DRIVER_CAPABILITIES=compute,utility,graphics
-      - ROS_DOMAIN_ID=0
-    volumes:
-      - ./worlds:/home/dev/worlds
-    tty: true
-    stdin_open: true
-    command: bash -lc "source /opt/ros/jazzy/setup.bash && exec bash"
 
-  dev:
-    image: node:22-bookworm
-    container_name: wot_dev
-    network_mode: host
-    working_dir: /app
+  gz_sim:
+    image: gz_sim_ros2:0.2
+    container_name: gz_sim
+    build:
+      context: .
+      dockerfile: Dockerfile.gz
+    # Simplest discovery on Linux
+    networks: [wos_net]
+    environment:
+      - ROS_DOMAIN_ID=21
+      # Let gz find models/worlds in both Assets and upload:
+      - GZ_SIM_RESOURCE_PATH=/project-root/Assets/model:/project-root/Assets/models:/project-root/Assets/worlds:/project-root/upload
+      # If you use plugins:
+      - GZ_PLUGIN_PATH=/project-root/Assets/plugins:${GZ_PLUGIN_PATH:-}
+      # Headless defaults (since you're headless)
+      - QT_QPA_PLATFORM=offscreen
+    working_dir: /project-root
     volumes:
-      - ./src:/app/src
-      - ./package.json:/app/package.json
-    tty: true
-    stdin_open: true
-    command: bash
+      - ./:/project-root:rw
+      # Use named volume for ROS2 build cache
+      - gz_ros_ws_cache:/project-root/install
+      - gz_ros_build_cache:/project-root/build
+    ports:
+      - "8090:8090"
+    command: bash -lc "tail -f /dev/null"
+
+  wos_server:
+    image: wos_server:0.1
+    container_name: wos_server
+    build:
+      context: .
+      dockerfile: Dockerfile.wos
+    networks: [wos_net]
+    environment:
+      - ROS_DOMAIN_ID=21
+      - RMW_IMPLEMENTATION=rmw_fastrtps_cpp
+    working_dir: /project-root
+    volumes:
+     # mount the entire repo so requires to ./library/... work
+      - ./:/project-root:rw
+      # Use named volumes for build caches
+      - npm_cache:/project-root/node_modules
+      - ros_ws_cache:/opt/ros/jazzy
+    ports:
+      - "8080:8080"
+      - "8081:8081"
+      - "8082:8082"
+      - "8083:8083"
+      - "8084:8084"
+    entrypoint: []
+    command: bash -lc "tail -f /dev/null"
+
+  coppeliasim:
+    image: coppeliasim:4.10
+    container_name: coppeliasim
+    networks: [wos_net]
+    environment:
+      - TZ=Europe/Berlin
+      - ROS_DOMAIN_ID=21
+      - RMW_IMPLEMENTATION=rmw_fastrtps_cpp
+    volumes:
+      - ./:/project-root:rw
+    ports:
+      - "23000:23000"  # ZMQ Remote API
+      - "23050:23050"  # WS Remote API
+      - "23020:23020"  # streaming port
+      - "23021:23021"  # streaming backup
+      - "23022:23022"  # streaming backup
+      
+    # keep container alive without starting sim
+    entrypoint: ["tail","-f","/dev/null"]
+
+
+networks:
+  wos_net:
+    driver: bridge
+    ipam:
+      config:
+        - subnet: 172.28.0.0/16
+
+volumes:
+  npm_cache:
+    driver: local
+  ros_ws_cache:
+    driver: local
+  gz_ros_ws_cache:
+    driver: local
+  gz_ros_build_cache:
+    driver: local

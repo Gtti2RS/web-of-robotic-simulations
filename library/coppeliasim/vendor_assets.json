@@ -1,0 +1,452 @@
+{
+  "metadata": {
+    "scannedAt": "2025-10-07T10:37:24.851281",
+    "vendorRoot": "/opt/CoppeliaSim_Edu_V4_10_0_rev0_Ubuntu24_04",
+    "foldersScanned": [
+      "scenes",
+      "models"
+    ],
+    "generatedBy": "scan_vendor_assets.py"
+  },
+  "assets": {
+    "scenes": {
+      "awsRobomaker": [
+        "aws_robomaker_house.ttt",
+        "aws_robomaker_warehouse.ttt"
+      ],
+      "controlTypeExamples": [
+        "controlledViaPlugin.ttt",
+        "controlledViaRemoteApi.ttt",
+        "controlledViaRos.ttt",
+        "controlledViaRos2.ttt",
+        "controlledViaScript.ttt",
+        "controlledViaTcp.ttt",
+        "controlledViaZmq.ttt"
+      ],
+      "kinematics": {
+        "simpleExamples": [
+          "1-singleIkGroupWithSingleIkElement-undamped.ttt",
+          "10-visuallyDebuggingIkGroups.ttt",
+          "2-singleIkGroupWithSingleIkElement-damped.ttt",
+          "3-singleIkGroupWithTwoIkElements.ttt",
+          "4-singleIkGroupWithTwoIkElements-weightedAndDampedResolution.ttt",
+          "5-twoIkGroupsWithEachOneIkElement-resolutionOrderIsNotRelevant.ttt",
+          "6-twoIkGroupsWithEachOneIkElement-resolutionOrderIsRelevant.ttt",
+          "7-fkAndIkResolutionForParallelMechanisms.ttt",
+          "8-computingJointAnglesForRandomPoses.ttt",
+          "9-prioritizedGroupsAndNullSpaceProjection.ttt"
+        ],
+        "ungrouped": [
+          "abbFantaCanChallenge.ttt",
+          "ikPathGeneration.ttt",
+          "nDoFKinematicChain.ttt",
+          "obstacleAvoidanceAndIk.ttt",
+          "smoothMovementsInFkAndIk.ttt",
+          "twoRobotsIK.ttt"
+        ]
+      },
+      "messaging": [
+        "connectingTwoCoppeliaSimInstances.ttt",
+        "movementViaRemoteApi.ttt",
+        "pControllerViaRemoteApi.ttt",
+        "ros2InterfaceTopicPublisherAndSubscriber-lua.ttt",
+        "ros2InterfaceTopicPublisherAndSubscriber-python.ttt",
+        "rosInterfaceTopicPublisherAndSubscriber-lua.ttt",
+        "rosInterfaceTopicPublisherAndSubscriber-python.ttt",
+        "synchronousImageTransmissionViaRemoteApi.ttt",
+        "zeromqDemo-lua.ttt",
+        "zeromqDemo-python.ttt"
+      ],
+      "mujoco": [
+        "demoScene.ttt"
+      ],
+      "otherScenes": [
+        "arucoMarkerDetection.ttt",
+        "buoyancyExample.ttt",
+        "dynamic4BarLinkage.ttt",
+        "frame-frameInterpolation.ttt",
+        "pureTubeExtraction.ttt",
+        "ropeTest.ttt",
+        "simpleMagnetDemo.ttt",
+        "visionSensorOverTerrain.ttt"
+      ],
+      "pathPlanning": [
+        "holonomicPathPlanning3dof.ttt",
+        "holonomicPathPlanning6dof.ttt",
+        "mobileRobotPathPlanning.ttt",
+        "nonHolonomicPathPlanning.ttt",
+        "roadmapMultiquery.ttt",
+        "simpleManipulatorPathPlanning.ttt",
+        "stateValidationCallback-lua.ttt",
+        "stateValidationCallback-python.ttt",
+        "stateValidityCheckingResolution.ttt"
+      ],
+      "trajectoryAndMotion": [
+        "basicTrajectoryGeneration.ttt",
+        "pathToTrajectory.ttt",
+        "trajectoryGenerationDemo.ttt",
+        "trajectoryGenerationExample-lua.ttt",
+        "trajectoryGenerationExample-python.ttt"
+      ],
+      "tutorials": {
+        "BubbleRob": [
+          "bubbleRob-lua.ttt",
+          "bubbleRob-python.ttt"
+        ],
+        "BubbleRobExt": [
+          "bubbleRobExt.ttt"
+        ],
+        "InverseKinematics": [
+          "redundantRobot-lua.ttt",
+          "redundantRobot-python.ttt"
+        ],
+        "LineFollowingBubbleRob": [
+          "lineFollowingBubbleRob-lua.ttt",
+          "lineFollowingBubbleRob-python.ttt"
+        ]
+      },
+      "vision": [
+        "imageProcessingDemo1-lua.ttt",
+        "imageProcessingDemo1-python.ttt",
+        "imageProcessingDemo2-lua.ttt",
+        "imageProcessingDemo2-python.ttt",
+        "objectTracking.ttt",
+        "ocTreeAcquiredByVisionSensor.ttt",
+        "pointCloudAcquiredByVisionSensor.ttt"
+      ],
+      "ungrouped": [
+        "RRS-1 demo.ttt",
+        "collisionDetectionDemo.ttt",
+        "customUI-lua.ttt",
+        "customUI-python.ttt",
+        "eulerAngles.ttt",
+        "fabricationBlocks.ttt",
+        "gCode.ttt",
+        "gears.ttt",
+        "hapticRobot.ttt",
+        "iglDemo-lua.ttt",
+        "iglDemo-python.ttt",
+        "inverseDynamics.ttt",
+        "minimumDistanceCalculationDemo.ttt",
+        "mobileRobotVisualTraces.ttt",
+        "motorControllerExamples.ttt",
+        "mouseTestScene.ttt",
+        "movingAlongAPath.ttt",
+        "navigationWithinAPointCloud.ttt",
+        "octreeGenerationDemo.ttt",
+        "pickAndPlaceDemo.ttt",
+        "proximitySensorDemo.ttt",
+        "proximitySensorDemo2.ttt",
+        "rendererDemo.ttt",
+        "simpleThreadedAndNonThreadedExample-lua.ttt",
+        "simpleThreadedAndNonThreadedExample-python.ttt",
+        "spot.ttt",
+        "teleportDynamicModel.ttt",
+        "workspace.ttt",
+        "youBotAndHanoiTower.ttt"
+      ]
+    },
+    "models": {
+      "components": {
+        "grippers": [
+          "ABB YuMi gripper.ttm",
+          "Barrett Hand (simplified).ttm",
+          "Barrett Hand.ttm",
+          "Baxter gripper.ttm",
+          "Baxter vacuum cup.ttm",
+          "Franka gripper.ttm",
+          "Jaco hand.ttm",
+          "Mico hand.ttm",
+          "P-Grip-right-angle.ttm",
+          "P-Grip-straight.ttm",
+          "RG2.ttm",
+          "ROBOTIQ 85.ttm",
+          "suction pad.ttm"
+        ],
+        "locomotion and propulsion": [
+          "Caster wheel.ttm",
+          "Omniwheel 45deg A.ttm",
+          "Omniwheel 45deg B.ttm",
+          "Wheel.ttm",
+          "caterpillar.ttm"
+        ],
+        "modifiers": [
+          "felt pen.ttm",
+          "paint bomb.ttm",
+          "paint gun.ttm",
+          "welding torch.ttm"
+        ],
+        "sensors": [
+          "2D laser scanner.ttm",
+          "3D laser scanner Fast.ttm",
+          "3D laser scanner.ttm",
+          "Accelerometer.ttm",
+          "Blob detection camera.ttm",
+          "Blob to 3D position.ttm",
+          "Camera pixels to 3D positions.ttm",
+          "DVS128.ttm",
+          "GPS.ttm",
+          "GyroSensor.ttm",
+          "Hokuyo URG 04LX UG01.ttm",
+          "Hokuyo URG 04LX UG01_Fast ROS.ttm",
+          "Hokuyo URG 04LX UG01_Fast.ttm",
+          "Mesa SR4000.ttm",
+          "SICK S300 Fast.ttm",
+          "SICK TiM310 Fast.ttm",
+          "anaglyph stereo sensor.ttm",
+          "kinect - closest point calculation.ttm",
+          "kinect.ttm",
+          "laser pointer.ttm",
+          "passage counter 55cmX40cm.ttm",
+          "passage counter 80cmX190cm.ttm",
+          "spherical vision sensor RGB + depth.ttm",
+          "spherical vision sensor RGB.ttm",
+          "spherical vision sensor depth.ttm",
+          "velodyne HDL-64E S2.ttm",
+          "velodyne VPL-16.ttm"
+        ]
+      },
+      "equipment": {
+        "conveyors": [
+          "generic conveyor (belt).ttm",
+          "generic conveyor (efficient).ttm",
+          "generic conveyor (rollers).ttm",
+          "generic conveyor system (belt).ttm",
+          "generic conveyor system (rollers).ttm"
+        ],
+        "panes": [
+          "pane (glass) 1.0 x 2.0.ttm",
+          "pane (glass) 2.0 x 2.0.ttm",
+          "pane (grid) 1.0 x 2.0.ttm",
+          "pane (grid) 2.0 x 2.0.ttm",
+          "pane glass 0.5 x 2.0.ttm",
+          "pane glass 1.0 x 2.0.ttm",
+          "pane grid 0.5 x 2.0.ttm",
+          "pane grid 1.0 x 2.0.ttm",
+          "pane rod 2.0.ttm"
+        ],
+        "ungrouped": [
+          "generic tray.ttm"
+        ]
+      },
+      "examples": {
+        "block factory": [
+          "Conveyor.ttm",
+          "ConveyorError.ttm",
+          "ConveyorLeft.ttm",
+          "ConveyorMerge.ttm",
+          "ConveyorRight.ttm",
+          "ConveyorShort.ttm",
+          "ConveyorSort.ttm",
+          "Producer.ttm",
+          "Sink.ttm",
+          "Transformer.ttm"
+        ],
+        "ungrouped": [
+          "simple Ackermann steering.ttm",
+          "spring-damper.ttm",
+          "vacuum robot.ttm"
+        ]
+      },
+      "furniture": {
+        "chairs": [
+          "conference chair.ttm",
+          "dining chair.ttm",
+          "sofa.ttm",
+          "swivel chair.ttm"
+        ],
+        "plants": [
+          "indoorPlant.ttm"
+        ],
+        "shelves-cupboards-racks": [
+          "deep cupboard.ttm",
+          "rack.ttm"
+        ],
+        "tables": [
+          "conference table.ttm",
+          "customizable table.ttm",
+          "diningTable.ttm",
+          "high table.ttm"
+        ]
+      },
+      "household": [
+        "bowl.ttm",
+        "cup.ttm",
+        "largeBasket.ttm"
+      ],
+      "infrastructure": {
+        "bathroom": [
+          "hand basin.ttm",
+          "toilet.ttm"
+        ],
+        "doors": [
+          "automatic door.ttm",
+          "automatic double sliding door.ttm",
+          "automatic sliding door.ttm",
+          "manual door.ttm"
+        ],
+        "floors": [
+          "5mX5m concrete floor.ttm",
+          "5mX5m metallic floor.ttm",
+          "5mX5m wooden floor.ttm",
+          "infiniteFloor.ttm"
+        ],
+        "other": [
+          "handrail.ttm",
+          "resizable concret block.ttm",
+          "stairHandrail.ttm",
+          "stairs.ttm"
+        ],
+        "urban": [
+          "customizable building.ttm"
+        ],
+        "walls": {
+          "20cm high walls": [
+            "L wall.ttm",
+            "T wall.ttm",
+            "X wall.ttm",
+            "pillar 10cm.ttm",
+            "wall end.ttm",
+            "wall section 100cm.ttm",
+            "wall section 25cm.ttm",
+            "wall section 50cm.ttm",
+            "wall section 5cm.ttm"
+          ],
+          "240cm high walls": [
+            "L wall.ttm",
+            "T wall.ttm",
+            "X wall.ttm",
+            "pillar 50cm.ttm",
+            "wall end.ttm",
+            "wall section 100cm.ttm",
+            "wall section 200cm.ttm",
+            "wall section 25cm.ttm",
+            "wall section 400cm.ttm",
+            "wall section 50cm.ttm",
+            "wall section 5cm.ttm"
+          ],
+          "80cm high walls": [
+            "L wall.ttm",
+            "T wall.ttm",
+            "X wall.ttm",
+            "pillar 25cm.ttm",
+            "wall end.ttm",
+            "wall section 100cm.ttm",
+            "wall section 200cm.ttm",
+            "wall section 25cm.ttm",
+            "wall section 50cm.ttm",
+            "wall section 5cm.ttm"
+          ],
+          "ungrouped": [
+            "external wall.ttm"
+          ]
+        },
+        "windows": [
+          "140cm window.ttm"
+        ]
+      },
+      "nature": [
+        "Terrain.ttm",
+        "Tree.ttm",
+        "blue sky skybox.ttm",
+        "terrain bump.ttm",
+        "water surface.ttm"
+      ],
+      "office items": [
+        "laptop.ttm",
+        "projector screen.ttm",
+        "projector.ttm"
+      ],
+      "other": [
+        "Interface to haptic device.ttm",
+        "aruco marker.ttm",
+        "fire.ttm",
+        "mirror.ttm",
+        "real time display.ttm",
+        "reference frame.ttm",
+        "signal monitor.ttm",
+        "simulation time display.ttm",
+        "smoke.ttm",
+        "sparks.ttm",
+        "tracer.ttm",
+        "webcam.ttm"
+      ],
+      "people": [
+        "Bill on path.ttm",
+        "Sitting Bill.ttm",
+        "Standing Bill.ttm",
+        "Walking Bill.ttm",
+        "Working Bill.ttm",
+        "mannequin.ttm",
+        "path planning Bill.ttm"
+      ],
+      "robots": {
+        "mobile": [
+          "ACM-R5.ttm",
+          "Asti.ttm",
+          "KUKA Omnirob.ttm",
+          "KUKA YouBot.ttm",
+          "Kilobot controller.ttm",
+          "Kilobot.ttm",
+          "Marty the Robot.ttm",
+          "NAO.ttm",
+          "Omnidirectional Platform.ttm",
+          "Quadcopter.ttm",
+          "Robotnik_Summit_XL140701.ttm",
+          "Snake.ttm",
+          "ant hexapod.ttm",
+          "ball robot.ttm",
+          "dr12.ttm",
+          "dr20.ttm",
+          "e-puck.ttm",
+          "hexapod.ttm",
+          "kinematic steam punk r2d2.ttm",
+          "line follower.ttm",
+          "pioneer p3dx.ttm"
+        ],
+        "non-mobile": [
+          "7 DoF manipulator.ttm",
+          "ABB IRB 140.ttm",
+          "ABB IRB 360.ttm",
+          "ABB IRB 4600-40-255.ttm",
+          "ABB YuMi.ttm",
+          "Adept Quattro 650HS.ttm",
+          "Baxter.ttm",
+          "Dobot Magician.ttm",
+          "FrankaEmikaPanda.ttm",
+          "Jaco arm.ttm",
+          "KUKA LBR iiwa 14 R820.ttm",
+          "KUKA LBR iiwa 7 R800.ttm",
+          "KUKA LBR4+.ttm",
+          "MTB robot.ttm",
+          "Mico arm.ttm",
+          "Mirobot.ttm",
+          "Niryo One.ttm",
+          "P-Arm.ttm",
+          "PhantomX Pincher.ttm",
+          "Sawyer.ttm",
+          "Stewart platform.ttm",
+          "UR10.ttm",
+          "UR3.ttm",
+          "UR5.ttm",
+          "uarm with gripper.ttm",
+          "uarm.ttm"
+        ]
+      },
+      "tools": [
+        "button action tool.ttm",
+        "center of mass visualization tool.ttm",
+        "node graph.ttm",
+        "playback tool.ttm",
+        "ros2Interface helper tool.ttm",
+        "rosInterface helper tool.ttm"
+      ],
+      "vehicles": [
+        "helicopter.ttm",
+        "manta with differential.ttm",
+        "motorbike.ttm",
+        "tracked vehicle.ttm"
+      ]
+    }
+  }
+}

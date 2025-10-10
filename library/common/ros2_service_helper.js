@@ -1,13 +1,26 @@
-// project_root/library/ros2_call.js
-// Ubuntu 24.04.2 LTS • ROS 2 Jazzy • Gazebo Harmonic
-// Generic ROS 2 service caller for rclnodejs using the callback-style API.
-// - Reuses clients per (srvType, serviceName)
-// - Filters payload keys to only those present on the generated Request
-// - Returns { req, resp } so callers can log if needed
+/**
+ * @fileoverview ROS 2 Service Helper Library
+ * 
+ * This module provides a generic ROS 2 service caller for rclnodejs using the callback-style API.
+ * It supports both service calls and action calls with client reuse and payload validation.
+ * 
+ * Key Features:
+ * - Generic service caller with client reuse per (srvType, serviceName)
+ * - Payload key filtering to match generated Request types
+ * - Action client support with feedback collection
+ * - Timeout handling and error management
+ * - Debug logging capabilities
+ * 
+ * Compatible with: Ubuntu 24.04.2 LTS • ROS 2 Jazzy • Gazebo Harmonic
+ * 
+ * @author Yifan & Cursor & ChatGPT
+ * @version 1.0.0
+ */
 
 const rcl = require('rclnodejs');
 
 const _clients = new Map(); // key = `${srvType}|${serviceName}`
+const _actionClients = new Map(); // key = `${actionType}|${actionName}`
 
 function _key(srvType, serviceName) {
   return `${srvType}|${serviceName}`;
@@ -19,6 +32,19 @@ function getClient(node, srvType, serviceName) {
   const c = node.createClient(srvType, serviceName);
   _clients.set(k, c);
   return c;
+}
+
+function _actionKey(actionType, actionName) {
+  return `${actionType}|${actionName}`;
+}
+
+function getActionClient(node, actionType, actionName) {
+  const k = _actionKey(actionType, actionName);
+  if (_actionClients.has(k)) return _actionClients.get(k);
+  // Use ActionClient with action type string (supported by rclnodejs)
+  const client = new rcl.ActionClient(node, actionType, actionName);
+  _actionClients.set(k, client);
+  return client;
 }
 
 /**
@@ -58,3 +84,46 @@ async function callService(
 }
 
 module.exports = { callService, getClient };
+
+/**
+ * callAction(node, { actionType, actionName, goal }, opts)
+ * opts: { timeoutMs=60000, debug=false, collectFeedback=false }
+ * Returns { goal, result, feedback }
+ */
+async function callAction(
+  node,
+  { actionType, actionName, goal = {} },
+  opts = {}
+) {
+  const { timeoutMs = 60000, debug = false, collectFeedback = true, onFeedback } = opts;
+
+  // Build a plain JS goal object; rclnodejs will map fields during send
+  const goalMsg = {};
+  for (const [k, v] of Object.entries(goal || {})) {
+    if (v !== undefined) goalMsg[k] = v;
+  }
+
+  if (debug) {
+    const snap = {};
+    for (const k of Object.keys(goal)) if (k in goalMsg) snap[k] = goalMsg[k];
+    console.log('[ros2_action] →', { actionType, actionName, goal: snap });
+  }
+
+  const client = getActionClient(node, actionType, actionName);
+  const ok = await client.waitForServer(timeoutMs);
+  if (!ok) throw new Error(`Action server not available: ${actionName}`);
+
+  const feedback = [];
+  const feedbackCb = collectFeedback ? (fb) => { feedback.push(fb); if (typeof onFeedback === 'function') { try { onFeedback(fb); } catch (_) {} } } : undefined;
+
+  const goalHandle = await client.sendGoal(goalMsg, feedbackCb);
+  if (!goalHandle) throw new Error('Failed to send goal');
+
+  const result = await goalHandle.getResult();
+
+  if (debug) console.log('[ros2_action] ← result =', result);
+  return { goal: goalMsg, result, feedback: collectFeedback ? feedback : undefined };
+}
+
+module.exports.callAction = callAction;
+module.exports.getActionClient = getActionClient;

@@ -1,3 +1,29 @@
+/**
+ * @fileoverview Gazebo Bridge Manager Library
+ * 
+ * This module manages ROS 2 bridges for Gazebo simulation communication,
+ * providing automatic setup and teardown of bridge processes for various
+ * Gazebo services and topics.
+ * 
+ * Key Features:
+ * - Bridge registry for different bridge types (world services, topics, etc.)
+ * - Automatic bridge lifecycle management (start/stop)
+ * - World-specific bridge configuration
+ * - Service-based bridge process control
+ * - Support for multiple bridge types:
+ *   - World services (entity management, pose setting)
+ *   - Topic bridges (camera streams, sensor data)
+ *   - Image bridges (camera visualization)
+ * 
+ * Bridge Types:
+ * - world_services: Entity creation, removal, and pose management
+ * - world_topics: Simulation statistics and pose information
+ * - image_bridge: Camera stream visualization
+ * 
+ * @author Yifan & Cursor & ChatGPT
+ * @version 1.0.0
+ */
+
 const { callService } = require('../common/ros2_service_helper');
 
 // Bridge registry - defines available bridges
@@ -20,6 +46,11 @@ const BRIDGE_REGISTRY = {
     name: 'camera_bridge',
     cmd: (worldName) => `ros2 run ros_gz_bridge parameter_bridge /world/${worldName}/model/wot_camera/link/link/sensor/camera/image@sensor_msgs/msg/Image[gz.msgs.Image --ros-args -r /world/${worldName}/model/wot_camera/link/link/sensor/camera/image:=/viz_cam`,
     description: 'Image bridge for camera visualization'
+  },
+  clock_bridge: {
+    name: 'clock_bridge',
+    cmd: () => `ros2 run ros_gz_bridge parameter_bridge /clock@rosgraph_msgs/msg/Clock[gz.msgs.Clock`,
+    description: 'Clock bridge for simulation time synchronization'
   }
 };
 
