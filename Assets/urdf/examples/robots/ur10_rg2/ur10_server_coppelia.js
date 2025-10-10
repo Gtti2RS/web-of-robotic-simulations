@@ -11,7 +11,7 @@ const { spawn } = require('child_process'); // For child process management
 
 const { callService } = require('../../../../../library/common/ros2_service_helper');
 const { deg2quat } = require('../../../../../library/common/deg2quat');
-const PORT = 8082;
+const PORT = 8084;
 
 // Track child processes (MoveIt stack)
 const childProcesses = {

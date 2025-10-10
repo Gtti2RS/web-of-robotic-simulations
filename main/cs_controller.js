@@ -10,7 +10,7 @@ const { makePublishMessage, makeSendRos2Cmd } = require("../library/common/ros2_
 const { readSimStats, readModels, readPoses, combinedSSEMiddleware, setupAllObservableProperties, cleanupSubscriptions } = require("../library/coppeliasim/cs_observable_topics");
 
 class CoppeliaSimController {
-  constructor(tdPath = "./cs_controller.json", rosTopic = "wot_topic", port = 8080) {
+  constructor(tdPath = "./cs_controller.json", rosTopic = "wot_topic", port = 8081) {
     this.tdPath = tdPath;
     this.rosTopic = rosTopic;
     this.port = port;

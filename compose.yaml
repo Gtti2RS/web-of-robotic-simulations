@@ -23,7 +23,7 @@ services:
       - gz_ros_ws_cache:/project-root/install
       - gz_ros_build_cache:/project-root/build
     ports:
-      - "8081:8081"
+      - "8090:8090"
     command: bash -lc "tail -f /dev/null"
 
   wos_server:
@@ -45,8 +45,10 @@ services:
       - ros_ws_cache:/opt/ros/jazzy
     ports:
       - "8080:8080"
+      - "8081:8081"
       - "8082:8082"
       - "8083:8083"
+      - "8084:8084"
     entrypoint: []
     command: bash -lc "tail -f /dev/null"
 
@@ -64,6 +66,9 @@ services:
       - "23000:23000"  # ZMQ Remote API
       - "23050:23050"  # WS Remote API
       - "23020:23020"  # streaming port
+      - "23021:23021"  # streaming backup
+      - "23022:23022"  # streaming backup
+      
     # keep container alive without starting sim
     entrypoint: ["tail","-f","/dev/null"]
 

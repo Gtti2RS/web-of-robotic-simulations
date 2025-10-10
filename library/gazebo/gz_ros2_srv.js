@@ -522,7 +522,7 @@ function makeVisualizeWrite(node, { timeoutMs = 1000 } = {}) {
         
         // Start web_video_server
         try {
-          const webVideoCmd = `ros2 run web_video_server web_video_server --ros-args -p port:=8081 -p address:=0.0.0.0 -p server_threads:=2 -p ros_threads:=3 -p default_stream_type:=mjpeg`;
+          const webVideoCmd = `ros2 run web_video_server web_video_server --ros-args -p port:=8090 -p address:=0.0.0.0 -p server_threads:=2 -p ros_threads:=3 -p default_stream_type:=mjpeg`;
           
           const { resp: webVideoResp } = await callService(
             node,
