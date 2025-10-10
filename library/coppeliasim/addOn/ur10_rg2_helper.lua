@@ -684,7 +684,19 @@ function ur10_rg2_modelResponse_callback(msg)
     local modelPath = string.match(responseData, '"modelPath"%s*:%s*"([^"]+)"')
     local handle = string.match(responseData, '"handle"%s*:%s*([^,}]+)')
     local modelType = string.match(responseData, '"modelType"%s*:%s*"([^"]+)"')
+    local success = string.match(responseData, '"success"%s*:%s*(%a+)')
+    local message = string.match(responseData, '"message"%s*:%s*"([^"]*)"')
     
+    -- Handle model removal (detect if our UR10 base handle was removed)
+    if success == "true" and message and string.match(message, "Model removed successfully") and handle then
+        handle = tonumber(handle)
+        if rg2_publisher_active and ur10_base_handle == handle then
+            sim.addLog(sim.verbosity_msgs, "UR10 RG2 Helper: Detected removal of UR10 handle " .. handle .. ". Auto-stopping...")
+            stopUR10RG2Helper()
+        end
+    end
+    
+    -- Handle model load
     if modelPath and handle and modelType == "urdf" then
         handle = tonumber(handle)
         
@@ -725,17 +737,38 @@ end
 -- Handle actuation cycle - publish RG2 pose and joint states if active
 function sysCall_actuation_ur10_rg2()
     if rg2_publisher_active and simROS2 then
+        -- Check if handles are still valid before publishing
+        if ur10_base_handle then
+            local objectType = sim.getObjectType(ur10_base_handle)
+            if objectType == -1 then
+                -- Handle is invalid, UR10 was probably removed
+                sim.addLog(sim.verbosity_warnings, "UR10 RG2 Helper: Detected invalid handle " .. ur10_base_handle .. ". Stopping helper...")
+                stopUR10RG2Helper()
+                return
+            end
+        end
+        
         local current_time = sim.getSimulationTime()
         local time_diff = current_time - rg2_last_publish_time
         local joint_time_diff = current_time - joint_state_last_publish_time
         
         if time_diff >= (1.0 / rg2_publish_frequency) then
-            publishRG2HandPose()
+            local success, errorMsg = pcall(publishRG2HandPose)
+            if not success then
+                sim.addLog(sim.verbosity_warnings, "UR10 RG2 Helper: Error publishing pose: " .. tostring(errorMsg))
+                stopUR10RG2Helper()
+                return
+            end
             rg2_last_publish_time = current_time
         end
         
         if joint_time_diff >= (1.0 / rg2_publish_frequency) then
-            publishJointStates()
+            local success, errorMsg = pcall(publishJointStates)
+            if not success then
+                sim.addLog(sim.verbosity_warnings, "UR10 RG2 Helper: Error publishing joint states: " .. tostring(errorMsg))
+                stopUR10RG2Helper()
+                return
+            end
             joint_state_last_publish_time = current_time
         end
     end
