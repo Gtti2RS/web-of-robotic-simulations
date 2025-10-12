@@ -4,6 +4,16 @@
 # Source ROS 2
 source /opt/ros/jazzy/setup.bash
 
+# Trap to handle cleanup on exit
+cleanup() {
+    echo "Shutting down MoveIt stack..."
+    # Kill all child processes
+    pkill -P $$
+    exit 0
+}
+
+trap cleanup SIGTERM SIGINT
+
 # Check if move_group is already running
 if pgrep -f "move_group.*ur10_rg2_moveit_params" > /dev/null; then
     echo "MoveIt move_group is already running!"
@@ -44,6 +54,12 @@ if pgrep -f "move_group.*ur10_rg2_moveit_params" > /dev/null; then
     echo "  - /compute_fk (forward kinematics)"
     echo ""
     echo "Log file: /tmp/move_group.log"
+    
+    # Keep the script running to maintain the process group
+    # Wait for all background jobs
+    echo ""
+    echo "MoveIt stack is running. Keeping script alive..."
+    wait
 else
     echo "✗ Failed to start move_group. Check logs:"
     echo "  tail -50 /tmp/move_group.log"
