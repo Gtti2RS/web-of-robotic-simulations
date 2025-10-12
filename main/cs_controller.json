@@ -1,0 +1,400 @@
+{
+  "$schema": "https://www.w3.org/2022/wot/td/v1.1",
+  "title": "cs_controller",
+  "id": "urn:dev:wot:coppeliasim-controller",
+  "base": "http://localhost:8081/",
+  "actions": {
+    "publishMessage": {
+      "description": "Publish a ROS 2 string message",
+      "input": {
+        "type": "string"
+      }
+    },
+    "sendRos2Cmd": {
+      "description": "Send a full ROS 2 CLI command as a string, starting with 'ros2'",
+      "input": {
+        "type": "string"
+      },
+      "output": {
+        "type": "object",
+        "properties": {
+          "lines": {
+            "type": "array",
+            "items": {
+              "type": "string"
+            }
+          },
+          "raw": {
+            "type": "string"
+          }
+        }
+      }
+    },
+    "uploadFile": {
+      "description": "Upload file via auxiliary fileUploader in multipart/form-data. Files are automatically routed to upload folders with catagories.",
+      "links": [
+        {
+          "rel": "upload",
+          "href": "http://10.157.150.3:8082/upload",
+          "type": "multipart/form-data"
+        }
+      ]
+    },
+    "manageScene": {
+      "description": "Manage CoppeliaSim scenes: load, close, save",
+      "input": {
+        "type": "object",
+        "properties": {
+          "mode": {
+            "type": "string",
+            "enum": [
+              "load",
+              "close",
+              "save"
+            ],
+            "description": "Scene management mode"
+          },
+          "fileName": {
+            "type": "string",
+            "description": "Scene filename (.ttt) - for load: searches Assets directory; for save: saves to Assets/coppeliasim/scenes/saved/ - required for load and save operations"
+          }
+        },
+        "required": [
+          "mode"
+        ]
+      },
+      "output": {
+        "type": "object",
+        "properties": {
+          "success": {
+            "type": "boolean",
+            "description": "Whether the operation was successful"
+          },
+          "message": {
+            "type": "string",
+            "description": "Response message from CoppeliaSim"
+          }
+        }
+      }
+    },
+    "manageModel": {
+      "title": "Manage CoppeliaSim models",
+      "description": "Load, remove, or set pose of models in CoppeliaSim",
+      "input": {
+        "type": "object",
+        "properties": {
+          "mode": {
+            "type": "string",
+            "enum": [
+              "load",
+              "remove",
+              "setPose"
+            ],
+            "description": "Model management mode"
+          },
+          "fileName": {
+            "type": "string",
+            "description": "Model filename (.ttm, .urdf) - searches Assets directory - required for load operation"
+          },
+          "id": {
+            "type": "integer",
+            "description": "Object handle - required for setPose, optional for remove (can use modelName instead)"
+          },
+          "modelName": {
+            "type": "string",
+            "description": "Entity name - optional for load (custom alias) and remove (alternative to id)"
+          },
+          "position": {
+            "type": "object",
+            "description": "Position coordinates - optional for load and setPose operations",
+            "properties": {
+              "x": {
+                "type": "number",
+                "default": 0
+              },
+              "y": {
+                "type": "number",
+                "default": 0
+              },
+              "z": {
+                "type": "number",
+                "default": 0
+              }
+            }
+          },
+          "orientation": {
+            "type": "object",
+            "description": "Euler angles in degrees - optional for load, required for setPose operations",
+            "properties": {
+              "roll": {
+                "type": "number",
+                "default": 0,
+                "description": "Roll in degrees"
+              },
+              "pitch": {
+                "type": "number",
+                "default": 0,
+                "description": "Pitch in degrees"
+              },
+              "yaw": {
+                "type": "number",
+                "default": 0,
+                "description": "Yaw in degrees"
+              }
+            }
+          }
+        },
+        "required": [
+          "mode"
+        ]
+      },
+      "output": {
+        "type": "object",
+        "properties": {
+          "success": {
+            "type": "boolean",
+            "description": "Whether the operation was successful"
+          },
+          "message": {
+            "type": "string",
+            "description": "Response message from CoppeliaSim"
+          },
+          "id": {
+            "type": "integer",
+            "description": "Object handle (returned for load operation)"
+          }
+        }
+      }
+    },
+    "simControl": {
+      "description": "Control CoppeliaSim simulation: run, pause, stop, faster, slower",
+      "input": {
+        "type": "object",
+        "properties": {
+          "mode": {
+            "type": "string",
+            "enum": [
+              "run",
+              "pause", 
+              "stop",
+              "faster",
+              "slower"
+            ],
+            "description": "Simulation control mode"
+          }
+        },
+        "required": [
+          "mode"
+        ]
+      },
+      "output": {
+        "type": "object",
+        "properties": {
+          "success": {
+            "type": "boolean",
+            "description": "Whether the operation was successful"
+          },
+          "message": {
+            "type": "string", 
+            "description": "Response message from CoppeliaSim"
+          }
+        }
+      }
+    }
+  },
+  "properties": {
+    "assets": {
+      "description": "Lists all available CoppeliaSim assets organized by category",
+      "readOnly": true,
+      "type": "object",
+      "properties": {
+        "coppeliasim": {
+          "type": "object",
+          "description": "CoppeliaSim assets including scenes, models, etc.",
+          "additionalProperties": {
+            "type": "object",
+            "description": "Category subdirectories (e.g., scenes, models)",
+            "additionalProperties": {
+              "oneOf": [
+                {
+                  "type": "array",
+                  "items": {
+                    "type": "string"
+                  }
+                },
+                {
+                  "type": "object",
+                  "additionalProperties": {
+                    "type": "array",
+                    "items": {
+                      "type": "string"
+                    }
+                  }
+                }
+              ]
+            }
+          }
+        }
+      }
+    },
+    "simStats": {
+      "type": "object",
+      "readOnly": true,
+      "observable": true,
+      "description": "Current CoppeliaSim simulation statistics from ROS2 /coppeliasim/stats topic",
+      "properties": {
+        "timestamp": {
+          "type": "string",
+          "format": "date-time",
+          "description": "Timestamp when the message was received"
+        },
+        "simTime": {
+          "type": "object",
+          "description": "Simulation time",
+          "properties": {
+            "sec": { "type": "integer" },
+            "nsec": { "type": "integer" }
+          }
+        },
+        "simState": {
+          "type": "string",
+          "enum": ["stopped", "running", "paused"],
+          "description": "Simulation state"
+        },
+        "speedMultiplier": {
+          "type": "number",
+          "description": "Current simulation speed multiplier (0.1 to 64)"
+        },
+        "realTime": {
+          "type": "object",
+          "description": "Real time",
+          "properties": {
+            "sec": { "type": "integer" },
+            "nsec": { "type": "integer" }
+          }
+        }
+      },
+      "forms": [
+        {
+          "href": "http://localhost:8081/cs_controller/properties/simStats",
+          "op": ["readproperty"],
+          "contentType": "application/json"
+        },
+        {
+          "href": "http://localhost:8081/cs_controller/properties/simStats/observable",
+          "op": ["observeproperty"],
+          "subprotocol": "sse",
+          "contentType": "text/event-stream"
+        }
+      ]
+    },
+    "models": {
+      "type": "object",
+      "readOnly": true,
+      "observable": true,
+      "description": "Available models in CoppeliaSim scene from ROS2 /coppeliasim/models topic",
+      "properties": {
+        "timestamp": {
+          "type": "string",
+          "format": "date-time",
+          "description": "Timestamp when the message was received"
+        },
+        "models": {
+          "type": "array",
+          "description": "Array of available models",
+          "items": {
+            "type": "object",
+            "properties": {
+              "name": { "type": "string" },
+              "id": { "type": "integer" }
+            }
+          }
+        }
+      },
+      "forms": [
+        {
+          "href": "http://localhost:8081/cs_controller/properties/models",
+          "op": ["readproperty"],
+          "contentType": "application/json"
+        },
+        {
+          "href": "http://localhost:8081/cs_controller/properties/models/observable",
+          "op": ["observeproperty"],
+          "subprotocol": "sse",
+          "contentType": "text/event-stream"
+        }
+      ]
+    },
+    "poses": {
+      "type": "object",
+      "readOnly": true,
+      "observable": true,
+      "description": "Current object poses in CoppeliaSim from ROS2 /coppeliasim/poses topic",
+      "properties": {
+        "timestamp": {
+          "type": "string",
+          "format": "date-time",
+          "description": "Timestamp when the message was received"
+        },
+        "poses": {
+          "type": "array",
+          "description": "Array of object poses",
+          "items": {
+            "type": "object",
+            "properties": {
+              "name": { 
+                "type": "string",
+                "description": "Object name"
+              },
+              "id": { 
+                "type": "integer",
+                "description": "Object handle"
+              },
+              "position": {
+                "type": "object",
+                "description": "Position coordinates",
+                "properties": {
+                  "x": { "type": "number" },
+                  "y": { "type": "number" },
+                  "z": { "type": "number" }
+                }
+              },
+              "orientation": {
+                "type": "object",
+                "description": "Orientation quaternion",
+                "properties": {
+                  "x": { "type": "number", "description": "qx" },
+                  "y": { "type": "number", "description": "qy" },
+                  "z": { "type": "number", "description": "qz" },
+                  "w": { "type": "number", "description": "qw" }
+                }
+              }
+            }
+          }
+        },
+        "totalCount": {
+          "type": "integer",
+          "description": "Total number of objects"
+        }
+      },
+      "forms": [
+        {
+          "href": "http://localhost:8081/cs_controller/properties/poses",
+          "op": ["readproperty"],
+          "contentType": "application/json"
+        },
+        {
+          "href": "http://localhost:8081/cs_controller/properties/poses/observable",
+          "op": ["observeproperty"],
+          "subprotocol": "sse",
+          "contentType": "text/event-stream"
+        }
+      ]
+    },
+    "visualize": {
+      "type": "boolean",
+      "readOnly": true,
+      "description": "Visualization state (always enabled for CoppeliaSim)"
+    }
+  }
+}

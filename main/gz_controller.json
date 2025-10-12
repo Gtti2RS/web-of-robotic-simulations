@@ -1,0 +1,447 @@
+{
+  "$schema": "https://www.w3.org/2022/wot/td/v1.1",
+  "title": "gz_controller",
+  "id": "urn:dev:wot:simulation-controller",
+  "base": "http://localhost:8080/",
+  "actions": {
+    "publishMessage": {
+      "description": "Publish a ROS 2 string message",
+      "input": {
+        "type": "string"
+      }
+    },
+    "sendRos2Cmd": {
+      "description": "Send a full ROS 2 CLI command as a string, starting with 'ros2'",
+      "input": {
+        "type": "string"
+      },
+      "output": {
+        "type": "object",
+        "properties": {
+          "lines": {
+            "type": "array",
+            "items": {
+              "type": "string"
+            }
+          },
+          "raw": {
+            "type": "string"
+          }
+        }
+      }
+    },
+    "uploadFile": {
+      "description": "Upload file via auxiliary fileUploader in multipart/form-data. Files are automatically routed to upload folders with catagories.",
+      "links": [
+        {
+          "rel": "upload",
+          "href": "http://10.157.150.3:8082/upload",
+          "type": "multipart/form-data"
+        }
+      ]
+    },
+    "manageScene": {
+      "description": "Manage Gazebo scenes: load (stop current + launch new), save (save current world), close (exit simulation + load default empty.sdf)",
+      "input": {
+        "type": "object",
+        "properties": {
+          "mode": {
+            "type": "string",
+            "enum": [
+              "load",
+              "close",
+              "save"
+            ],
+            "description": "Scene management mode"
+          },
+          "fileName": {
+            "type": "string",
+            "description": "Scene filename (.sdf or .py) - for load: searches Assets directory; for save: saves to Assets/gazebo/worlds/saved/ - required for load and save operations"
+          }
+        },
+        "required": [
+          "mode"
+        ]
+      },
+      "output": {
+        "type": "object",
+        "properties": {
+          "success": {
+            "type": "boolean",
+            "description": "Whether the operation was successful"
+          },
+          "message": {
+            "type": "string",
+            "description": "Response message from Gazebo"
+          }
+        }
+      }
+    },
+    "manageModel": {
+      "title": "Manage Gazebo models",
+      "description": "Load, remove, or set pose of models in Gazebo",
+      "input": {
+        "type": "object",
+        "properties": {
+          "mode": {
+            "type": "string",
+            "enum": [
+              "load",
+              "remove",
+              "setPose"
+            ],
+            "description": "Model management mode"
+          },
+          "fileName": {
+            "type": "string",
+            "description": "Model filename (.sdf, .urdf) - searches Assets directory - required for load operation"
+          },
+          "id": {
+            "type": "string",
+            "description": "Entity name - required for setPose, optional for remove (can use modelName instead)"
+          },
+          "modelName": {
+            "type": "string",
+            "description": "Entity name - optional for remove (alternative to id)"
+          },
+          "position": {
+            "type": "object",
+            "description": "Position coordinates - optional for load and setPose operations",
+            "properties": {
+              "x": {
+                "type": "number",
+                "default": 0
+              },
+              "y": {
+                "type": "number",
+                "default": 0
+              },
+              "z": {
+                "type": "number",
+                "default": 0
+              }
+            }
+          },
+          "orientation": {
+            "type": "object",
+            "description": "Euler angles in degrees - optional for load, required for setPose operations",
+            "properties": {
+              "roll": {
+                "type": "number",
+                "default": 0,
+                "description": "Roll in degrees"
+              },
+              "pitch": {
+                "type": "number",
+                "default": 0,
+                "description": "Pitch in degrees"
+              },
+              "yaw": {
+                "type": "number",
+                "default": 0,
+                "description": "Yaw in degrees"
+              }
+            }
+          }
+        },
+        "required": [
+          "mode"
+        ]
+      },
+      "output": {
+        "type": "object",
+        "properties": {
+          "success": {
+            "type": "boolean",
+            "description": "Whether the operation was successful"
+          },
+          "message": {
+            "type": "string",
+            "description": "Response message from Gazebo"
+          },
+          "id": {
+            "type": "string",
+            "description": "Entity name (returned for load operation)"
+          }
+        }
+      }
+    },
+    "simControl": {
+      "description": "Control simulation: pause, run, stop, faster (increase RTF by 0.1), slower (decrease RTF by 0.1)",
+      "input": {
+        "type": "object",
+        "properties": {
+          "mode": {
+            "type": "string",
+            "enum": [
+              "pause",
+              "run",
+              "stop",
+              "faster",
+              "slower"
+            ]
+          }
+        },
+        "required": [
+          "mode"
+        ]
+      },
+      "output": {
+        "type": "string"
+      }
+    }
+  },
+  "properties": {
+    "assets": {
+      "description": "Lists all available Gazebo assets (URDF and Gazebo files) organized by category",
+      "readOnly": true,
+      "type": "object",
+      "properties": {
+        "urdf": {
+          "type": "object",
+          "description": "URDF robot and object files",
+          "properties": {
+            "objects": {
+              "type": "array",
+              "items": {
+                "type": "string"
+              },
+              "description": "Object URDF files"
+            },
+            "robots": {
+              "type": "array",
+              "items": {
+                "type": "string"
+              },
+              "description": "Robot URDF files"
+            }
+          }
+        },
+        "gazebo": {
+          "type": "object",
+          "description": "Gazebo simulation files",
+          "properties": {
+            "models": {
+              "type": "object",
+              "description": "Gazebo model files",
+              "additionalProperties": {
+                "type": "array",
+                "items": {
+                  "type": "string"
+                }
+              }
+            },
+            "launch": {
+              "type": "object",
+              "description": "Launch files",
+              "additionalProperties": {
+                "type": "array",
+                "items": {
+                  "type": "string"
+                }
+              }
+            },
+            "worlds": {
+              "type": "object",
+              "description": "World files",
+              "additionalProperties": {
+                "type": "array",
+                "items": {
+                  "type": "string"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "simStats": {
+      "type": "object",
+      "readOnly": true,
+      "observable": true,
+      "description": "Current simulation statistics from ROS2 /world/${world}/stats_json topic",
+      "properties": {
+        "timestamp": {
+          "type": "string",
+          "format": "date-time",
+          "description": "Timestamp when the message was received"
+        },
+        "simTime": {
+          "type": "object",
+          "description": "Simulation time",
+          "properties": {
+            "sec": { "type": "integer" },
+            "nsec": { "type": "integer" }
+          }
+        },
+        "realTime": {
+          "type": "object",
+          "description": "Real time",
+          "properties": {
+            "sec": { "type": "integer" },
+            "nsec": { "type": "integer" }
+          }
+        },
+        "paused": {
+          "type": "boolean",
+          "description": "Whether simulation is paused"
+        },
+        "iterations": {
+          "type": "integer",
+          "description": "Number of simulation iterations"
+        },
+        "realTimeFactor": {
+          "type": "number",
+          "description": "Real-time factor"
+        },
+        "stepSize": {
+          "type": "object",
+          "description": "Simulation step size",
+          "properties": {
+            "sec": { "type": "integer" },
+            "nsec": { "type": "integer" }
+          }
+        }
+      },
+      "forms": [
+        {
+          "href": "http://localhost:8080/gz_controller/properties/simStats",
+          "op": ["readproperty"],
+          "contentType": "application/json"
+        },
+        {
+          "href": "http://localhost:8080/gz_controller/properties/simStats/observable",
+          "op": ["observeproperty"],
+          "subprotocol": "sse",
+          "contentType": "text/event-stream"
+        }
+      ]
+    },
+    "models": {
+      "type": "object",
+      "readOnly": true,
+      "observable": true,
+      "description": "Available models extracted from pose data",
+      "properties": {
+        "timestamp": {
+          "type": "string",
+          "format": "date-time",
+          "description": "Timestamp when the message was received"
+        },
+        "models": {
+          "type": "array",
+          "description": "Array of available models",
+          "items": {
+            "type": "object",
+            "properties": {
+              "name": { "type": "string" },
+              "id": { "type": "integer" }
+            }
+          }
+        },
+        "totalCount": {
+          "type": "integer",
+          "description": "Total number of available models"
+        }
+      },
+      "forms": [
+        {
+          "href": "http://localhost:8080/gz_controller/properties/models",
+          "op": ["readproperty"],
+          "contentType": "application/json"
+        },
+        {
+          "href": "http://localhost:8080/gz_controller/properties/models/observable",
+          "op": ["observeproperty"],
+          "subprotocol": "sse",
+          "contentType": "text/event-stream"
+        }
+      ]
+    },
+    "poses": {
+      "type": "object",
+      "readOnly": true,
+      "observable": true,
+      "description": "Current entity poses from ROS2 /world/${world}/pose/info_json topic",
+      "properties": {
+        "timestamp": {
+          "type": "string",
+          "format": "date-time",
+          "description": "Timestamp when the message was received"
+        },
+        "header": {
+          "type": "object",
+          "description": "Message header with timestamp",
+          "properties": {
+            "stamp": {
+              "type": "object",
+              "properties": {
+                "sec": { "type": "integer" },
+                "nsec": { "type": "integer" }
+              }
+            }
+          }
+        },
+        "pose": {
+          "type": "array",
+          "description": "Array of entity poses",
+          "items": {
+            "type": "object",
+            "properties": {
+              "name": { "type": "string" },
+              "id": { "type": "integer" },
+              "position": {
+                "type": "object",
+                "properties": {
+                  "x": { "type": "number" },
+                  "y": { "type": "number" },
+                  "z": { "type": "number" }
+                }
+              },
+              "orientation": {
+                "type": "object",
+                "properties": {
+                  "x": { "type": "number" },
+                  "y": { "type": "number" },
+                  "z": { "type": "number" },
+                  "w": { "type": "number" }
+                }
+              }
+            }
+          }
+        }
+      },
+      "forms": [
+        {
+          "href": "http://localhost:8080/gz_controller/properties/poses",
+          "op": ["readproperty"],
+          "contentType": "application/json"
+        },
+        {
+          "href": "http://localhost:8080/gz_controller/properties/poses/observable",
+          "op": ["observeproperty"],
+          "subprotocol": "sse",
+          "contentType": "text/event-stream"
+        }
+      ]
+    },
+    "visualize": {
+      "type": "boolean",
+      "description": "Enable or disable camera visualization (writable)",
+      "forms": [
+        {
+          "href": "http://localhost:8080/gz_controller/properties/visualize",
+          "op": ["readproperty", "writeproperty"],
+          "contentType": "application/json"
+        }
+      ],
+      "links": [
+        {
+          "rel": "alternate",
+          "href": "http://192.168.0.3:8081/stream?topic=/camera2",
+          "type": "text/html"
+        }
+      ]
+    }
+  }
+}
