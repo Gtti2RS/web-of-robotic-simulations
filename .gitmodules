@@ -1,0 +1,3 @@
+[submodule "ros2_ws/src"]
+	path = ros2_ws/src
+	url = git@github.com:Gtti2RS/src.git
