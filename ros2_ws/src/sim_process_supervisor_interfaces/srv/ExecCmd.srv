@@ -1,0 +1,5 @@
+string cmd
+---
+int32 return_code
+string stdout
+string stderr

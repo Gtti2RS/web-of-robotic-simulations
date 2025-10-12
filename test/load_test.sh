@@ -152,63 +152,63 @@ send_request() {
 
 # Phase 1: Wait 30s (0-30s)
 echo "═══ Phase 1: Initial Wait (0-30s) ═══"
-sleep 30
+sleep 60
 
-# Phase 2: Enable visualization (30-60s)
-echo "═══ Phase 2: Enable Visualization (30-60s) ═══"
-phase2_start=$(date +%s)
-case "${SIMULATOR_TYPE,,}" in
-  coppelia|coppeliasim|cs)
-    echo "[$(date +%H:%M:%S)] Skipping enabling visualization for CoppeliaSim"
-    ;;
-  gazebo|gz)
-    echo "[$(date +%H:%M:%S)] Writing visualize property to true for Gazebo"
-    set +e  # Temporarily disable exit on error
-    http_code=$(curl -s -w "%{http_code}" -o /dev/null -X PUT \
-        -H "Content-Type: application/json" \
-        -d 'true' \
-        "${BASE_URL}/properties/visualize")
-    curl_exit=$?
-    set -e  # Re-enable exit on error
+# # Phase 2: Enable visualization (30-60s)
+# echo "═══ Phase 2: Enable Visualization (30-60s) ═══"
+# phase2_start=$(date +%s)
+# case "${SIMULATOR_TYPE,,}" in
+#   coppelia|coppeliasim|cs)
+#     echo "[$(date +%H:%M:%S)] Skipping enabling visualization for CoppeliaSim"
+#     ;;
+#   gazebo|gz)
+#     echo "[$(date +%H:%M:%S)] Writing visualize property to true for Gazebo"
+#     set +e  # Temporarily disable exit on error
+#     http_code=$(curl -s -w "%{http_code}" -o /dev/null -X PUT \
+#         -H "Content-Type: application/json" \
+#         -d 'true' \
+#         "${BASE_URL}/properties/visualize")
+#     curl_exit=$?
+#     set -e  # Re-enable exit on error
     
-    if [[ $curl_exit -ne 0 ]]; then
-        echo "Response: CURL ERROR (exit code: $curl_exit, connection failed)"
-    elif [[ "$http_code" =~ ^(200|204)$ ]]; then
-        echo "Response: Success (HTTP $http_code)"
-    else
-        echo "Response: ERROR (HTTP $http_code)"
-    fi
+#     if [[ $curl_exit -ne 0 ]]; then
+#         echo "Response: CURL ERROR (exit code: $curl_exit, connection failed)"
+#     elif [[ "$http_code" =~ ^(200|204)$ ]]; then
+#         echo "Response: Success (HTTP $http_code)"
+#     else
+#         echo "Response: ERROR (HTTP $http_code)"
+#     fi
     
-    # Set camera pose
-    sleep 1
-    echo "set camera pose"
-    send_request \
-        "${ACTIONS_URL}/manageModel" \
-        '{
-            "mode": "setPose",
-            "modelName": "wot_camera",
-            "position": {
-                "x": -1.8,
-                "y": 0.0,
-                "z": 0
-            },
-            "orientation": {
-                "roll": 0,
-                "pitch": 0,
-                "yaw": 0
-            }
-        }' \
-        "Setting camera pose"
-    ;;
-esac
-# Ensure phase lasts exactly 30s
-phase2_elapsed=$(($(date +%s) - phase2_start))
-phase2_remaining=$((30 - phase2_elapsed))
-if [[ $phase2_remaining -gt 0 ]]; then
-    echo "Waiting ${phase2_remaining}s to complete 30s phase..."
-    sleep $phase2_remaining
-fi
-echo ""
+#     # Set camera pose
+#     sleep 1
+#     echo "set camera pose"
+#     send_request \
+#         "${ACTIONS_URL}/manageModel" \
+#         '{
+#             "mode": "setPose",
+#             "modelName": "wot_camera",
+#             "position": {
+#                 "x": -1.8,
+#                 "y": 0.0,
+#                 "z": 0
+#             },
+#             "orientation": {
+#                 "roll": 0,
+#                 "pitch": 0,
+#                 "yaw": 0
+#             }
+#         }' \
+#         "Setting camera pose"
+#     ;;
+# esac
+# # Ensure phase lasts exactly 30s
+# phase2_elapsed=$(($(date +%s) - phase2_start))
+# phase2_remaining=$((30 - phase2_elapsed))
+# if [[ $phase2_remaining -gt 0 ]]; then
+#     echo "Waiting ${phase2_remaining}s to complete 30s phase..."
+#     sleep $phase2_remaining
+# fi
+# echo ""
 
 # Phase 3: Load ur10_rg2.urdf (60-90s)
 echo "═══ Phase 3: Load UR10_RG2 URDF (60-90s) ═══"
@@ -232,11 +232,11 @@ fi
 # Phase 4: Execute ur10_test.sh (90-120s)
 echo "═══ Phase 4: Execute UR10 Test (90-120s) ═══"
 phase4_start=$(date +%s)
-if [[ -f "main/ur10_test.sh" ]]; then
+if [[ -f "./ur10_test.sh" ]]; then
     echo "[$(date +%H:%M:%S)] Running ur10_test.sh with port $UR10_PORT..."
-    timeout 30 bash main/ur10_test.sh "$UR10_PORT" || echo "Test execution completed or timed out"
+    timeout 30 bash ./ur10_test.sh "$UR10_PORT" || echo "Test execution completed or timed out"
 else
-    echo "WARNING: main/ur10_test.sh not found"
+    echo "WARNING: ./ur10_test.sh not found"
 fi
 # Ensure phase lasts exactly 30s
 phase4_elapsed=$(($(date +%s) - phase4_start))
@@ -257,11 +257,11 @@ send_request \
         "modelName": "ur10_rg2"
     }' \
     "Removing ur10_rg2"
-# Ensure phase lasts exactly 15s
+# Ensure phase lasts exactly 30s
 phase5_elapsed=$(($(date +%s) - phase5_start))
-phase5_remaining=$((15 - phase5_elapsed))
+phase5_remaining=$((30 - phase5_elapsed))
 if [[ $phase5_remaining -gt 0 ]]; then
-    echo "Waiting ${phase5_remaining}s to complete 15s phase..."
+    echo "Waiting ${phase5_remaining}s to complete 30s phase..."
     sleep $phase5_remaining
 fi
 

@@ -188,7 +188,7 @@ wos/
 2. Create MoveIt config (if using motion planning)
 3. Update controller detection in `cs_action_handlers.js` or `gz_ros2_srv.js`
 
-## 🔍 Monitoring & Debugging
+## Monitoring & Debugging
 
 ### Observable Properties (SSE)
 
@@ -220,7 +220,7 @@ docker exec wos_server tail -f /tmp/move_group.log
 docker exec wos_server tail -f /tmp/robot_state_publisher.log
 ```
 
-## 🛠️ Development
+## Development
 
 ### Installing Dependencies
 
@@ -304,7 +304,7 @@ MIT License
 
 ## Authors
 
-Yifan & Cursor & ChatGPT
+Yifan
 
 ## Related Projects
 
@@ -313,3 +313,4 @@ Yifan & Cursor & ChatGPT
 - [Gazebo Harmonic](https://gazebosim.org/)
 - [CoppeliaSim](https://www.coppeliarobotics.com/)
 - [MoveIt 2](https://moveit.ros.org/)
+
