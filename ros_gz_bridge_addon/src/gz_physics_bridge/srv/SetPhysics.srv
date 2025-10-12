@@ -1,0 +1,9 @@
+float64 max_step_size           # 0 => ignore
+float64 real_time_factor        # 0 => ignore
+float64 real_time_update_rate   # 0 => ignore
+string  solver_type             # "" => ignore
+float64 sor                     # 0 => ignore
+string  engine                  # "", one of: ode, bullet, dart, simbody, tpe
+---
+bool success
+string message

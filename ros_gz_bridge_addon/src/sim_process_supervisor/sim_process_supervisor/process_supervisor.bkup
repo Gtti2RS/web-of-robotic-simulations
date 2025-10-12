@@ -1,0 +1,233 @@
+import os
+import signal
+import subprocess
+import threading
+import time
+
+import rclpy
+from rclpy.node import Node
+from std_srvs.srv import Trigger
+from sim_process_supervisor_interfaces.srv import StartCmd, ExecCmd
+
+class ProcessSupervisor(Node):
+    def __init__(self):
+        super().__init__('process_supervisor')
+
+        # Parameters
+        self.declare_parameter(
+            'default_cmd',
+            'bash -lc "echo [child] hello-from-supervisor && sleep 1 && echo [child] done"'
+        )
+        self.declare_parameter('grace_timeout_sec', 5)
+        self.declare_parameter('log_child_output', True)
+
+        # Services
+        self.srv_start  = self.create_service(Trigger, 'sim/start',  self.handle_start)
+        self.srv_stop   = self.create_service(Trigger, 'sim/stop',   self.handle_stop)
+        self.srv_status = self.create_service(Trigger, 'sim/status', self.handle_status)
+        self.srv_start_cmd = self.create_service(StartCmd, 'sim/start_cmd', self.handle_start_cmd)
+        self.srv_exec_cmd = self.create_service(ExecCmd, 'sim/exec_cmd', self.handle_exec_cmd)
+        
+        # --- FIX: use RLock to allow re-entrant acquisition ---
+        self._proc_lock = threading.RLock()
+        self._proc = None
+        self._stdout_thread = None
+        self._stderr_thread = None
+
+        self.get_logger().info('ProcessSupervisor ready.')
+
+    # ---------- utilities ----------
+    def _is_running(self):
+        # Safe to call inside other with _proc_lock: now RLock
+        with self._proc_lock:
+            return self._proc is not None and self._proc.poll() is None
+
+    def _reader(self, pipe, tag):
+        try:
+            for line in iter(pipe.readline, ''):
+                if not line:
+                    break
+                self.get_logger().info(f'[{tag}] {line.rstrip()}')
+        except Exception as e:
+            self.get_logger().warn(f'[{tag}] reader error: {e}')
+        finally:
+            try:
+                pipe.close()
+            except Exception:
+                pass
+
+    def _attach_readers(self, proc):
+        if not self.get_parameter('log_child_output').get_parameter_value().bool_value:
+            return
+        self._stdout_thread = threading.Thread(target=self._reader, args=(proc.stdout, 'stdout'), daemon=True)
+        self._stderr_thread = threading.Thread(target=self._reader, args=(proc.stderr, 'stderr'), daemon=True)
+        self._stdout_thread.start()
+        self._stderr_thread.start()
+
+    def _start(self, cmdline: str):
+        with self._proc_lock:
+            if self._is_running():
+                return False, f'Process already running with PID {self._proc.pid}'
+
+            self.get_logger().info(f'Requested START with cmd: {cmdline!r}')
+            try:
+                self._proc = subprocess.Popen(
+                    cmdline,
+                    shell=True,
+                    stdout=subprocess.PIPE,
+                    stderr=subprocess.PIPE,
+                    preexec_fn=os.setsid,  # new process group
+                    text=True,
+                    bufsize=1
+                )
+                self.get_logger().info(f'Started child PID={self._proc.pid}')
+                self._attach_readers(self._proc)
+                return True, f'Started PID {self._proc.pid}'
+            except FileNotFoundError as e:
+                self._proc = None
+                self.get_logger().error(f'Failed to start (cmd not found?): {e}')
+                return False, f'Failed to start (cmd not found?): {e}'
+            except Exception as e:
+                self._proc = None
+                self.get_logger().error(f'Failed to start: {e}')
+                return False, f'Failed to start: {e}'
+
+    def _stop(self, grace_timeout: float):
+        with self._proc_lock:
+            if not self._is_running():
+                return False, 'No running process.'
+            pid = self._proc.pid
+            try:
+                pgid = os.getpgid(pid)
+            except Exception:
+                pgid = pid
+            self.get_logger().info(f'Requested STOP for PID {pid} (PGID {pgid})')
+
+            try:
+                os.killpg(pgid, signal.SIGINT)
+                self.get_logger().info('Sent SIGINT to child process group.')
+            except ProcessLookupError:
+                return True, 'Already stopped.'
+
+        # Wait outside lock so reader threads can drain
+        t0 = time.time()
+        while time.time() - t0 < grace_timeout:
+            with self._proc_lock:
+                if self._proc.poll() is not None:
+                    self.get_logger().info('Child exited after SIGINT.')
+                    return True, 'Stopped gracefully (SIGINT).'
+            time.sleep(0.1)
+
+        self.get_logger().warn('Grace timeout elapsed. Sending SIGTERM...')
+        try:
+            os.killpg(pgid, signal.SIGTERM)
+        except ProcessLookupError:
+            return True, 'Stopped after SIGTERM attempt.'
+
+        t1 = time.time()
+        while time.time() - t1 < 2.0:
+            with self._proc_lock:
+                if self._proc.poll() is not None:
+                    self.get_logger().warn('Child exited after SIGTERM.')
+                    return True, 'Stopped with SIGTERM.'
+            time.sleep(0.1)
+
+        self.get_logger().error('Sending SIGKILL...')
+        try:
+            os.killpg(pgid, signal.SIGKILL)
+        except ProcessLookupError:
+            pass
+
+        with self._proc_lock:
+            try:
+                self._proc.wait(timeout=1.0)
+            except Exception:
+                pass
+        return True, 'Killed (SIGKILL).'
+
+    # ---------- service handlers ----------
+    def handle_start(self, request: Trigger.Request, response: Trigger.Response):
+        self.get_logger().info('Service /sim/start called.')
+        cmd = self.get_parameter('default_cmd').get_parameter_value().string_value
+        ok, msg = self._start(cmd)
+        self.get_logger().info(f'/sim/start response -> success={ok}, message="{msg}"')
+        response.success = ok
+        response.message = msg
+        return response
+
+    def handle_stop(self, request: Trigger.Request, response: Trigger.Response):
+        self.get_logger().info('Service /sim/stop called.')
+        grace = self.get_parameter('grace_timeout_sec').get_parameter_value().integer_value
+        ok, msg = self._stop(float(grace))
+        self.get_logger().info(f'/sim/stop response -> success={ok}, message="{msg}"')
+        response.success = ok
+        response.message = msg
+        return response
+
+    def handle_status(self, request: Trigger.Request, response: Trigger.Response):
+        running = self._is_running()
+        with self._proc_lock:
+            pid = self._proc.pid if (self._proc is not None and running) else None
+        msg = f'RUNNING (PID {pid})' if running else 'NOT RUNNING'
+        self.get_logger().info(f'Service /sim/status called -> {msg}')
+        response.success = bool(running)
+        response.message = msg
+        return response
+
+    def handle_start_cmd(self, request: StartCmd.Request, response: StartCmd.Response):
+        self.get_logger().info('Service /sim/start_cmd called.')
+        raw = (request.cmd or '').strip()
+        if not raw:
+            response.success = False
+            response.message = 'Empty cmd.'
+            return response
+    
+        # wrap in bash -lc so things like pipes, &&, env vars work
+        cmd = f'bash -lc "{raw}"'
+        ok, msg = self._start(cmd)
+        self.get_logger().info(f'/sim/start_cmd response -> success={ok}, message="{msg}"')
+        response.success = ok
+        response.message = msg
+        return response
+
+    def handle_exec_cmd(self, request: ExecCmd.Request, response: ExecCmd.Response):
+        raw = (request.cmd or '').strip()
+        self.get_logger().info(f'/sim/exec_cmd called with cmd: {raw!r}')
+        if not raw:
+            response.return_code = -1
+            response.stdout = ''
+            response.stderr = 'Empty command'
+            return response
+    
+        try:
+            # run synchronously, capture stdout/stderr
+            proc = subprocess.run(
+                raw,
+                shell=True,
+                stdout=subprocess.PIPE,
+                stderr=subprocess.PIPE,
+                text=True
+            )
+            response.return_code = proc.returncode
+            response.stdout = proc.stdout
+            response.stderr = proc.stderr
+            self.get_logger().info(f'/sim/exec_cmd done (rc={proc.returncode})')
+            return response
+        except Exception as e:
+            response.return_code = -1
+            response.stdout = ''
+            response.stderr = str(e)
+            self.get_logger().error(f'/sim/exec_cmd failed: {e}')
+            return response
+    
+def main():
+    rclpy.init()
+    node = ProcessSupervisor()
+    try:
+        rclpy.spin(node)
+    finally:
+        if node._is_running():
+            node.get_logger().info('Shutdown: stopping child process...')
+            node._stop(float(node.get_parameter('grace_timeout_sec').value))
+        node.destroy_node()
+        rclpy.shutdown()

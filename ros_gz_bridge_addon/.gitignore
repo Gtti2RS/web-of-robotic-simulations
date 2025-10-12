@@ -1,0 +1,20 @@
+# Build artifacts
+build/
+install/
+log/
+*/build/
+*/install/
+*/log/
+**/build/
+**/install/
+**/log/
+
+# Compiled files
+*.o
+*.so
+*.a
+*.la
+*.lo
+*.pyc
+__pycache__/
+

@@ -1,0 +1,5 @@
+builtin_interfaces/Time sim_time
+builtin_interfaces/Time real_time
+bool paused
+uint64 iterations
+builtin_interfaces/Time step_size
