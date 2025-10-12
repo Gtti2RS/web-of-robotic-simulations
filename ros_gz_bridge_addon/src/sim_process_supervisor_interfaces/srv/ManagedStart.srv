@@ -1,0 +1,5 @@
+string name
+string cmd
+---
+bool success
+string message
