@@ -1,7 +1,0 @@
-# Request
-float64 real_time_factor
-float64 max_step_size
----
-# Response
-bool success
-string message

@@ -1,4 +1,0 @@
----
-string[] names
-int32[] pids
-bool[] running

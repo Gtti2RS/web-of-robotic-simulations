@@ -1,5 +1,0 @@
-string name
----
-bool running
-int32 pid
-string message

@@ -1,9 +1,0 @@
-
-# Request is empty; call generates SDF for the world
----
-# Response contains the generated SDF as a string
-bool success
-string sdf
-string message
-
-
