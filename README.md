@@ -2,7 +2,7 @@
 
 A unified Web of Things (WoT) interface for controlling robotic simulations across multiple simulator backends (Gazebo, CoppeliaSim) with ROS 2 integration.
 
-## 🚀 Features
+## Features
 
 - **Multi-Simulator Support**: Gazebo Harmonic & CoppeliaSim 4.10
 - **WoT Interface**: RESTful API with Thing Descriptions for each simulator
@@ -12,7 +12,7 @@ A unified Web of Things (WoT) interface for controlling robotic simulations acro
 - **Real-time Monitoring**: Observable properties via Server-Sent Events (SSE)
 - **Docker Containerized**: Isolated environments for reproducible simulations
 
-## 📦 Architecture
+## Architecture
 
 ```
 ┌─────────────┐     ┌──────────────┐     ┌──────────────┐
@@ -31,13 +31,13 @@ A unified Web of Things (WoT) interface for controlling robotic simulations acro
 - **gz_sim**: Gazebo Harmonic simulator with ROS 2 bridge
 - **coppeliasim**: CoppeliaSim 4.10 with custom addOns
 
-## 🔧 Prerequisites
+## Prerequisites
 
 - Docker & Docker Compose
 - Linux (tested on Ubuntu 24.04)
 - Ports: 8080-8084, 23000, 23050
 
-## 🚦 Quick Start
+## Quick Start
 
 ### 1. Build & Start Containers
 
@@ -71,7 +71,7 @@ Access CoppeliaSim WoT interface: `http://localhost:8081/cs_controller`
 docker exec coppeliasim bash -c "cd /opt/coppeliasim410 && ./coppeliaSim.sh"
 ```
 
-## 📋 Usage Examples
+## Usage Examples
 
 ### Gazebo Simulation
 
@@ -145,7 +145,7 @@ POST http://localhost:8084/ur10_server/actions/gripClose
 POST http://localhost:8084/ur10_server/actions/gripOpen
 ```
 
-## 📂 Project Structure
+## Project Structure
 
 ```
 wos/
@@ -173,7 +173,7 @@ wos/
 └── Dockerfile.*               # Container definitions
 ```
 
-## 🤖 Supported Robots
+## Supported Robots
 
 ### Pre-configured
 
@@ -244,7 +244,7 @@ cd test
 ./load_test.sh
 ```
 
-## 🐛 Troubleshooting
+## Troubleshooting
 
 ### MoveIt not starting
 
@@ -270,7 +270,7 @@ docker exec wos_server bash -c "source /opt/ros/jazzy/setup.bash && ros2 topic l
 
 The `fileUtils.js` handles vendor asset paths. For CoppeliaSim vendor assets, "ungrouped" is a virtual folder and not part of the actual filesystem path.
 
-## 📝 Configuration
+## Configuration
 
 ### Environment Variables
 
@@ -283,7 +283,7 @@ The `fileUtils.js` handles vendor asset paths. For CoppeliaSim vendor assets, "u
 
 All containers share the `wos_net` bridge network (172.28.0.0/16) for seamless communication.
 
-## 📚 API Documentation
+## API Documentation
 
 Thing Descriptions (OpenAPI-like) are available at:
 
@@ -291,22 +291,22 @@ Thing Descriptions (OpenAPI-like) are available at:
 - CoppeliaSim: `http://localhost:8081/cs_controller`
 - UR10 Server: `http://localhost:8084/ur10_server`
 
-## 🤝 Contributing
+## Contributing
 
 1. Fork the repository
 2. Create a feature branch
 3. Test in Docker containers
 4. Submit a pull request
 
-## 📄 License
+## License
 
-[Add your license here]
+Apache 2.0
 
-## 👥 Authors
+## Authors
 
 Yifan & Cursor & ChatGPT
 
-## 🔗 Related Projects
+## Related Projects
 
 - [Web of Things (W3C)](https://www.w3.org/WoT/)
 - [ROS 2 Jazzy](https://docs.ros.org/en/jazzy/)
