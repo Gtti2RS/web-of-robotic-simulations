@@ -300,7 +300,7 @@ Thing Descriptions (OpenAPI-like) are available at:
 
 ## License
 
-Apache 2.0
+MIT License
 
 ## Authors
 
