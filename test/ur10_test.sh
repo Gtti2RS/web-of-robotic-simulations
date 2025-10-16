@@ -10,7 +10,7 @@
 #   ./ur10_test.sh 8083
 #   ./ur10_test.sh 8084
 
-PORT="${1:-8082}"
+PORT="${1:-8084}"
 BASE_URL="http://10.157.150.3:${PORT}/ur10_server"
 
 echo "Starting UR10 test sequence (2 cycles)..."

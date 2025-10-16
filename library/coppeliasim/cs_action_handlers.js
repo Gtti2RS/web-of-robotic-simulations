@@ -498,7 +498,7 @@ function makeManageScene(node, { timeoutMs = 5000 } = {}) {
  * @param {number} options.timeoutMs - Response timeout in milliseconds (default: 5000)
  * @returns {Function} WoT action handler function
  */
-function makeManageModel(node, { timeoutMs = 5000 } = {}) {
+function makeManageModel(node, { timeoutMs = 15000 } = {}) {
   return async function manageModelAction(input) {
     const data = await input.value();
     const mode = data?.mode;

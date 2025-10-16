@@ -52,7 +52,7 @@ async function main() {
   // Subscribe to joint states to track current positions
   const jointStateSubscription = node.createSubscription(
     'std_msgs/msg/String',
-    '/coppeliasim/joint_states_string',
+    '/coppelia/ur10/joint_states_string',
     (msg) => {
       try {
         const data = JSON.parse(msg.data);
@@ -129,7 +129,7 @@ async function main() {
 
   // Helper to send UR10 arm command to CoppeliaSim (6 joints only)
   async function sendUR10Command(handle, ur10Positions) {
-    const publisher = node.createPublisher('std_msgs/msg/String', '/ur10_rg2/ur10_joints');
+    const publisher = node.createPublisher('std_msgs/msg/String', '/coppelia/ur10/ur10_joints');
     
     // Ensure positions is a clean array of numbers
     const cleanPositions = ur10Positions.map(pos => Number(pos));
@@ -152,7 +152,7 @@ async function main() {
 
   // Helper to send gripper command to CoppeliaSim (2 joints only)
   async function sendGripperCommand(handle, gripperPositions) {
-    const publisher = node.createPublisher('std_msgs/msg/String', '/ur10_rg2/gripper');
+    const publisher = node.createPublisher('std_msgs/msg/String', '/coppelia/ur10/gripper');
     
     const gripperJson = JSON.stringify({
       handle: handle,
@@ -494,9 +494,9 @@ async function main() {
   console.log('  ✓ jointPositions - Read current joint positions');
   console.log('');
   console.log('ROS2 Topics:');
-  console.log('  → /ur10_rg2/ur10_joints - UR10 arm commands (6 joints)');
-  console.log('  → /ur10_rg2/gripper - RG2 gripper commands (2 joints)');
-  console.log('  ← /coppeliasim/joint_states_string - Joint state feedback');
+  console.log('  → /coppelia/ur10/ur10_joints - UR10 arm commands (6 joints)');
+  console.log('  → /coppelia/ur10/gripper - RG2 gripper commands (2 joints)');
+  console.log('  ← /coppelia/ur10/joint_states_string - Joint state feedback');
   console.log('');
   console.log('Setup:');
   console.log('1. Load CoppeliaSim scene with UR10+RG2 robot');

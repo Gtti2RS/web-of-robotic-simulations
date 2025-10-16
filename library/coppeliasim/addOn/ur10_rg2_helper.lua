@@ -35,10 +35,24 @@ function startUR10RG2Helper(ur10_handle)
         return false
     end
     
-    -- Verify the handle is valid
-    local objectType = sim.getObjectType(ur10_handle)
+    -- Verify the handle is valid (with retry for newly loaded objects)
+    local objectType = -1
+    local retryCount = 0
+    local maxRetries = 5
+    
+    while objectType == -1 and retryCount < maxRetries do
+        objectType = sim.getObjectType(ur10_handle)
+        if objectType == -1 then
+            retryCount = retryCount + 1
+            if retryCount < maxRetries then
+                sim.addLog(sim.verbosity_msgs, "UR10 RG2 Helper: Handle " .. tostring(ur10_handle) .. " not ready, retrying... (" .. retryCount .. "/" .. maxRetries .. ")")
+                sim.wait(0.1) -- Wait 100ms before retry
+            end
+        end
+    end
+    
     if objectType == -1 then
-        sim.addLog(sim.verbosity_scripterrors, "Invalid UR10 handle: " .. tostring(ur10_handle))
+        sim.addLog(sim.verbosity_scripterrors, "Invalid UR10 handle after " .. maxRetries .. " retries: " .. tostring(ur10_handle))
         return false
     end
     
@@ -74,13 +88,13 @@ function startUR10RG2Helper(ur10_handle)
     rg2_pose_publisher = simROS2.createPublisher('/coppeliasim/rg2_tipp/pose', 'std_msgs/msg/String')
     
     -- Create ROS2 publisher for joint states (using String message with JSON format)
-    joint_state_publisher = simROS2.createPublisher('/coppeliasim/joint_states_string', 'std_msgs/msg/String')
+    joint_state_publisher = simROS2.createPublisher('/coppelia/ur10/joint_states_string', 'std_msgs/msg/String')
     
     -- Create ROS2 subscriber for UR10 arm joint commands (6 joints)
-    ur10_subscriber = simROS2.createSubscription('/ur10_rg2/ur10_joints', 'std_msgs/msg/String', 'ur10_callback')
+    ur10_subscriber = simROS2.createSubscription('/coppelia/ur10/ur10_joints', 'std_msgs/msg/String', 'ur10_callback')
     
     -- Create ROS2 subscriber for RG2 gripper commands (2 joints)
-    gripper_subscriber = simROS2.createSubscription('/ur10_rg2/gripper', 'std_msgs/msg/String', 'gripper_callback')
+    gripper_subscriber = simROS2.createSubscription('/coppelia/ur10/gripper', 'std_msgs/msg/String', 'gripper_callback')
     
     rg2_publisher_active = true
     trajectory_subscriber_active = true
@@ -93,9 +107,9 @@ function startUR10RG2Helper(ur10_handle)
     sim.addLog(sim.verbosity_msgs, "RG2 hand handle: " .. tostring(rg2_hand_handle))
     sim.addLog(sim.verbosity_msgs, "Found " .. #ur10_joint_handles .. " joint handles (6 UR10 + 2 RG2)")
     sim.addLog(sim.verbosity_msgs, "Pose topic: /coppeliasim/rg2_tipp/pose")
-    sim.addLog(sim.verbosity_msgs, "Joint states topic: /coppeliasim/joint_states_string")
-    sim.addLog(sim.verbosity_msgs, "UR10 arm topic: /ur10_rg2/ur10_joints")
-    sim.addLog(sim.verbosity_msgs, "RG2 gripper topic: /ur10_rg2/gripper")
+    sim.addLog(sim.verbosity_msgs, "Joint states topic: /coppelia/ur10/joint_states_string")
+    sim.addLog(sim.verbosity_msgs, "UR10 arm topic: /coppelia/ur10/ur10_joints")
+    sim.addLog(sim.verbosity_msgs, "RG2 gripper topic: /coppelia/ur10/gripper")
     sim.addLog(sim.verbosity_msgs, "Frequency: " .. rg2_publish_frequency .. " Hz")
     
     return true
@@ -653,8 +667,8 @@ function showHelp()
     sim.addLog(sim.verbosity_msgs, "")
     sim.addLog(sim.verbosity_msgs, "ROS2 Topics:")
     sim.addLog(sim.verbosity_msgs, "  /coppeliasim/rg2_tipp/pose - RG2 hand pose (std_msgs/msg/String)")
-    sim.addLog(sim.verbosity_msgs, "  /ur10_rg2/ur10_joints - UR10 arm control (6 joints, std_msgs/msg/String)")
-    sim.addLog(sim.verbosity_msgs, "  /ur10_rg2/gripper - RG2 gripper control (2 joints, std_msgs/msg/String)")
+    sim.addLog(sim.verbosity_msgs, "  /coppelia/ur10/ur10_joints - UR10 arm control (6 joints, std_msgs/msg/String)")
+    sim.addLog(sim.verbosity_msgs, "  /coppelia/ur10/gripper - RG2 gripper control (2 joints, std_msgs/msg/String)")
     sim.addLog(sim.verbosity_msgs, "")
     sim.addLog(sim.verbosity_msgs, "UR10 Joints Format:")
     sim.addLog(sim.verbosity_msgs, '  {"handle":30,"positions":[j1,j2,j3,j4,j5,j6]}')

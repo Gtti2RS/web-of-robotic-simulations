@@ -54,7 +54,7 @@ from datetime import datetime
 
 # Configuration - CoppeliaSim Controller
 HOST = '10.157.150.3'
-PORT = 8080  # CoppeliaSim controller port
+PORT = 8081  # CoppeliaSim controller port
 SIMSTATS_PATH = '/cs_controller/properties/simStats'
 TD_PATH = '/cs_controller'
 VISUALIZE_PATH = '/cs_controller/properties/visualize'
@@ -62,7 +62,7 @@ SIMCONTROL_PATH = '/cs_controller/actions/simControl'
 MANAGEMODEL_PATH = '/cs_controller/actions/manageModel'
 MANAGESCENE_PATH = '/cs_controller/actions/manageScene'
 UR10_HOST = '10.157.150.3'
-UR10_PORT = 8082
+UR10_PORT = 8084
 UR10_JOINTPOSITIONS_PATH = '/ur10_server/properties/jointPositions'
 ITERATIONS = 10
 TOGGLE_ITERATIONS = 20
