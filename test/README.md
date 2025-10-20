@@ -64,7 +64,7 @@ Tests file upload performance to the fileUploader service (port 8082).
 
 **Test Sequence (4 tests, ~40 uploads):**
 ```
-1. URDF_Upload     - Upload ur10_rg2.urdf to Gazebo (14 KB, 10x)
+1. URDF_Upload     - Upload ur10_rg2_gazebo.urdf to Gazebo (14 KB, 10x)
                      → Assets/urdf/uploaded/{modelName}/
 2. SDF_Upload      - Upload diff_drive.sdf to Gazebo (10x)
                      → Assets/gazebo/worlds/uploaded/
@@ -119,7 +119,7 @@ Orchestrated test sequence with CPU monitoring for performance testing.
 ```
 Phase 1 [0-30s]:    Initial wait
 Phase 2 [30-60s]:   Enable visualization + set camera pose (Gazebo only)
-Phase 3 [60-90s]:   Load UR10 robot (ur10_rg2.urdf)
+Phase 3 [60-90s]:   Load UR10 robot (ur10_rg2_gazebo.urdf)
 Phase 4 [90-120s]:  Execute UR10 test sequence
 Phase 5 [120-135s]: Remove UR10 robot
 ```
@@ -141,7 +141,7 @@ WOS_HOST=10.157.150.3 ./load_test.sh "14:30:00" gazebo
 - **Gazebo:**
   - gz_controller: Port 8080
   - ur10_server: Port 8083
-  - URDF: `ur10_rg2.urdf`
+  - URDF: `ur10_rg2_gazebo.urdf`
 - **CoppeliaSim:**
   - cs_controller: Port 8081
   - ur10_server: Port 8084

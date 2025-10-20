@@ -460,7 +460,7 @@ async function collectOperationInput(operation) {
     }
   } else if (operation.action === 'manageModel') {
     if (operation.input.mode === 'load') {
-      input.fileName = await askQuestion('Enter model filename (e.g., ur10_rg2.urdf): ');
+      input.fileName = await askQuestion('Enter model filename (e.g., ur10_rg2_gazebo.urdf): ');
     } else if (operation.input.mode === 'remove') {
       const identifier = await askQuestion('Enter model name or ID to remove: ');
       // Try to determine if it's an ID (numeric) or name (string)

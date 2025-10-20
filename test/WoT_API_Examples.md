@@ -50,7 +50,7 @@ curl -X POST "http://localhost:8080/gz_controller/actions/manageModel" \
   -H "Content-Type: application/json" \
   -d '{
     "mode": "load",
-    "fileName": "ur10_rg2.urdf",
+    "fileName": "ur10_rg2_gazebo.urdf",
     "position": {
       "x": 0.5,
       "y": 0.0,

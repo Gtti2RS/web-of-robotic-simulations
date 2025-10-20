@@ -3,7 +3,7 @@
 
 ros2 run robot_state_publisher robot_state_publisher \
   --ros-args \
-  -p robot_description:="$(cat /project-root/Assets/urdf/examples/robots/ur10_rg2/ur10_rg2.urdf)" \
+  -p robot_description:="$(cat /project-root/Assets/urdf/examples/robots/ur10_rg2/ur10_rg2_gazebo.urdf)" \
   -p use_sim_time:=true  &\
 ros2 param set /controller_manager use_sim_time true && \
 ros2 param set /robot_state_publisher use_sim_time true && \

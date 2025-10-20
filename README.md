@@ -35,7 +35,7 @@ A unified Web of Things (WoT) interface for controlling robotic simulations acro
 
 - Docker & Docker Compose
 - Linux (tested on Ubuntu 24.04)
-- Ports: 8080-8084, 8089, 23020-23022
+- Ports: 8080-8084, 8089, 23020
 
 ## Quick Start
 
@@ -87,7 +87,7 @@ PUT http://localhost:8080/gz_controller/properties/manageScene
 PUT http://localhost:8080/gz_controller/properties/manageModel
 {
   "mode": "load",
-  "fileName": "ur10_rg2.urdf",
+  "fileName": "ur10_rg2_gazebo.urdf",
   "modelName": "robot1",
   "position": [0, 0, 0.5]
 }

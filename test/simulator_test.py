@@ -34,7 +34,7 @@ SIMULATOR_CONFIGS = {
         'host': 'localhost',
         'port': 8080,
         'ur10_port': 8083,
-        'ur10_model': 'ur10_rg2.urdf',
+        'ur10_model': 'ur10_rg2_gazebo.urdf',
         'csv_prefix': 'wot_latency',
         'uses_model_id': False,  # Uses modelName instead of id
         'has_visualize': True,

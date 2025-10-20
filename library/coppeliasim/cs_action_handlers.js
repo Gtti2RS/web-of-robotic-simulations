@@ -22,6 +22,7 @@
 const { callService } = require('../common/ros2_service_helper');
 const { resolveFilePath, checkFileConflict } = require('../common/fileUtils');
 const { deg2quat } = require('../common/deg2quat');
+const { validateUrdfSuffixForCoppeliaSim } = require('../common/ur10_suffix_validator');
 const fs = require('fs').promises;
 const path = require('path');
 const { spawn } = require('child_process'); // For UR10 child process management
@@ -579,6 +580,17 @@ function makeManageModel(node, { timeoutMs = 15000 } = {}) {
         success: false,
         message: "fileName is required for load operation"
       };
+    }
+
+    // Validate URDF suffix for CoppeliaSim simulator
+    if (mode === 'load' && fileName) {
+      const suffixValidation = validateUrdfSuffixForCoppeliaSim(fileName);
+      if (!suffixValidation.valid) {
+        return {
+          success: false,
+          message: suffixValidation.error
+        };
+      }
     }
     if (mode === 'remove' && !handle && !modelName) {
       return {

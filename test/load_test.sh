@@ -45,7 +45,7 @@ case "${SIMULATOR_TYPE,,}" in
     PORT="8080"              # gz_controller port
     UR10_PORT="8083"         # ur10_server port for Gazebo
     SIM_CONTROLLER="gz_controller"
-    URDF_FILE="ur10_rg2.urdf"
+    URDF_FILE="ur10_rg2_gazebo.urdf"
     ;;
   *)
     echo "ERROR: Unknown simulator type: $SIMULATOR_TYPE"
@@ -210,7 +210,7 @@ sleep 60
 # fi
 # echo ""
 
-# Phase 3: Load ur10_rg2.urdf (60-90s)
+# Phase 3: Load ur10_rg2_gazebo.urdf (60-90s)
 echo "═══ Phase 3: Load UR10_RG2 URDF (60-90s) ═══"
 phase3_start=$(date +%s)
 send_request \
