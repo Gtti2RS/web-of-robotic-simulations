@@ -5,7 +5,7 @@ services:
     container_name: Gazebo_ROS2
     build:
       context: .
-      dockerfile: Dockerfile.gz
+      dockerfile: Dockerfile.gazebo
     # Simplest discovery on Linux
     networks: [wos_net]
     environment:
@@ -30,7 +30,7 @@ services:
     container_name: WoT_Server
     build:
       context: .
-      dockerfile: Dockerfile.wos
+      dockerfile: Dockerfile.wot
     networks: [wos_net]
     environment:
       - TZ=Europe/Berlin
@@ -51,14 +51,14 @@ services:
     depends_on:
       - Gazebo_ROS2
     # Production: start both gz_controller and cs_controller with delay
-    command: ["/project-root/docker/entrypoint-wos.sh"]
+    command: ["/project-root/docker/entrypoint-wot.sh"]
 
   CoppeliaSim_ROS2:
     image: coppeliasim_ros2:1.0
     container_name: CoppeliaSim_ROS2
     build:
       context: .
-      dockerfile: Dockerfile.coppelia
+      dockerfile: Dockerfile.coppeliasim
     networks: [wos_net]
     environment:
       - TZ=Europe/Berlin
@@ -70,9 +70,10 @@ services:
       - "23020:23020"  # coppeliasim streaming port
       - "23021:23021"  # coppeliasim streaming backup
       - "23022:23022"  # coppeliasim streaming backup
-    # tried custom commands, but has conflicts with official entrypoint
-    # Currently only works in dev mode, which keeps container alive and waiting for manual start
-    command: ["tail", "-f", "/dev/null"]
+    working_dir: /opt/CoppeliaSim_Edu_V4_10_0_rev0_Ubuntu24_04
+    # Tried custom commands, but has conflicts with official entrypoint, so the container is kept alive and waiting for manual start
+    # Change to CoppeliaSim installation directory at startup
+    command: ["sh", "-c", "cd /opt/CoppeliaSim_Edu_V4_10_0_rev0_Ubuntu24_04 && tail -f /dev/null"]
     
 
 networks:

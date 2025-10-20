@@ -1,11 +1,11 @@
 services:
 
-  gz_sim:
-    image: gz_sim_ros2:0.3
+  Gazebo_ROS2:
+    image: gazebo_ros2:1.0
     container_name: Gazebo_ROS2
     build:
       context: .
-      dockerfile: Dockerfile.gz
+      dockerfile: Dockerfile.gazebo
     # Simplest discovery on Linux
     networks: [wos_net]
     environment:
@@ -25,12 +25,12 @@ services:
     # Dev mode: keep container alive without starting services
     command: ["tail", "-f", "/dev/null"]
 
-  wos_server:
-    image: wos_server:0.2
+  WoT_Server:
+    image: wot_server:1.0
     container_name: WoT_Server
     build:
       context: .
-      dockerfile: Dockerfile.wos
+      dockerfile: Dockerfile.wot
     networks: [wos_net]
     environment:
       - TZ=Europe/Berlin
@@ -51,12 +51,12 @@ services:
     # Dev mode: keep container alive without starting services
     command: ["tail", "-f", "/dev/null"]
 
-  coppeliasim:
-    image: coppeliasim_ros2:0.1
+  CoppeliaSim_ROS2:
+    image: coppeliasim_ros2:1.0
     container_name: CoppeliaSim_ROS2
     build:
       context: .
-      dockerfile: Dockerfile.coppelia
+      dockerfile: Dockerfile.coppeliasim
     networks: [wos_net]
     environment:
       - TZ=Europe/Berlin

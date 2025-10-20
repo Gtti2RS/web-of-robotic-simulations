@@ -381,13 +381,36 @@ function manageModel_callback(msg)
         
         setPose = function()
             local handleMatch = string.match(rawCommand, '"handle"%s*:%s*([^,}]+)')
-            if not handleMatch then
-                return '{"success":false,"message":"No handle provided for setPose operation","timestamp":"' .. os.date("%Y-%m-%d %H:%M:%S") .. '"}'
+            local modelNameMatch = string.match(rawCommand, '"modelName"%s*:%s*"([^"]+)"')
+            
+            local handle = nil
+            
+            -- Try to get handle from handle field first
+            if handleMatch then
+                handle = tonumber(handleMatch:gsub("^%s*(.-)%s*$", "%1"))
             end
             
-            local handle = tonumber(handleMatch:gsub("^%s*(.-)%s*$", "%1"))
+            -- If no handle but modelName provided, resolve modelName to handle
+            if not handle and modelNameMatch then
+                local objects = sim.getObjectsInTree(sim.handle_scene, sim.handle_all, 0)
+                if objects then
+                    for i = 1, #objects do
+                        local objHandle = objects[i]
+                        local alias = sim.getObjectAlias(objHandle, 1)
+                        if alias == modelNameMatch then
+                            handle = objHandle
+                            break
+                        end
+                    end
+                end
+            end
+            
             if not handle then
-                return '{"success":false,"message":"Invalid handle provided","timestamp":"' .. os.date("%Y-%m-%d %H:%M:%S") .. '"}'
+                local errorMsg = "No handle or modelName provided for setPose operation"
+                if modelNameMatch then
+                    errorMsg = "Model with name '" .. modelNameMatch .. "' not found in scene"
+                end
+                return '{"success":false,"message":"' .. errorMsg .. '","timestamp":"' .. os.date("%Y-%m-%d %H:%M:%S") .. '"}'
             end
             
             if not pose or pose == '' then

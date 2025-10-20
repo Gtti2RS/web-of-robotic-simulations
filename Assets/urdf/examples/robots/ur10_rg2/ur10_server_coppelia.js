@@ -79,12 +79,25 @@ async function main() {
     }
   );
 
-  // Get UR10 handle from the models list
+  // Get UR10 handle from environment variable or models list
   async function getUR10Handle() {
     if (ur10Handle !== null) {
       return ur10Handle;
     }
 
+    // First, check if handle is provided via environment variable
+    const envHandle = process.env.UR10_MODEL_HANDLE;
+    if (envHandle) {
+      ur10Handle = parseInt(envHandle, 10);
+      if (isNaN(ur10Handle)) {
+        console.error('[UR10Handle] Invalid handle from environment variable:', envHandle);
+        throw new Error('Invalid UR10_MODEL_HANDLE environment variable');
+      }
+      console.log('[UR10Handle] Using handle from environment variable:', ur10Handle);
+      return ur10Handle;
+    }
+
+    // Fallback to dynamic discovery from models list
     return new Promise((resolve, reject) => {
       const timeout = setTimeout(() => {
         reject(new Error('Timeout waiting for models list'));
@@ -106,7 +119,7 @@ async function main() {
             
             if (ur10Model) {
               ur10Handle = ur10Model.handle;
-              console.log('[UR10Handle] Found UR10 handle:', ur10Handle);
+              console.log('[UR10Handle] Found UR10 handle from models list:', ur10Handle);
               resolve(ur10Handle);
             } else {
               // If not found, use a default handle or the first model
