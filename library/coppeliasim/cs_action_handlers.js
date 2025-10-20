@@ -25,6 +25,7 @@ const { deg2quat } = require('../common/deg2quat');
 const fs = require('fs').promises;
 const path = require('path');
 const { spawn } = require('child_process'); // For UR10 child process management
+const UR10_PORT = 8084;
 
 // Track UR10 processes by model handle: { moveit: childProcess, wotServer: childProcess }
 let ur10Processes = new Map();
@@ -786,7 +787,7 @@ function makeManageModel(node, { timeoutMs = 15000 } = {}) {
             wotServer: wotServerProcess
           });
           
-          ur10Message = ` UR10 processes spawned (MoveIt: PID ${moveitProcess.pid}, WoT Server: PID ${wotServerProcess.pid}, available at http://localhost:8082)`;
+          ur10Message = ` UR10 processes spawned (MoveIt: PID ${moveitProcess.pid}, WoT Server: PID ${wotServerProcess.pid}, available at http://localhost:${UR10_PORT})`;
         } catch (error) {
           console.error(`[${new Date().toISOString()}] [manageModel] Error spawning UR10 processes:`, error.message);
           ur10Message = ` Warning: UR10 model loaded but processes failed to start: ${error.message}`;

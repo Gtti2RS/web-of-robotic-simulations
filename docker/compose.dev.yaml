@@ -1,14 +1,15 @@
 services:
 
   gz_sim:
-    image: gz_sim_ros2:0.2
-    container_name: gz_sim
+    image: gz_sim_ros2:0.3
+    container_name: Gazebo_ROS2
     build:
       context: .
       dockerfile: Dockerfile.gz
     # Simplest discovery on Linux
     networks: [wos_net]
     environment:
+      - TZ=Europe/Berlin
       - ROS_DOMAIN_ID=21
       # Let gz find models/worlds in both Assets and upload:
       - GZ_SIM_RESOURCE_PATH=/project-root/Assets/model:/project-root/Assets/models:/project-root/Assets/worlds:/project-root/upload
@@ -19,42 +20,43 @@ services:
     working_dir: /project-root
     volumes:
       - ./:/project-root:rw
-      # Use named volume for ROS2 build cache
-      - gz_ros_ws_cache:/project-root/install
-      - gz_ros_build_cache:/project-root/build
     ports:
-      - "8090:8090"
-    command: bash -lc "tail -f /dev/null"
+      - "8090:8090" # gazebo stream port
+    # Dev mode: keep container alive without starting services
+    command: ["tail", "-f", "/dev/null"]
 
   wos_server:
-    image: wos_server:0.1
-    container_name: wos_server
+    image: wos_server:0.2
+    container_name: WoT_Server
     build:
       context: .
       dockerfile: Dockerfile.wos
     networks: [wos_net]
     environment:
+      - TZ=Europe/Berlin
       - ROS_DOMAIN_ID=21
       - RMW_IMPLEMENTATION=rmw_fastrtps_cpp
     working_dir: /project-root
     volumes:
      # mount the entire repo so requires to ./library/... work
       - ./:/project-root:rw
-      # Use named volumes for build caches
+      # Use named volume for npm cache to speed up builds
       - npm_cache:/project-root/node_modules
-      - ros_ws_cache:/opt/ros/jazzy
     ports:
-      - "8080:8080"
-      - "8081:8081"
-      - "8082:8082"
-      - "8083:8083"
-      - "8084:8084"
-    entrypoint: []
-    command: bash -lc "tail -f /dev/null"
+      - "8080:8080" # gz_controller
+      - "8081:8081" # cs_controller
+      - "8082:8082" # backup
+      - "8083:8083" # ur10_controller for gazebo
+      - "8084:8084" # ur10_controller for coppeliasim
+    # Dev mode: keep container alive without starting services
+    command: ["tail", "-f", "/dev/null"]
 
   coppeliasim:
-    image: coppeliasim:4.10
-    container_name: coppeliasim
+    image: coppeliasim_ros2:0.1
+    container_name: CoppeliaSim_ROS2
+    build:
+      context: .
+      dockerfile: Dockerfile.coppelia
     networks: [wos_net]
     environment:
       - TZ=Europe/Berlin
@@ -63,14 +65,11 @@ services:
     volumes:
       - ./:/project-root:rw
     ports:
-      - "23000:23000"  # ZMQ Remote API
-      - "23050:23050"  # WS Remote API
-      - "23020:23020"  # streaming port
-      - "23021:23021"  # streaming backup
-      - "23022:23022"  # streaming backup
-      
-    # keep container alive without starting sim
-    entrypoint: ["tail","-f","/dev/null"]
+      - "23020:23020"  # coppeliasim streaming port
+      - "23021:23021"  # coppeliasim streaming backup
+      - "23022:23022"  # coppeliasim streaming backup
+    # Dev mode: keep container alive without starting sim
+    command: ["tail", "-f", "/dev/null"]
 
 
 networks:
@@ -82,10 +81,4 @@ networks:
 
 volumes:
   npm_cache:
-    driver: local
-  ros_ws_cache:
-    driver: local
-  gz_ros_ws_cache:
-    driver: local
-  gz_ros_build_cache:
     driver: local

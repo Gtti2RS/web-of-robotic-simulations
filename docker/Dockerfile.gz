@@ -1,0 +1,86 @@
+FROM ros:jazzy-ros-base-noble
+
+# =============================================================================
+# System Dependencies
+# =============================================================================
+RUN apt-get update && apt-get install -y --no-install-recommends \
+    curl \
+    lsb-release \
+    gnupg \
+    ca-certificates \
+    tmux \
+    nano \
+    less \
+    iproute2 \
+    && rm -rf /var/lib/apt/lists/*
+
+# =============================================================================
+# Gazebo Repository Setup
+# =============================================================================
+RUN curl -fsSL https://packages.osrfoundation.org/gazebo.gpg \
+    -o /usr/share/keyrings/pkgs-osrf-archive-keyring.gpg && \
+    echo "deb [arch=$(dpkg --print-architecture) signed-by=/usr/share/keyrings/pkgs-osrf-archive-keyring.gpg] https://packages.osrfoundation.org/gazebo/ubuntu-stable $(lsb_release -cs) main" \
+    > /etc/apt/sources.list.d/gazebo-stable.list
+
+# =============================================================================
+# Gazebo and ROS2 Packages
+# =============================================================================
+RUN apt-get update && apt-get install -y --no-install-recommends \
+    gz-harmonic \
+    ros-jazzy-control-msgs \
+    ros-jazzy-gz-ros2-control \
+    ros-jazzy-joint-state-broadcaster \
+    ros-jazzy-moveit-msgs \
+    ros-jazzy-ros-gz \
+    ros-jazzy-ros2-controllers \
+    ros-jazzy-ros2controlcli \
+    ros-jazzy-trajectory-msgs \
+    ros-jazzy-ur \
+    ros-jazzy-web-video-server \
+    && rm -rf /var/lib/apt/lists/*
+
+# =============================================================================
+# Environment Variables
+# =============================================================================
+ENV QT_QPA_PLATFORM=offscreen
+
+# =============================================================================
+# Environment Setup
+# =============================================================================
+RUN echo "source /opt/ros/jazzy/setup.bash" >> /etc/bash.bashrc
+
+# =============================================================================
+# Working Directory
+# =============================================================================
+WORKDIR /project-root
+
+# =============================================================================
+# Copy Source Files
+# =============================================================================
+COPY ros_gz_bridge_addon/ ./ros_gz_bridge_addon/
+
+# =============================================================================
+# ROS2 Workspace Building
+# =============================================================================
+RUN bash -c "source /opt/ros/jazzy/setup.bash && \
+    if [ -d 'ros_gz_bridge_addon/src' ]; then \
+        cd ros_gz_bridge_addon && \
+        colcon build --packages-select gz_physics_bridge_interfaces sim_process_supervisor_interfaces gz_physics_bridge sim_process_supervisor ros_gz_bridge_addon gz_throttle_tool && \
+        source install/setup.bash; \
+    fi"
+
+# =============================================================================
+# Workspace Environment Setup
+# =============================================================================
+RUN echo 'if [ -f "/project-root/ros_gz_bridge_addon/install/setup.bash" ]; then source /project-root/ros_gz_bridge_addon/install/setup.bash; fi' >> /etc/bash.bashrc
+
+# Create entrypoint script to ensure workspace is sourced
+RUN echo '#!/bin/bash\n\
+source /opt/ros/jazzy/setup.bash\n\
+if [ -f "/project-root/ros_gz_bridge_addon/install/setup.bash" ]; then\n\
+    source /project-root/ros_gz_bridge_addon/install/setup.bash\n\
+fi\n\
+exec "$@"' > /usr/local/bin/ros-entrypoint.sh && \
+    chmod +x /usr/local/bin/ros-entrypoint.sh
+
+ENTRYPOINT ["/usr/local/bin/ros-entrypoint.sh"]

@@ -1,7 +1,6 @@
 #!/bin/bash
 # Script to run inside gz_sim container
-source /opt/ros/jazzy/setup.bash && \
-source /project-root/install/setup.bash && \
+
 ros2 run robot_state_publisher robot_state_publisher \
   --ros-args \
   -p robot_description:="$(cat /project-root/Assets/urdf/examples/robots/ur10_rg2/ur10_rg2.urdf)" \

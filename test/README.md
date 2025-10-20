@@ -2,10 +2,11 @@
 
 This directory contains test scripts for the Web of Simulators (WOS) platform, including latency tests, load tests, bandwidth tests, and CPU monitoring utilities.
 
-## 📋 Table of Contents
+## Table of Contents
 
 - [Test Scripts Overview](#test-scripts-overview)
 - [Python Latency Tests](#python-latency-tests)
+- [Interactive Client](#interactive-wot-api-client-wot_api_interactivejs)
 - [Bash Test Scripts](#bash-test-scripts)
 - [Quick Start](#quick-start)
 - [Prerequisites](#prerequisites)
@@ -15,104 +16,45 @@ This directory contains test scripts for the Web of Simulators (WOS) platform, i
 
 ## Test Scripts Overview
 
-| Script | Type | Purpose | Duration |
-|--------|------|---------|----------|
-| `gazebo_test.py` | Python | WoT operations latency testing for Gazebo | 5-7 min |
-| `coppeliasim_test.py` | Python | WoT operations latency testing for CoppeliaSim | 5-7 min |
-| `fileUploader_test.py` | Python | File upload latency testing | 1-2 min |
-| `load_test.sh` | Bash | Orchestrated load test with CPU monitoring | 135 sec |
-| `ur10_test.sh` | Bash | UR10 robot pick-and-place test sequence | 30 sec |
-| `bandwidth_test.sh` | Bash | Network bandwidth capture using tshark | configurable |
-| `cpu_logger.bash` | Bash | CPU and memory monitoring using pidstat | configurable |
-| `cleanup_test_uploads.sh` | Bash | Cleanup test upload files | instant |
+|          Script           | Type   | Purpose                                          |
+|---------------------------|--------|--------------------------------------------------|
+| `fileUploader_test.py`    | Python | File upload latency testing                      |
+| `load_test.sh`            | Bash   | Orchestrated load test with CPU monitoring       |
+| `ur10_test.sh`            | Bash   | UR10 robot pick-and-place test sequence          |
+| `bandwidth_test.sh`       | Bash   | Network bandwidth capture using tshark           |
+| `cpu_logger.bash`         | Bash   | CPU and memory monitoring using pidstat          |
+| `cleanup_test_uploads.sh` | Bash   | Cleanup test upload files                        |
+| `wot_api_interactive.js`  | Node.js| Interactive WoT client for controllers and UR10  |
 
 ---
 
 ## Python Latency Tests
 
-### 1. Gazebo WoT Operations Test (`gazebo_test.py`)
+### Unified Simulator WoT Operations Test (`simulator_test.py`)
 
-Tests WoT operations on `gz_controller` (port 8080) and measures response times.
-
-**Target Services:**
-- gz_controller: `http://localhost:8080/gz_controller`
-- ur10_server: `http://localhost:8083/ur10_server` (when UR10 loaded)
-
-**Test Sequence (7 tests, ~145 operations):**
-```
-1. SimStats_Read          - Read simStats 10x with TD baseline (2s)
-2. Visualize_Toggle       - Toggle visualize 20x, set to true (2s)
-3. SimControl_RunPause    - Toggle run/pause 20x (2s)
-4. SimControl_Speed       - Toggle faster/slower 20x (2s)
-5. Box_SpawnDelete        - Spawn-Delete box.urdf 10 cycles (2s+2s)
-6. Box_SetPose            - Load box, set 10 poses, delete (2s)
-7. UR10_Full_Test         - Load UR10, test all actions (~35s)
-                            - jointPositions 10x (with UR10 TD baseline)
-                            - moveJoint 10x
-                            - gripper open/close 5x
-                            - moveToCartesian 10x
-```
+Runs WoT operation latency tests against Gazebo or CoppeliaSim via a single script.
 
 **Usage:**
 ```bash
-# Run all tests
-./gazebo_test.py
+# Gazebo controller
+./simulator_test.py gazebo
 
-# The script will:
-# - Measure baseline latency before each operation
-# - Export results to: wot_latency_YYYYMMDD_HHMMSS.csv
-# - Show normalized latency (operation time - baseline)
+# CoppeliaSim controller
+./simulator_test.py coppeliasim
 ```
 
-**Configuration:**
-Edit `TEST_SUITE` in the script to enable/disable individual tests:
-```python
-TEST_SUITE = [
-    {"name": "SimStats_Read", "enabled": True},
-    {"name": "Visualize_Toggle", "enabled": True},
-    # ... etc
-]
+**What it runs (~140–150 operations):**
+```
+1. simStats read (with TD baseline)
+2. visualize toggle (Gazebo only)
+3. simControl run/pause toggle
+4. simControl faster/slower toggle
+5. Spawn/Delete box.urdf cycles
+6. SetPose on box.urdf
+7. UR10 full test: jointPositions, moveToJoint, gripper, moveToCartesian
 ```
 
-**CSV Output Columns:**
-- Test_Name
-- Operation
-- Iteration
-- Baseline_Latency_ms
-- Response_Time_ms
-- Normalized_Latency_ms
-- Status_Code
-- Timestamp
-
----
-
-### 2. CoppeliaSim WoT Operations Test (`coppeliasim_test.py`)
-
-Tests WoT operations on `cs_controller` (port 8081).
-
-**Target Services:**
-- cs_controller: `http://localhost:8081/cs_controller`
-- ur10_server: Same as Gazebo (port 8083/8084)
-
-**Test Sequence (6 tests, ~125 operations):**
-```
-1. SimStats_Read          - Read simStats 10x with TD baseline (2s)
-2. SimControl_RunPause    - Toggle run/pause 20x (2s)
-3. SimControl_Speed       - Toggle faster/slower 20x (2s)
-4. Box_SpawnDelete        - Spawn-Delete box.urdf 10 cycles (2s+2s)
-5. Box_SetPose            - Load box, set 10 poses, delete (2s)
-6. UR10_Full_Test         - Same as Gazebo (~35s)
-```
-
-**Usage:**
-```bash
-./coppeliasim_test.py
-# Output: cs_latency_YYYYMMDD_HHMMSS.csv
-```
-
-**Note:** CoppeliaSim doesn't have a `visualize` property, so that test is excluded.
-
----
+CSV is written to the `test/` directory with a timestamped filename.
 
 ### 3. File Upload Latency Test (`fileUploader_test.py`)
 
@@ -145,6 +87,27 @@ Tests file upload performance to the fileUploader service (port 8082).
 - Large files (11MB .ttt): 170s
 
 ---
+
+### Interactive WoT API Client (`wot_api_interactive.js`)
+
+Node-based interactive client for exercising WoT APIs without Postman.
+
+**Requirements:** Node.js 18+
+
+**Run:**
+```bash
+cd ~/wos/test
+node wot_api_interactive.js
+```
+
+You will be prompted to pick a simulator (Gazebo, CoppeliaSim, or Both), then select operations from a menu. The script constructs requests to services using these defaults:
+
+- gz_controller: `http://localhost:8080/gz_controller`
+- cs_controller: `http://localhost:8081/cs_controller`
+- ur10 (Gazebo): `http://localhost:8083/ur10_server`
+- ur10 (CoppeliaSim): `http://localhost:8084/ur10_server`
+
+Supported operations include scene/model management, simulation control, ROS 2 commands, properties (assets/stats/models/poses/visualize), and UR10 actions (moveToJoint, moveToCartesian, gripper, emergencyStop).
 
 ## Bash Test Scripts
 
@@ -306,21 +269,14 @@ Removes all test upload files created during testing.
 ### Run All Latency Tests
 
 ```bash
-# 1. Start Gazebo controller
-cd ~/wos/main
-node gz_controller.js &
+# 1. Start controllers as needed (see project README)
 
 # 2. Run Gazebo latency test
 cd ~/wos/test
-./gazebo_test.py
+./simulator_test.py gazebo
 
-# 3. Start CoppeliaSim controller
-cd ~/wos/main
-node cs_controller.js &
-
-# 4. Run CoppeliaSim latency test
-cd ~/wos/test
-./coppeliasim_test.py
+# 3. Run CoppeliaSim latency test
+./simulator_test.py coppeliasim
 
 # 5. Run file upload test
 ./fileUploader_test.py
@@ -376,7 +332,7 @@ Before running tests, ensure the appropriate services are running:
 - Gazebo simulation running
 
 **For CoppeliaSim tests:**
-- cs_controller on port 8081
+- cs_controller running (see project README for port)
 - fileUploader on port 8082
 - CoppeliaSim running
 
@@ -431,6 +387,12 @@ sort -t, -k6 -n wot_latency_*.csv | tail -10
 
 ---
 
+## API Examples
+
+See `./WoT_API_Examples.md` for curl examples covering `gz_controller` and `ur10_server` endpoints.
+
+---
+
 ## Troubleshooting
 
 **"Connection refused" errors:**
@@ -454,7 +416,4 @@ sudo apt install sysstat
 
 ---
 
-## License
-
-Part of the Web of Simulators (WOS) project.
 

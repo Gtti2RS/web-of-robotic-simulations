@@ -15,11 +15,11 @@ A unified Web of Things (WoT) interface for controlling robotic simulations acro
 ## Architecture
 
 ```
-┌─────────────┐     ┌──────────────┐     ┌──────────────┐
-│  wos_server │────▶│   gz_sim     │     │ coppeliasim  │
-│  (Node.js)  │     │  (Gazebo)    │     │  (Sim 4.10)  │
-│  WoT Layer  │     │  ROS 2 Node  │     │  ROS 2 Node  │
-└─────────────┘     └──────────────┘     └──────────────┘
+┌─────────────┐     ┌──────────────┐     ┌──────────────────┐
+│  WoT_Server │────▶│  Gazebo_ROS2 │     │ CoppeliaSim_ROS2 │
+│             │     │  (Harmonic)  │     │    (4.10.0)      │
+│  WoT Layer  │     │  ROS 2 Node  │     │    ROS 2 Node    │
+└─────────────┘     └──────────────┘     └──────────────────┘
       │                     │                     │
       └─────────────────────┴─────────────────────┘
                     ROS 2 Network (DDS)
@@ -27,15 +27,15 @@ A unified Web of Things (WoT) interface for controlling robotic simulations acro
 
 ### Containers
 
-- **wos_server**: WoT Thing servers exposing simulator controls
-- **gz_sim**: Gazebo Harmonic simulator with ROS 2 bridge
-- **coppeliasim**: CoppeliaSim 4.10 with custom addOns
+- **WoT_Server**: WoT Thing servers exposing simulator controls
+- **Gazebo_ROS2**: Gazebo Harmonic simulator with ROS 2 bridge
+- **CoppeliaSim_ROS2**: CoppeliaSim 4.10 with custom addOns
 
 ## Prerequisites
 
 - Docker & Docker Compose
 - Linux (tested on Ubuntu 24.04)
-- Ports: 8080-8084, 23000, 23050
+- Ports: 8080-8084, 8089, 23020-23022
 
 ## Quick Start
 
