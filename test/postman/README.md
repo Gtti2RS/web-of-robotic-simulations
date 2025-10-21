@@ -1,0 +1,2 @@
+- This folder contains a Postman collection and two environment configurations, you can import them in postman agent.
+- Currently the uploadFile action only works in the Postman extension of vscode, while other actions can be executed from web browser.

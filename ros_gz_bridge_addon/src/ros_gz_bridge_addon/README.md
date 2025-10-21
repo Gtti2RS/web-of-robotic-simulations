@@ -39,7 +39,7 @@ ros2 launch ros_gz_bridge_addon ros_gz_bridge_addon.launch.py \
     stats_rate:=2 \
     pose_rate:=20 \
     ros_namespace:=/warehouse \
-    throttle_path:=/home/evan/ros2_ws/src/gz_throttle_tool/build/gz_throttle
+    throttle_path:=/project-root/ros_gz_bridge_addon/src/gz_throttle_tool/build/gz_throttle
 ```
 
 ## Parameters
@@ -47,7 +47,7 @@ ros2 launch ros_gz_bridge_addon ros_gz_bridge_addon.launch.py \
 - `world` (default: 'empty') - World name for Gazebo topics and physics/SDF generation
 - `stats_rate` (default: '1') - Stats throttling rate in Hz
 - `pose_rate` (default: '1') - Pose throttling rate in Hz
-- `throttle_path` (default: '/home/evan/ros2_ws/src/gz_throttle_tool/build/gz_throttle') - Path to throttle executable
+- `throttle_path` (default: '/project-root/ros_gz_bridge_addon/src/gz_throttle_tool/build/gz_throttle') - Path to throttle executable
 - `ros_namespace` (default: '') - ROS namespace for bridge nodes
 
 ## Dependencies
@@ -60,7 +60,7 @@ ros2 launch ros_gz_bridge_addon ros_gz_bridge_addon.launch.py \
 ## Building
 
 ```bash
-cd /home/evan/ros2_ws
+cd /project-root/ros_gz_bridge_addon
 colcon build --packages-select ros_gz_bridge_addon
 source install/setup.bash
 ```

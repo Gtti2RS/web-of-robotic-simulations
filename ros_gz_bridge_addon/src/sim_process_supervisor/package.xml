@@ -3,9 +3,9 @@
 <package format="3">
   <name>sim_process_supervisor</name>
   <version>0.0.0</version>
-  <description>test package without container to test manage child_process via ros2</description>
+  <description>manage python child processes via ros2 services</description>
   <maintainer email="evan.zhang@tum.de">evan</maintainer>
-  <license>Apache-2.0</license>
+  <license>MIT License</license>
   
   <exec_depend>rclpy</exec_depend>
   <exec_depend>std_srvs</exec_depend>

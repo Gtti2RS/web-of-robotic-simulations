@@ -66,8 +66,6 @@ services:
       - ../:/project-root:rw
     ports:
       - "23020:23020"  # coppeliasim streaming port
-      - "23021:23021"  # coppeliasim streaming backup
-      - "23022:23022"  # coppeliasim streaming backup
     # Dev mode: keep container alive without starting sim
     command: ["tail", "-f", "/dev/null"]
 

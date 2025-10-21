@@ -1,12 +1,16 @@
-# WOS Test Suite
+# WOS Test & Development Tools
 
-This directory contains test scripts for the Web of Simulators (WOS) platform, including latency tests, load tests, bandwidth tests, and CPU monitoring utilities.
+This directory contains testing scripts, development tools, and resources for the Web of Simulators (WOS) platform, including latency tests, load tests, bandwidth tests, CPU monitoring utilities, Postman collections, API examples, and interactive development tools.
 
 ## Table of Contents
 
-- [Test Scripts Overview](#test-scripts-overview)
+- [File Overview](#file-overview)
+- [API Documentation](#api-documentation)
+- [Postman Collections](#postman-collections)
+- [Development Utilities](#development-utilities)
+
+
 - [Python Latency Tests](#python-latency-tests)
-- [Interactive Client](#interactive-wot-api-client-wot_api_interactivejs)
 - [Bash Test Scripts](#bash-test-scripts)
 - [Quick Start](#quick-start)
 - [Prerequisites](#prerequisites)
@@ -14,9 +18,13 @@ This directory contains test scripts for the Web of Simulators (WOS) platform, i
 
 ---
 
-## Test Scripts Overview
+## File Overview
 
-|          Script           | Type   | Purpose                                          |
+This directory contains a comprehensive set of testing and development tools for the WOS platform:
+
+### Testing Scripts
+
+| Script                    | Type   | Purpose                                          |
 |---------------------------|--------|--------------------------------------------------|
 | `fileUploader_test.py`    | Python | File upload latency testing                      |
 | `load_test.sh`            | Bash   | Orchestrated load test with CPU monitoring       |
@@ -24,7 +32,101 @@ This directory contains test scripts for the Web of Simulators (WOS) platform, i
 | `bandwidth_test.sh`       | Bash   | Network bandwidth capture using tshark           |
 | `cpu_logger.bash`         | Bash   | CPU and memory monitoring using pidstat          |
 | `cleanup_test_uploads.sh` | Bash   | Cleanup test upload files                        |
-| `wot_api_interactive.js`  | Node.js| Interactive WoT client for controllers and UR10  |
+
+### Development Resources
+
+| Resource                 | Purpose                                              |
+|--------------------------|------------------------------------------------------|
+| `wot_api_interactive.js` | Interactive WoT API client (Postman replacement)     |
+| `postman/`               | Postman collections and environments for API testing |
+| `WoT_API_Examples.md`    | Comprehensive API documentation with curl examples   |
+| `bookmark_buttons.txt`   | Browser bookmark buttons for observing properties    |
+
+---
+
+## API Documentation
+
+### WoT API Examples (`WoT_API_Examples.md`)
+
+Comprehensive documentation with curl examples for all WOS WoT API endpoints.
+
+**Coverage:**
+- Gazebo Controller (`gz_controller`) operations
+- CoppeliaSim Controller (`cs_controller`) operations  
+- UR10 Server operations for both simulators
+- File upload operations
+- Simulation control and monitoring
+
+---
+
+## Postman Collections
+
+The `postman/` directory contains Postman collections and environments for testing WOS APIs.
+
+### Available Collections
+
+| File                                     | Purpose                                           |
+|------------------------------------------|---------------------------------------------------|
+| `sim_controller.postman_collection.json` | Complete collection for simulator controller APIs |
+| `gz_controller.postman_environment.json` | Environment variables for Gazebo controller       |
+| `cs_controller.postman_environment.json` | Environment variables for CoppeliaSim controller  |
+
+### Usage
+
+1. **Import Collections:**
+   - Open Postman
+   - Import `sim_controller.postman_collection.json`
+   - Import the appropriate environment file based on your simulator
+
+2. **Environment Setup:**
+   - Select the appropriate environment (gz_controller or cs_controller)
+   - Verify the base URLs and ports match your WOS setup
+
+3. **Testing:**
+   - Use the collection to test individual API endpoints
+   - Run collection tests for automated API validation
+   - Modify requests as needed for your specific use cases
+
+---
+
+## Development Utilities
+
+### Interactive WoT API Client (`wot_api_interactive.js`)
+
+**A lightweight Postman replacement** - Node.js-based interactive client for testing and developing with WoT APIs without needing Postman.
+
+**Requirements:** Node.js 18+
+
+**Usage:**
+```bash
+cd /test
+node wot_api_interactive.js
+```
+
+**Workflow:**
+1. Select simulator (Gazebo, CoppeliaSim, or Both)
+2. Choose from interactive menu of operations
+3. Execute API calls with real-time feedback
+4. Test different scenarios without leaving the terminal
+
+**Default Service Endpoints:**
+- gz_controller: `http://localhost:8080/gz_controller`
+- cs_controller: `http://localhost:8081/cs_controller`
+- ur10 (Gazebo): `http://localhost:8083/ur10_server`
+- ur10 (CoppeliaSim): `http://localhost:8084/ur10_server`
+
+**Supported Operations:**
+- Scene/model management
+- Simulation control (run/pause/speed)
+- ROS 2 commands
+- Properties (assets/stats/models/poses/visualize)
+- UR10 actions (moveToJoint, moveToCartesian, gripper, emergencyStop)
+
+---
+
+### Bookmark Buttons (`bookmark_buttons.txt`)
+
+Utility file containing browser bookmark buttons, which helps observing properties.
 
 ---
 
@@ -87,27 +189,6 @@ Tests file upload performance to the fileUploader service (port 8082).
 - Large files (11MB .ttt): 170s
 
 ---
-
-### Interactive WoT API Client (`wot_api_interactive.js`)
-
-Node-based interactive client for exercising WoT APIs without Postman.
-
-**Requirements:** Node.js 18+
-
-**Run:**
-```bash
-cd ~/wos/test
-node wot_api_interactive.js
-```
-
-You will be prompted to pick a simulator (Gazebo, CoppeliaSim, or Both), then select operations from a menu. The script constructs requests to services using these defaults:
-
-- gz_controller: `http://localhost:8080/gz_controller`
-- cs_controller: `http://localhost:8081/cs_controller`
-- ur10 (Gazebo): `http://localhost:8083/ur10_server`
-- ur10 (CoppeliaSim): `http://localhost:8084/ur10_server`
-
-Supported operations include scene/model management, simulation control, ROS 2 commands, properties (assets/stats/models/poses/visualize), and UR10 actions (moveToJoint, moveToCartesian, gripper, emergencyStop).
 
 ## Bash Test Scripts
 
@@ -264,6 +345,8 @@ Removes all test upload files created during testing.
 
 ---
 
+
+
 ## Quick Start
 
 ### Run All Latency Tests
@@ -384,12 +467,6 @@ sort -t, -k6 -n wot_latency_*.csv | tail -10
 - **Docker Compatibility**: Use `WOS_HOST` environment variable when running in Docker containers
 - **Timeout Protection**: All operations have timeouts to prevent hanging
 - **Automatic Cleanup**: File upload test automatically cleans up after completion
-
----
-
-## API Examples
-
-See `./WoT_API_Examples.md` for curl examples covering `gz_controller` and `ur10_server` endpoints.
 
 ---
 

@@ -55,15 +55,16 @@ UPLOAD_HOST = 'localhost'
 UPLOAD_PORT = 8082
 UPLOAD_PATH = '/upload'
 
+# Please prepare the test files and use the real assets path.
 # Base paths
-BASE_ASSETS_PATH = '/home/yifan/wos/Assets'
+BASE_ASSETS_PATH = '/path/to/test/assets'
 
 # Test files (relative to BASE_ASSETS_PATH)
 TEST_FILES = {
-    'urdf': os.path.join(BASE_ASSETS_PATH, 'urdf/examples/robots/ur10_rg2/ur10_rg2_gazebo.urdf'),
-    'sdf': os.path.join(BASE_ASSETS_PATH, 'gazebo/worlds/vendor/diff_drive.sdf'),
-    'launch': os.path.join(BASE_ASSETS_PATH, 'gazebo/launch/examples/diff_drive.launch.py'),
-    'ttt': os.path.join(BASE_ASSETS_PATH, 'coppeliasim/scenes/IoTRemoteLab.ttt'),
+    'urdf': os.path.join(BASE_ASSETS_PATH, 'test1.urdf'),
+    'sdf': os.path.join(BASE_ASSETS_PATH, 'test2.sdf'),
+    'launch': os.path.join(BASE_ASSETS_PATH, 'test3.launch.py'),
+    'ttt': os.path.join(BASE_ASSETS_PATH, 'test4.ttt'),
 }
 
 ITERATIONS = 10

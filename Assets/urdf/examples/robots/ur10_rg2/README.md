@@ -1,6 +1,6 @@
 # UR10 RG2 Robot Model
 
-This directory contains the UR10 robotic arm with RG2 gripper model files, configured for both Gazebo and CoppeliaSim simulators.
+This directory contains the UR10 robotic arm with RG2 gripper model files, configured for both Gazebo and CoppeliaSim simulators. In the urdf files, the ur10 part originates from the ros2 ur_description package and rg2 part originates from https://github.com/AndrejOrsula/ur5_rg2_ign
 
 ## 📁 File Overview
 

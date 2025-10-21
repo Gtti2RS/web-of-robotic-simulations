@@ -68,8 +68,6 @@ services:
       - ../:/project-root:rw
     ports:
       - "23020:23020"  # coppeliasim streaming port
-      - "23021:23021"  # coppeliasim streaming backup
-      - "23022:23022"  # coppeliasim streaming backup
     working_dir: /opt/CoppeliaSim_Edu_V4_10_0_rev0_Ubuntu24_04
     # Tried custom commands, but has conflicts with official entrypoint, so the container is kept alive and waiting for manual start
     # Change to CoppeliaSim installation directory at startup

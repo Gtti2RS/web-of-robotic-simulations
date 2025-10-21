@@ -1,5 +1,5 @@
 // WoT server for UR10+RG2 in CoppeliaSim
-// Usage: node /home/yifan/wos/Assets/urdf/examples/robots/ur10_rg2/ur10_server_coppelia.js
+// Usage: node /project-root/Assets/urdf/examples/robots/ur10_rg2/ur10_server_coppelia.js
 // This implementation communicates with CoppeliaSim via ROS2 using the addOn helper scripts
 
 const { Servient } = require('@node-wot/core');

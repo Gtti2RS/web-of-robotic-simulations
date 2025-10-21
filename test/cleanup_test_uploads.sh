@@ -2,7 +2,7 @@
 # Cleanup script to remove test upload files
 
 # Base path on host
-BASE_PATH="/home/yifan/wos"
+BASE_PATH="/path/to/wos"
 
 echo "Cleaning up test upload files..."
 
