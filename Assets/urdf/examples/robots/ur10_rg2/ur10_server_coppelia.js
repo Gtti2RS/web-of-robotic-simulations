@@ -1,5 +1,5 @@
 // WoT server for UR10+RG2 in CoppeliaSim
-// Usage: node /home/yifan/wos/Assets/urdf/examples/robots/ur10_rg2/ur10_server_coppelia.js
+// Usage: node /project-root/Assets/urdf/examples/robots/ur10_rg2/ur10_server_coppelia.js
 // This implementation communicates with CoppeliaSim via ROS2 using the addOn helper scripts
 
 const { Servient } = require('@node-wot/core');
@@ -52,7 +52,7 @@ async function main() {
   // Subscribe to joint states to track current positions
   const jointStateSubscription = node.createSubscription(
     'std_msgs/msg/String',
-    '/coppeliasim/joint_states_string',
+    '/coppelia/ur10/joint_states_string',
     (msg) => {
       try {
         const data = JSON.parse(msg.data);
@@ -79,12 +79,25 @@ async function main() {
     }
   );
 
-  // Get UR10 handle from the models list
+  // Get UR10 handle from environment variable or models list
   async function getUR10Handle() {
     if (ur10Handle !== null) {
       return ur10Handle;
     }
 
+    // First, check if handle is provided via environment variable
+    const envHandle = process.env.UR10_MODEL_HANDLE;
+    if (envHandle) {
+      ur10Handle = parseInt(envHandle, 10);
+      if (isNaN(ur10Handle)) {
+        console.error('[UR10Handle] Invalid handle from environment variable:', envHandle);
+        throw new Error('Invalid UR10_MODEL_HANDLE environment variable');
+      }
+      console.log('[UR10Handle] Using handle from environment variable:', ur10Handle);
+      return ur10Handle;
+    }
+
+    // Fallback to dynamic discovery from models list
     return new Promise((resolve, reject) => {
       const timeout = setTimeout(() => {
         reject(new Error('Timeout waiting for models list'));
@@ -106,7 +119,7 @@ async function main() {
             
             if (ur10Model) {
               ur10Handle = ur10Model.handle;
-              console.log('[UR10Handle] Found UR10 handle:', ur10Handle);
+              console.log('[UR10Handle] Found UR10 handle from models list:', ur10Handle);
               resolve(ur10Handle);
             } else {
               // If not found, use a default handle or the first model
@@ -129,7 +142,7 @@ async function main() {
 
   // Helper to send UR10 arm command to CoppeliaSim (6 joints only)
   async function sendUR10Command(handle, ur10Positions) {
-    const publisher = node.createPublisher('std_msgs/msg/String', '/ur10_rg2/ur10_joints');
+    const publisher = node.createPublisher('std_msgs/msg/String', '/coppelia/ur10/ur10_joints');
     
     // Ensure positions is a clean array of numbers
     const cleanPositions = ur10Positions.map(pos => Number(pos));
@@ -152,7 +165,7 @@ async function main() {
 
   // Helper to send gripper command to CoppeliaSim (2 joints only)
   async function sendGripperCommand(handle, gripperPositions) {
-    const publisher = node.createPublisher('std_msgs/msg/String', '/ur10_rg2/gripper');
+    const publisher = node.createPublisher('std_msgs/msg/String', '/coppelia/ur10/gripper');
     
     const gripperJson = JSON.stringify({
       handle: handle,
@@ -494,9 +507,9 @@ async function main() {
   console.log('  ✓ jointPositions - Read current joint positions');
   console.log('');
   console.log('ROS2 Topics:');
-  console.log('  → /ur10_rg2/ur10_joints - UR10 arm commands (6 joints)');
-  console.log('  → /ur10_rg2/gripper - RG2 gripper commands (2 joints)');
-  console.log('  ← /coppeliasim/joint_states_string - Joint state feedback');
+  console.log('  → /coppelia/ur10/ur10_joints - UR10 arm commands (6 joints)');
+  console.log('  → /coppelia/ur10/gripper - RG2 gripper commands (2 joints)');
+  console.log('  ← /coppelia/ur10/joint_states_string - Joint state feedback');
   console.log('');
   console.log('Setup:');
   console.log('1. Load CoppeliaSim scene with UR10+RG2 robot');

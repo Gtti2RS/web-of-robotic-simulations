@@ -15,8 +15,8 @@ setup(
     zip_safe=True,
     maintainer='evan',
     maintainer_email='evan.zhang@tum.de',
-    description='TODO: Package description',
-    license='TODO: License declaration',
+    description='manage python child processes via ros2 services',
+    license='MIT License',
     tests_require=['pytest'],
     entry_points={
         'console_scripts': [

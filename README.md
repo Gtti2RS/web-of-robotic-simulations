@@ -8,18 +8,18 @@ A unified Web of Things (WoT) interface for controlling robotic simulations acro
 - **WoT Interface**: RESTful API with Thing Descriptions for each simulator
 - **ROS 2 Integration**: Jazzy Jalisco with full topic/service support
 - **Motion Planning**: MoveIt 2 integration for robotic manipulators
-- **Model Management**: URDF/SDF loading, spawning, and manipulation
+- **Model Management**: URDF/SDF/TTM loading, spawning, and manipulation
 - **Real-time Monitoring**: Observable properties via Server-Sent Events (SSE)
 - **Docker Containerized**: Isolated environments for reproducible simulations
 
 ## Architecture
 
 ```
-┌─────────────┐     ┌──────────────┐     ┌──────────────┐
-│  wos_server │────▶│   gz_sim     │     │ coppeliasim  │
-│  (Node.js)  │     │  (Gazebo)    │     │  (Sim 4.10)  │
-│  WoT Layer  │     │  ROS 2 Node  │     │  ROS 2 Node  │
-└─────────────┘     └──────────────┘     └──────────────┘
+┌─────────────┐     ┌──────────────┐     ┌──────────────────┐
+│  WoT_Server │     │  Gazebo_ROS2 │     │ CoppeliaSim_ROS2 │
+│             │     │  (Harmonic)  │     │    (4.10.0)      │
+│  WoT Layer  │     │  ROS 2 Node  │     │    ROS 2 Node    │
+└─────────────┘     └──────────────┘     └──────────────────┘
       │                     │                     │
       └─────────────────────┴─────────────────────┘
                     ROS 2 Network (DDS)
@@ -27,151 +27,129 @@ A unified Web of Things (WoT) interface for controlling robotic simulations acro
 
 ### Containers
 
-- **wos_server**: WoT Thing servers exposing simulator controls
-- **gz_sim**: Gazebo Harmonic simulator with ROS 2 bridge
-- **coppeliasim**: CoppeliaSim 4.10 with custom addOns
+- **WoT_Server**: WoT Thing servers exposing simulator controls
+- **Gazebo_ROS2**: Gazebo Harmonic simulator with ROS 2 bridge
+- **CoppeliaSim_ROS2**: CoppeliaSim 4.10 with custom addOns
 
 ## Prerequisites
 
 - Docker & Docker Compose
-- Linux (tested on Ubuntu 24.04)
-- Ports: 8080-8084, 23000, 23050
+- Linux when deployed directly on host (tested on Ubuntu 24.04)
+- Ports: 8080-8084, 8089, 23020
 
 ## Quick Start
 
 ### 1. Build & Start Containers
 
+#### Prerequisites: CoppeliaSim Docker Image
+
+First, build the official CoppeliaSim Docker image:
+
 ```bash
-docker compose up -d
+# Clone the CoppeliaSim Docker repository
+git clone https://github.com/CoppeliaRobotics/docker-image-coppeliasim.git
+
+# Download CoppeliaSim package from https://downloads.coppeliarobotics.com/ and move it to /docker-image-coppeliasim/download/
+
+# Build the CoppeliaSim image
+cd docker-image-coppeliasim
+docker buildx build --load -t coppeliasim:4.10.0 .
 ```
 
-### 2. Start Gazebo Controller
+#### Start the Application
+
+Two compose files are available:
+
+- **`compose.yaml`**: Production mode - automatically starts Gazebo and its WoT controller
+- **`compose.dev.yaml`**: Development mode - starts containers and waits for developer to manually start services (allows real-time server log viewing)
 
 ```bash
-docker exec -it wos_server bash
+cd docker/
+
+# Production mode (recommended for first-time users)
+docker compose up -d
+
+# Development mode (for debugging and development)
+docker compose -f compose.dev.yaml up -d
+```
+
+### 2. Start Gazebo Controller (dev mode)
+
+1st terminal:
+``` bash
+docker exec -it Gazebo_ROS2 bash
+cd /project-root/main
+bash start_process_supervisor.sh
+```
+2nd terminal:
+```bash
+docker exec -it WoT-Server bash
 cd /project-root/main
 node gz_controller.js
 ```
 
-Access Gazebo WoT interface: `http://localhost:8080/gz_controller`
+Thing Description at: `http://localhost:8080/gz_controller` or `http://{server_url}:8080/gz_controller`
 
 ### 3. Start CoppeliaSim Controller
+Tried to start CoppeliaSim automatically, but can't find a way to overwrite official entrypoint and the container keeps restarting, so currently only dev mode is supported for CoppeliaSim
 
+1st terminal:
 ```bash
-docker exec -it wos_server bash
+docker exec -it CoppeliaSim_ROS2 bash
+cd /opt/CoppeliaSim_Edu_V4_10_0_rev0_Ubuntu24_04/
+./coppeliaSim -H -GvisualizationStream.autoStart=true -a /project-root/library/coppeliasim/addOn/ros2_helper.lua
+```
+2nd terminal:
+```bash
+docker exec -it WoT-Server bash
 cd /project-root/main
 node cs_controller.js
 ```
 
-Access CoppeliaSim WoT interface: `http://localhost:8081/cs_controller`
+Thing Description at: `http://localhost:8081/cs_controller` or `http://{server_url}:8081/cs_controller`
 
-### 4. Start CoppeliaSim GUI (Optional)
+### Alternative: Half-Containerized Deployment
 
-```bash
-docker exec coppeliasim bash -c "cd /opt/coppeliasim410 && ./coppeliaSim.sh"
-```
+If you already have Gazebo and CoppeliaSim installed on your host system, you can use only the WoT-Server container and run the simulators manually. This approach requires more setup but gives you full control over the simulator processes.
+
+See [HALF_CONTAINERIZED.md](HALF_CONTAINERIZED.md) for detailed instructions.
 
 ## Usage Examples
 
-### Gazebo Simulation
+see test/WoT_API_Examples.md
 
-```javascript
-// Load a world
-PUT http://localhost:8080/gz_controller/properties/manageScene
-{
-  "mode": "load",
-  "fileName": "empty.sdf"
-}
 
-// Spawn a robot model
-PUT http://localhost:8080/gz_controller/properties/manageModel
-{
-  "mode": "load",
-  "fileName": "ur10_rg2.urdf",
-  "modelName": "robot1",
-  "position": [0, 0, 0.5]
-}
 
-// Control simulation
-POST http://localhost:8080/gz_controller/actions/simControl
-{
-  "mode": "play"  // or "pause", "stop", "step"
-}
-```
+### Directory Descriptions
 
-### CoppeliaSim Simulation
+**`Assets/`** - Robot models, worlds, and scenes
+- **`urdf/`**: URDF robot model definitions with example configurations
+- **`gazebo/`**: Gazebo-specific assets including SDF models, worlds, and launch files
+- **`coppeliasim/`**: CoppeliaSim-specific assets including models and scene files
 
-```javascript
-// Load a robot
-PUT http://localhost:8081/cs_controller/properties/manageModel
-{
-  "operation": "load",
-  "fileName": "ur10_rg2_coppelia.urdf",
-  "objectName": "bot",
-  "position": [0, 0, 0]
-}
+**`docker/`** - Docker configurations
+- Production and development Docker Compose files for containerized deployment
+- Individual Dockerfiles for Gazebo, CoppeliaSim, and WoT server containers
+- Entrypoint scripts for container initialization
 
-// Control simulation
-POST http://localhost:8081/cs_controller/actions/simControl
-{
-  "mode": "run"  // or "pause", "stop"
-}
-```
+**`library/`** - Core libraries and utilities
+- **`common/`**: Shared utilities for file management, ROS 2 integration, SSE handling, and observable properties
+- **`gazebo/`**: Gazebo-specific libraries for ROS 2 service integration, bridge management, and world utilities
+- **`coppeliasim/`**: CoppeliaSim-specific libraries including action handlers, MoveIt integration, and custom Lua addOns
 
-### Robot Control (UR10+RG2)
+**`main/`** - WoT Thing server implementations
+- Contains the main WoT controllers (`gz_controller.js`, `cs_controller.js`) that expose simulator controls via RESTful APIs
+- Includes Thing Descriptions (JSON files) that define the WoT interface for each simulator
+- Features file upload handler and process supervisor for managing simulation processes
 
-When a UR10+RG2 robot is loaded, a dedicated WoT server spawns:
+**`ros_gz_bridge_addon/`** - Custom ROS 2 workspace
+- Contains custom ROS 2 packages for physics bridging, process supervision, and throttling tools
+- Includes interface definitions and specialized bridge components for enhanced simulator integration
 
-```javascript
-// Move to Cartesian position (uses MoveIt IK)
-POST http://localhost:8084/ur10_server/actions/moveToCartesian
-{
-  "x": 0.5,
-  "y": 0.2,
-  "z": 0.3,
-  "roll": 0,
-  "pitch": 1.57,
-  "yaw": 0
-}
-
-// Move to joint positions
-POST http://localhost:8084/ur10_server/actions/moveToJoint
-{
-  "positions": [0, -1.57, 1.57, -1.57, -1.57, 0]
-}
-
-// Gripper control
-POST http://localhost:8084/ur10_server/actions/gripClose
-POST http://localhost:8084/ur10_server/actions/gripOpen
-```
-
-## Project Structure
-
-```
-wos/
-├── main/                      # WoT Thing server implementations
-│   ├── gz_controller.js       # Gazebo controller
-│   ├── cs_controller.js       # CoppeliaSim controller
-│   └── *.json                 # Thing Descriptions
-├── library/                   # Core libraries
-│   ├── common/                # Shared utilities
-│   │   ├── fileUtils.js       # Asset & file management
-│   │   └── ros2_utils.js      # ROS 2 helpers
-│   ├── gazebo/                # Gazebo-specific
-│   │   ├── gz_ros2_srv.js     # ROS 2 service handlers
-│   │   └── gz_bridge_manager.js
-│   └── coppeliasim/           # CoppeliaSim-specific
-│       ├── cs_action_handlers.js
-│       ├── start_moveit.sh    # MoveIt launcher
-│       └── addOn/             # CoppeliaSim addOns
-├── Assets/                    # Robot models & worlds
-│   ├── urdf/                  # URDF robot models
-│   ├── gazebo/                # SDF worlds & models
-│   └── coppeliasim/           # CoppeliaSim scenes
-├── docker/                    # Docker configurations
-├── compose.yaml               # Docker Compose setup
-└── Dockerfile.*               # Container definitions
-```
+**`test/`** - Testing utilities and development tools
+- Comprehensive testing suite including latency tests, load tests, and bandwidth monitoring
+- Development tools: Postman collections, interactive API client, and browser bookmarks
+- API documentation and examples for WoT endpoints
 
 ## Supported Robots
 
@@ -192,111 +170,40 @@ wos/
 
 ### Observable Properties (SSE)
 
-Subscribe to real-time updates:
+Subscribe to real-time updates in web browsers or with curl:
 
 ```bash
 # Gazebo stats
-curl -N http://localhost:8080/gz_controller/properties/simStats
+curl -N http://localhost:8080/gz_controller/properties/simStats/observable
 
 # Model poses
-curl -N http://localhost:8080/gz_controller/properties/poses
+curl -N http://localhost:8080/gz_controller/properties/poses/observable
 
 # CoppeliaSim stats
-curl -N http://localhost:8081/cs_controller/properties/simStats
+curl -N http://localhost:8081/cs_controller/properties/simStats/observable
 ```
+note: if observing in web brosers, two helper buttons are defined in /test/bookmark_buttons.txt
 
-### Logs
+### Container logs
 
 ```bash
 # Container logs
-docker logs wos_server
-docker logs gz_sim
-docker logs coppeliasim
-
-# MoveIt logs
-docker exec wos_server tail -f /tmp/move_group.log
-
-# Robot state publisher
-docker exec wos_server tail -f /tmp/robot_state_publisher.log
-```
-
-## Development
-
-### Installing Dependencies
-
-MoveIt packages are required for motion planning:
-
-```bash
-# In gz_sim container
-docker exec gz_sim apt-get update && apt-get install -y \
-  ros-jazzy-moveit ros-jazzy-ur-moveit-config
-
-# In wos_server container (for CoppeliaSim)
-docker exec wos_server apt-get update && apt-get install -y \
-  ros-jazzy-moveit ros-jazzy-moveit-ros-move-group
+docker logs WoT_Server
+docker logs Gazebo_ROS2
+docker logs CoppeliaSim_ROS2
 ```
 
 ### Testing
 
-```bash
-# Run load tests
-cd test
-./load_test.sh
-```
+see /test/README.md
+
+### Development Reference
+
+- **`native_api_and_ros2_calls.md`**: Comprehensive collection of native Gazebo and CoppeliaSim API calls, ROS2 commands, and service integrations used during development. Includes entity management, simulation control, robot manipulation, and debugging commands for both simulators.
 
 ## Troubleshooting
 
-### MoveIt not starting
-
-```bash
-# Check if packages are installed
-docker exec wos_server dpkg -l | grep moveit
-
-# Check MoveIt logs
-docker exec wos_server tail -50 /tmp/move_group.log
-```
-
-### CoppeliaSim connection issues
-
-```bash
-# Verify CoppeliaSim is running
-docker exec coppeliasim pgrep coppeliaSim
-
-# Check ROS 2 topics
-docker exec wos_server bash -c "source /opt/ros/jazzy/setup.bash && ros2 topic list"
-```
-
-### Path resolution errors
-
-The `fileUtils.js` handles vendor asset paths. For CoppeliaSim vendor assets, "ungrouped" is a virtual folder and not part of the actual filesystem path.
-
-## Configuration
-
-### Environment Variables
-
-- `ROS_DOMAIN_ID=21`: Isolates ROS 2 network
-- `RMW_IMPLEMENTATION=rmw_fastrtps_cpp`: DDS implementation
-- `GZ_SIM_RESOURCE_PATH`: Gazebo asset search paths
-- `QT_QPA_PLATFORM=offscreen`: Headless rendering
-
-### Network
-
-All containers share the `wos_net` bridge network (172.28.0.0/16) for seamless communication.
-
-## API Documentation
-
-Thing Descriptions (OpenAPI-like) are available at:
-
-- Gazebo: `http://localhost:8080/gz_controller`
-- CoppeliaSim: `http://localhost:8081/cs_controller`
-- UR10 Server: `http://localhost:8084/ur10_server`
-
-## Contributing
-
-1. Fork the repository
-2. Create a feature branch
-3. Test in Docker containers
-4. Submit a pull request
+Check the logs either from docker logs or run the servers in development mode.
 
 ## License
 

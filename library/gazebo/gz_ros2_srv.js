@@ -25,6 +25,7 @@
 const { callService } = require('../common/ros2_service_helper');
 const { resolveFilePath, checkFileConflict } = require('../common/fileUtils');
 const { deg2quat } = require('../common/deg2quat');
+const { validateUrdfSuffixForGazebo } = require('../common/ur10_suffix_validator');
 const { get_world, extract_world, clear_world, extractSdfFromLaunch, ur10Exists } = require('./gz_world_utils');
 const { entityExists } = require('./gz_world_utils'); 
 const { setupAllObservableProperties, cleanupSubscriptions } = require('./gz_observable_topics');
@@ -291,7 +292,7 @@ function makeSpawnEntity(node, { timeoutMs = 1000 } = {}) {
     if (resp?.success ?? resp?.ok ?? resp?.boolean) {
       let resultMessage = `${entity_name} is spawned to current world.`;
       
-      // Handle UR10 processes if file_name matches 'ur10_rg2.urdf'
+      // Handle UR10 processes if file_name matches 'ur10_rg2_gazebo.urdf'
       const ur10Message = await handleUr10Spawning(node, entity_name, file_name, { timeoutMs });
       if (ur10Message) {
         resultMessage += ur10Message;
@@ -885,7 +886,7 @@ function makeExitSimulation(node, { timeoutMs = 1000 } = {}) {
  * Check if a file name indicates UR10 entity
  */
 function isUr10Entity(fileName) {
-  return fileName === 'ur10_rg2.urdf';
+  return fileName === 'ur10_rg2_gazebo.urdf';
 }
 
 /**
@@ -904,7 +905,7 @@ function generateUr10ProcessNames(entityName) {
 function getUr10ProcessCommands() {
   return {
     config: 'bash /project-root/Assets/urdf/examples/robots/ur10_rg2/ur10_config.sh',
-    controller: 'node /project-root/Assets/urdf/examples/robots/ur10_rg2/ur10_server.js'
+    controller: 'node /project-root/Assets/urdf/examples/robots/ur10_rg2/ur10_server_gazebo.js'
   };
 }
 
@@ -1028,7 +1029,7 @@ async function startUr10Process(node, processName, command, { timeoutMs = 1000 }
  * Start UR10 controller as a child process
  */
 function startUr10ControllerChildProcess(entityName) {
-  const controllerPath = path.join(__dirname, '../../Assets/urdf/examples/robots/ur10_rg2/ur10_server.js');
+  const controllerPath = path.join(__dirname, '../../Assets/urdf/examples/robots/ur10_rg2/ur10_server_gazebo.js');
   
   console.log(`[${new Date().toISOString()}] [startUr10ControllerChildProcess] Starting UR10 controller child process for ${entityName}`);
   console.log(`[${new Date().toISOString()}] [startUr10ControllerChildProcess] Controller path: ${controllerPath}`);
@@ -1352,6 +1353,15 @@ function makeManageModel(node, { timeoutMs = 5000 } = {}) {
 
           if (!fileName) {
             throw new Error("fileName is required for load operation");
+          }
+
+          // Validate URDF suffix for Gazebo simulator
+          const suffixValidation = validateUrdfSuffixForGazebo(fileName);
+          if (!suffixValidation.valid) {
+            return {
+              success: false,
+              message: suffixValidation.error
+            };
           }
 
           console.log(`[${new Date().toISOString()}] [manageModel] Load operation: ${fileName}`);

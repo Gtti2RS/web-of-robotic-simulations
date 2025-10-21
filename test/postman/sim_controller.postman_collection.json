@@ -1,0 +1,495 @@
+{
+	"info": {
+		"_postman_id": "a985387c-933a-4df3-a191-18ac9114a201",
+		"name": "sim_controller",
+		"schema": "https://schema.getpostman.com/json/collection/v2.1.0/collection.json",
+		"_exporter_id": "40803537"
+	},
+	"item": [
+		{
+			"name": "get_td",
+			"request": {
+				"method": "GET",
+				"header": [],
+				"url": {
+					"raw": "http://{{url}}:{{port}}/{{sim_controller}}",
+					"protocol": "http",
+					"host": [
+						"{{url}}"
+					],
+					"port": "{{port}}",
+					"path": [
+						"{{sim_controller}}"
+					]
+				}
+			},
+			"response": []
+		},
+		{
+			"name": "getAssets",
+			"request": {
+				"method": "GET",
+				"header": [],
+				"url": {
+					"raw": "http://{{url}}:{{port}}/{{sim_controller}}/properties/assets",
+					"protocol": "http",
+					"host": [
+						"{{url}}"
+					],
+					"port": "{{port}}",
+					"path": [
+						"{{sim_controller}}",
+						"properties",
+						"assets"
+					]
+				}
+			},
+			"response": []
+		},
+		{
+			"name": "get_modellist",
+			"request": {
+				"method": "GET",
+				"header": [],
+				"url": {
+					"raw": "http://{{url}}:{{port}}/{{sim_controller}}/properties/models",
+					"protocol": "http",
+					"host": [
+						"{{url}}"
+					],
+					"port": "{{port}}",
+					"path": [
+						"{{sim_controller}}",
+						"properties",
+						"models"
+					]
+				}
+			},
+			"response": []
+		},
+		{
+			"name": "get_state",
+			"request": {
+				"method": "GET",
+				"header": [],
+				"url": {
+					"raw": "http://{{url}}:{{port}}/{{sim_controller}}/properties/simStats",
+					"protocol": "http",
+					"host": [
+						"{{url}}"
+					],
+					"port": "{{port}}",
+					"path": [
+						"{{sim_controller}}",
+						"properties",
+						"simStats"
+					]
+				}
+			},
+			"response": []
+		},
+		{
+			"name": "getPoses",
+			"request": {
+				"method": "GET",
+				"header": [],
+				"url": {
+					"raw": "http://{{url}}:{{port}}/{{sim_controller}}/properties/poses",
+					"protocol": "http",
+					"host": [
+						"{{url}}"
+					],
+					"port": "{{port}}",
+					"path": [
+						"{{sim_controller}}",
+						"properties",
+						"poses"
+					]
+				}
+			},
+			"response": []
+		},
+		{
+			"name": "visualize",
+			"protocolProfileBehavior": {
+				"disableBodyPruning": true
+			},
+			"request": {
+				"method": "GET",
+				"header": [],
+				"body": {
+					"mode": "raw",
+					"raw": "",
+					"options": {
+						"raw": {
+							"language": "json"
+						}
+					}
+				},
+				"url": {
+					"raw": "http://{{url}}:{{port}}/{{sim_controller}}/properties/visualize",
+					"protocol": "http",
+					"host": [
+						"{{url}}"
+					],
+					"port": "{{port}}",
+					"path": [
+						"{{sim_controller}}",
+						"properties",
+						"visualize"
+					]
+				}
+			},
+			"response": []
+		},
+		{
+			"name": "setVisualize",
+			"request": {
+				"method": "PUT",
+				"header": [],
+				"body": {
+					"mode": "raw",
+					"raw": "true",
+					"options": {
+						"raw": {
+							"language": "json"
+						}
+					}
+				},
+				"url": {
+					"raw": "http://{{url}}:{{port}}/{{sim_controller}}/properties/visualize",
+					"protocol": "http",
+					"host": [
+						"{{url}}"
+					],
+					"port": "{{port}}",
+					"path": [
+						"{{sim_controller}}",
+						"properties",
+						"visualize"
+					]
+				}
+			},
+			"response": []
+		},
+		{
+			"name": "publishMessage",
+			"request": {
+				"auth": {
+					"type": "noauth"
+				},
+				"method": "POST",
+				"header": [],
+				"body": {
+					"mode": "raw",
+					"raw": "\"hello world\"",
+					"options": {
+						"raw": {
+							"language": "json"
+						}
+					}
+				},
+				"url": {
+					"raw": "http://{{url}}:{{port}}/{{sim_controller}}/actions/publishMessage",
+					"protocol": "http",
+					"host": [
+						"{{url}}"
+					],
+					"port": "{{port}}",
+					"path": [
+						"{{sim_controller}}",
+						"actions",
+						"publishMessage"
+					]
+				}
+			},
+			"response": []
+		},
+		{
+			"name": "sendRos2Cmd",
+			"request": {
+				"method": "POST",
+				"header": [],
+				"body": {
+					"mode": "raw",
+					"raw": "ros2 topic list",
+					"options": {
+						"raw": {
+							"language": "json"
+						}
+					}
+				},
+				"url": {
+					"raw": "http://{{url}}:{{port}}/{{sim_controller}}/actions/sendRos2Cmd",
+					"protocol": "http",
+					"host": [
+						"{{url}}"
+					],
+					"port": "{{port}}",
+					"path": [
+						"{{sim_controller}}",
+						"actions",
+						"sendRos2Cmd"
+					]
+				}
+			},
+			"response": []
+		},
+		{
+			"name": "uploadFile",
+			"request": {
+				"method": "POST",
+				"header": [],
+				"body": {
+					"mode": "formdata",
+					"formdata": [
+						{
+							"key": "file",
+							"type": "file",
+							"src": "/path/to/test.urdf"
+						},
+						{
+							"key": "target",
+							"value": "world",
+							"type": "text"
+						},
+						{
+							"key": "simulator",
+							"value": "gazebo",
+							"type": "text"
+						}
+					]
+				},
+				"url": {
+					"raw": "http://{{url}}:8082/upload",
+					"protocol": "http",
+					"host": [
+						"{{url}}"
+					],
+					"port": "8082",
+					"path": [
+						"upload"
+					],
+					"query": [
+						{
+							"key": "",
+							"value": "",
+							"disabled": true
+						}
+					]
+				}
+			},
+			"response": []
+		},
+		{
+			"name": "spawnBot",
+			"request": {
+				"method": "POST",
+				"header": [],
+				"body": {
+					"mode": "raw",
+					"raw": "{\n  \"mode\": \"load\",\n  \"fileName\": \"ur10_rg2_coppelia.urdf\",\n  \"modelName\": \"bot\",\n  \"position\": {\n    \"x\": 0,\n    \"y\": 0,\n    \"z\": 0\n  },\n  \"orientation\": {\n    \"roll\": 0,\n    \"pitch\": 0,\n    \"yaw\": 0\n  }\n}",
+					"options": {
+						"raw": {
+							"language": "json"
+						}
+					}
+				},
+				"url": {
+					"raw": "http://{{url}}:{{port}}/{{sim_controller}}/actions/manageModel",
+					"protocol": "http",
+					"host": [
+						"{{url}}"
+					],
+					"port": "{{port}}",
+					"path": [
+						"{{sim_controller}}",
+						"actions",
+						"manageModel"
+					]
+				}
+			},
+			"response": []
+		},
+		{
+			"name": "spawnObject",
+			"request": {
+				"method": "POST",
+				"header": [],
+				"body": {
+					"mode": "raw",
+					"raw": "{\n  \"mode\": \"load\",\n  \"fileName\": \"box.urdf\",\n  \"modelName\": \"box\",\n  \"position\": {\n    \"x\": -0.5,\n    \"y\": 0.5,\n    \"z\": 0.1\n  },\n  \"orientation\": {\n    \"roll\": 0,\n    \"pitch\": 0,\n    \"yaw\": 0\n  }\n}",
+					"options": {
+						"raw": {
+							"language": "json"
+						}
+					}
+				},
+				"url": {
+					"raw": "http://{{url}}:{{port}}/{{sim_controller}}/actions/manageModel",
+					"protocol": "http",
+					"host": [
+						"{{url}}"
+					],
+					"port": "{{port}}",
+					"path": [
+						"{{sim_controller}}",
+						"actions",
+						"manageModel"
+					]
+				}
+			},
+			"response": []
+		},
+		{
+			"name": "set_camera_pose",
+			"request": {
+				"method": "POST",
+				"header": [],
+				"body": {
+					"mode": "raw",
+					"raw": "{\n  \"mode\": \"setPose\",\n  \"modelName\": \"wot_camera\",\n  \"position\": {\n    \"x\": -2,\n    \"y\": 0.0,\n    \"z\": 2\n  },\n  \"orientation\": {\n    \"roll\": 0,\n    \"pitch\": 40,\n    \"yaw\": 0\n  }\n}",
+					"options": {
+						"raw": {
+							"language": "json"
+						}
+					}
+				},
+				"url": {
+					"raw": "http://{{url}}:{{port}}/{{sim_controller}}/actions/manageModel",
+					"protocol": "http",
+					"host": [
+						"{{url}}"
+					],
+					"port": "{{port}}",
+					"path": [
+						"{{sim_controller}}",
+						"actions",
+						"manageModel"
+					]
+				}
+			},
+			"response": []
+		},
+		{
+			"name": "set_model_pose",
+			"request": {
+				"method": "POST",
+				"header": [],
+				"body": {
+					"mode": "raw",
+					"raw": "{\n  \"mode\": \"setPose\",\n  \"modelName\": \"box\",\n  \"position\": {\n    \"x\": 1,\n    \"y\": 1,\n    \"z\": 1\n  },\n  \"orientation\": {\n    \"roll\": 0,\n    \"pitch\": 0,\n    \"yaw\": 0\n  }\n}",
+					"options": {
+						"raw": {
+							"language": "json"
+						}
+					}
+				},
+				"url": {
+					"raw": "http://{{url}}:{{port}}/{{sim_controller}}/actions/manageModel",
+					"protocol": "http",
+					"host": [
+						"{{url}}"
+					],
+					"port": "{{port}}",
+					"path": [
+						"{{sim_controller}}",
+						"actions",
+						"manageModel"
+					]
+				}
+			},
+			"response": []
+		},
+		{
+			"name": "remove_model",
+			"request": {
+				"method": "POST",
+				"header": [],
+				"body": {
+					"mode": "raw",
+					"raw": "{\n  \"mode\": \"remove\",\n  \"modelName\": \"box\"\n}",
+					"options": {
+						"raw": {
+							"language": "json"
+						}
+					}
+				},
+				"url": {
+					"raw": "http://{{url}}:{{port}}/{{sim_controller}}/actions/manageModel",
+					"protocol": "http",
+					"host": [
+						"{{url}}"
+					],
+					"port": "{{port}}",
+					"path": [
+						"{{sim_controller}}",
+						"actions",
+						"manageModel"
+					]
+				}
+			},
+			"response": []
+		},
+		{
+			"name": "simControl",
+			"request": {
+				"method": "POST",
+				"header": [],
+				"body": {
+					"mode": "raw",
+					"raw": "{\"mode\": \"run\"}",
+					"options": {
+						"raw": {
+							"language": "json"
+						}
+					}
+				},
+				"url": {
+					"raw": "http://{{url}}:{{port}}/{{sim_controller}}/actions/simControl",
+					"protocol": "http",
+					"host": [
+						"{{url}}"
+					],
+					"port": "{{port}}",
+					"path": [
+						"{{sim_controller}}",
+						"actions",
+						"simControl"
+					]
+				}
+			},
+			"response": []
+		},
+		{
+			"name": "manageScene",
+			"request": {
+				"method": "POST",
+				"header": [],
+				"body": {
+					"mode": "raw",
+					"raw": "{\n  \"mode\": \"load\",\n  \"fileName\": \"controlledViaRos2.ttt\"\n}",
+					"options": {
+						"raw": {
+							"language": "json"
+						}
+					}
+				},
+				"url": {
+					"raw": "http://{{url}}:{{port}}/{{sim_controller}}/actions/manageScene",
+					"protocol": "http",
+					"host": [
+						"{{url}}"
+					],
+					"port": "{{port}}",
+					"path": [
+						"{{sim_controller}}",
+						"actions",
+						"manageScene"
+					]
+				}
+			},
+			"response": []
+		}
+	]
+}

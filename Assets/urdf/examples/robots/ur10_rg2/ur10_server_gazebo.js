@@ -1,5 +1,5 @@
 // Minimal WoT server exposing an IK action
-// Usage: node /home/yifan/wos/Assets/urdf/robots/ur10_rg2/ur10_server.js
+// Usage: node /project-root/Assets/urdf/examples/robots/ur10_rg2/ur10_server_gazebo.js
 
 const { Servient } = require('@node-wot/core');
 const HttpServer = require('@node-wot/binding-http').HttpServer;

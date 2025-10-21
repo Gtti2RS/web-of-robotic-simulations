@@ -37,7 +37,7 @@ echo "Starting MoveIt move_group..."
 # Start move_group in the background
 ros2 run moveit_ros_move_group move_group \
   --ros-args \
-  --params-file /project-root/library/coppeliasim/ur10_rg2_moveit_params.yaml \
+  --params-file /project-root/Assets/urdf/examples/robots/ur10_rg2/ur10_rg2_moveit_params.yaml \
   > /tmp/move_group.log 2>&1 &
 
 # Wait a moment for it to start

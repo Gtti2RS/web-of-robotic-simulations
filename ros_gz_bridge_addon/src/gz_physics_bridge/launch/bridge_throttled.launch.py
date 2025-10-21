@@ -26,7 +26,7 @@ def generate_launch_description():
             ],
             output='screen',
             name='gz_stats_throttler',
-            shell=True
+            shell=False
         ))
         
         nodes.append(ExecuteProcess(
@@ -36,7 +36,7 @@ def generate_launch_description():
             ],
             output='screen',
             name='gz_pose_throttler',
-            shell=True
+            shell=False
         ))
 
         # JSON stats bridge
@@ -71,7 +71,7 @@ def generate_launch_description():
         DeclareLaunchArgument('world_name', default_value='empty', description='World name for Gazebo topics'),
         DeclareLaunchArgument('stats_rate', default_value='1', description='Stats throttling rate in Hz'),
         DeclareLaunchArgument('pose_rate', default_value='1', description='Pose throttling rate in Hz'),
-        DeclareLaunchArgument('throttle_path', default_value='/project-root/ros2_ws/src/gz_throttle_tool/build/gz_throttle', description='Path to throttle executable'),
+        DeclareLaunchArgument('throttle_path', default_value='/project-root/ros_gz_bridge_addon/src/gz_throttle_tool/build/gz_throttle', description='Path to throttle executable'),
         DeclareLaunchArgument('ros_namespace', default_value='', description='ROS namespace for bridge nodes'),
         OpaqueFunction(function=create_nodes),
     ])

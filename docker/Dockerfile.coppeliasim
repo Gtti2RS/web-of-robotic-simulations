@@ -1,0 +1,74 @@
+FROM coppeliasim:4.10.0
+
+# =============================================================================
+# System Dependencies
+# =============================================================================
+RUN apt-get update && apt-get install -y --no-install-recommends \
+    software-properties-common \
+    curl \
+    gnupg \
+    lsb-release \
+    && rm -rf /var/lib/apt/lists/*
+
+# =============================================================================
+# ROS2 Repository Setup
+# =============================================================================
+RUN add-apt-repository universe && \
+    curl -sSL https://raw.githubusercontent.com/ros/rosdistro/master/ros.key -o /usr/share/keyrings/ros-archive-keyring.gpg && \
+    echo "deb [arch=amd64 signed-by=/usr/share/keyrings/ros-archive-keyring.gpg] http://packages.ros.org/ros2/ubuntu $(lsb_release -cs) main" | tee /etc/apt/sources.list.d/ros2.list > /dev/null && \
+    apt-get update
+
+# =============================================================================
+# ROS2 Packages
+# =============================================================================
+RUN apt-get install -y --no-install-recommends \
+    ros-jazzy-example-interfaces \
+    ros-jazzy-geometry-msgs \
+    ros-jazzy-image-transport \
+    ros-jazzy-nav-msgs \
+    ros-jazzy-rcl-action \
+    ros-jazzy-rclcpp \
+    ros-jazzy-rclcpp-action \
+    ros-jazzy-ros2cli \
+    ros-jazzy-ros2pkg \
+    ros-jazzy-ros2topic \
+    ros-jazzy-ros2node \
+    ros-jazzy-ros2service \
+    ros-jazzy-ros2param \
+    ros-jazzy-ros2launch \
+    ros-jazzy-rosidl-default-runtime \
+    ros-jazzy-rosidl-generator-c \
+    ros-jazzy-rosidl-generator-cpp \
+    ros-jazzy-rosidl-runtime-c \
+    ros-jazzy-rosidl-runtime-cpp \
+    ros-jazzy-rosidl-typesupport-cpp \
+    ros-jazzy-rosidl-typesupport-fastrtps-cpp \
+    ros-jazzy-rosidl-typesupport-introspection-c \
+    ros-jazzy-rosidl-typesupport-introspection-cpp \
+    ros-jazzy-rosidl-typesupport-interface \
+    ros-jazzy-sensor-msgs \
+    ros-jazzy-statistics-msgs \
+    ros-jazzy-std-msgs \
+    ros-jazzy-std-srvs \
+    ros-jazzy-tf2-msgs \
+    ros-jazzy-tf2-ros \
+    ros-jazzy-tracetools \
+    && rm -rf /var/lib/apt/lists/*
+
+# =============================================================================
+# Environment Setup
+# =============================================================================
+RUN echo "source /opt/ros/jazzy/setup.bash" >> /etc/bash.bashrc
+
+# Create entrypoint script to ensure ROS2 environment is sourced
+RUN echo '#!/bin/bash\n\
+source /opt/ros/jazzy/setup.bash\n\
+exec "$@"' > /usr/local/bin/ros-entrypoint.sh && \
+    chmod +x /usr/local/bin/ros-entrypoint.sh
+
+ENTRYPOINT ["/usr/local/bin/ros-entrypoint.sh"]
+
+# =============================================================================
+# Working Directory
+# =============================================================================
+WORKDIR /project-root

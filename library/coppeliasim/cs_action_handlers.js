@@ -22,12 +22,69 @@
 const { callService } = require('../common/ros2_service_helper');
 const { resolveFilePath, checkFileConflict } = require('../common/fileUtils');
 const { deg2quat } = require('../common/deg2quat');
+const { validateUrdfSuffixForCoppeliaSim } = require('../common/ur10_suffix_validator');
 const fs = require('fs').promises;
 const path = require('path');
 const { spawn } = require('child_process'); // For UR10 child process management
+const UR10_PORT = 8084;
 
 // Track UR10 processes by model handle: { moveit: childProcess, wotServer: childProcess }
 let ur10Processes = new Map();
+
+/**
+ * Check if a model name already exists in the current scene
+ * @param {Object} node - ROS 2 node instance
+ * @param {string} modelName - The model name to check
+ * @returns {Promise<boolean>} - True if name conflict exists
+ */
+async function checkModelNameConflict(node, modelName) {
+  try {
+    // Get current models from the models topic
+    const modelsPromise = new Promise((resolve, reject) => {
+      let modelsHandled = false;
+      const modelsSub = node.createSubscription(
+        'std_msgs/msg/String',
+        '/coppeliasim/models',
+        (msg) => {
+          if (modelsHandled) return;
+          modelsHandled = true;
+          node.destroySubscription(modelsSub);
+          
+          try {
+            const models = JSON.parse(msg.data);
+            resolve(models);
+          } catch (e) {
+            reject(new Error('Failed to parse models'));
+          }
+        }
+      );
+
+      setTimeout(() => {
+        if (modelsHandled) return;
+        modelsHandled = true;
+        node.destroySubscription(modelsSub);
+        reject(new Error('Timeout getting models list'));
+      }, 1000);
+    });
+
+    const models = await modelsPromise;
+    
+    // Check if modelName already exists in the scene
+    if (Array.isArray(models)) {
+      const existingModel = models.find(m => {
+        const cleanName = m.name && m.name.startsWith('/') ? m.name.substring(1) : m.name;
+        return cleanName === modelName || m.name === modelName;
+      });
+      
+      return !!existingModel; // Return true if model exists (conflict)
+    }
+    
+    return false; // No conflict if we can't get models list
+  } catch (error) {
+    console.warn(`[${new Date().toISOString()}] [checkModelNameConflict] Could not check model name conflict:`, error.message);
+    return false; // Assume no conflict if we can't check
+  }
+}
 
 /**
  * Map CoppeliaSim speed factor (-3 to 6) to actual speed multiplier
@@ -98,7 +155,11 @@ function spawnWoTServer(modelHandle) {
   const serverPath = '/project-root/Assets/urdf/examples/robots/ur10_rg2/ur10_server_coppelia.js';
   const wotServer = spawn('node', [serverPath], {
     stdio: ['ignore', 'pipe', 'pipe'],
-    detached: false
+    detached: false,
+    env: {
+      ...process.env,
+      UR10_MODEL_HANDLE: modelHandle.toString()
+    }
   });
   
   wotServer.stdout.on('data', (data) => {
@@ -368,50 +429,48 @@ function makeManageScene(node, { timeoutMs = 5000 } = {}) {
       }
     }
 
-    // For close operation, check if simulation is stopped first
-    if (mode === 'close') {
-      try {
-        // Get simulation state by calling the stats topic
-        const statsPromise = new Promise((resolve, reject) => {
-          let statsHandled = false;
-          const statsSub = node.createSubscription(
-            'std_msgs/msg/String',
-            '/coppeliasim/stats',
-            (msg) => {
-              if (statsHandled) return;
-              statsHandled = true;
-              node.destroySubscription(statsSub);
-              
-              try {
-                const stats = JSON.parse(msg.data);
-                resolve(stats);
-              } catch (e) {
-                reject(new Error('Failed to parse stats'));
-              }
-            }
-          );
-
-          setTimeout(() => {
+    // Check if simulation is stopped first for all scene operations
+    try {
+      // Get simulation state by calling the stats topic
+      const statsPromise = new Promise((resolve, reject) => {
+        let statsHandled = false;
+        const statsSub = node.createSubscription(
+          'std_msgs/msg/String',
+          '/coppeliasim/stats',
+          (msg) => {
             if (statsHandled) return;
             statsHandled = true;
             node.destroySubscription(statsSub);
-            reject(new Error('Timeout getting simulation state'));
-          }, 1000);
-        });
+            
+            try {
+              const stats = JSON.parse(msg.data);
+              resolve(stats);
+            } catch (e) {
+              reject(new Error('Failed to parse stats'));
+            }
+          }
+        );
 
-        const stats = await statsPromise;
-        // simState: 0=stopped, 1=running, 2=paused
-        if (stats.simState !== 0) {
-          const stateText = stats.simState === 1 ? 'running' : 'paused';
-          return {
-            success: false,
-            message: `Cannot close scene while simulation is ${stateText}. Please stop the simulation first.`
-          };
-        }
-      } catch (error) {
-        console.warn(`[${new Date().toISOString()}] [manageScene] Could not check simulation state:`, error.message);
-        // Continue anyway - let CoppeliaSim handle it
+        setTimeout(() => {
+          if (statsHandled) return;
+          statsHandled = true;
+          node.destroySubscription(statsSub);
+          reject(new Error('Timeout getting simulation state'));
+        }, 1000);
+      });
+
+      const stats = await statsPromise;
+      // simState: 0=stopped, 1=running, 2=paused
+      if (stats.simState !== 0) {
+        const stateText = stats.simState === 1 ? 'running' : 'paused';
+        return {
+          success: false,
+          message: `Cannot ${mode} scene while simulation is ${stateText}. Please stop the simulation first.`
+        };
       }
+    } catch (error) {
+      console.warn(`[${new Date().toISOString()}] [manageScene] Could not check simulation state:`, error.message);
+      // Continue anyway - let CoppeliaSim handle it
     }
 
     // Create command JSON
@@ -489,16 +548,16 @@ function makeManageScene(node, { timeoutMs = 5000 } = {}) {
 /**
  * Create manageModel action handler for CoppeliaSim
  * Manages model operations via ROS2 topic publishing:
- * - load -> Load a model file (URDF or TTM)
- * - remove -> Remove a model by handle
- * - setPose -> Set pose of a model by handle
+ * - load -> Load a model file (URDF or TTM) with optional modelName and name conflict checking
+ * - remove -> Remove a model by handle or modelName
+ * - setPose -> Set pose of a model by handle or modelName
  * 
  * @param {Object} node - ROS 2 node instance
  * @param {Object} options - Configuration options
- * @param {number} options.timeoutMs - Response timeout in milliseconds (default: 5000)
+ * @param {number} options.timeoutMs - Response timeout in milliseconds (default: 15000)
  * @returns {Function} WoT action handler function
  */
-function makeManageModel(node, { timeoutMs = 5000 } = {}) {
+function makeManageModel(node, { timeoutMs = 15000 } = {}) {
   return async function manageModelAction(input) {
     const data = await input.value();
     const mode = data?.mode;
@@ -522,16 +581,27 @@ function makeManageModel(node, { timeoutMs = 5000 } = {}) {
         message: "fileName is required for load operation"
       };
     }
+
+    // Validate URDF suffix for CoppeliaSim simulator
+    if (mode === 'load' && fileName) {
+      const suffixValidation = validateUrdfSuffixForCoppeliaSim(fileName);
+      if (!suffixValidation.valid) {
+        return {
+          success: false,
+          message: suffixValidation.error
+        };
+      }
+    }
     if (mode === 'remove' && !handle && !modelName) {
       return {
         success: false,
         message: "Either id or modelName is required for remove operation"
       };
     }
-    if (mode === 'setPose' && !handle) {
+    if (mode === 'setPose' && !handle && !modelName) {
       return {
         success: false,
-        message: "id is required for setPose operation"
+        message: "Either id or modelName is required for setPose operation"
       };
     }
     if (mode === 'setPose' && !orientation) {
@@ -593,6 +663,65 @@ function makeManageModel(node, { timeoutMs = 5000 } = {}) {
         }
       } catch (error) {
         console.warn(`[${new Date().toISOString()}] [manageModel] Could not resolve modelName to handle:`, error.message);
+        return {
+          success: false,
+          message: `Failed to resolve modelName '${modelName}' to handle: ${error.message}`
+        };
+      }
+    }
+
+    // For setPose operation by modelName, resolve modelName to handle
+    if (mode === 'setPose' && modelName && !handle) {
+      try {
+        // Get current models from the models topic
+        const modelsPromise = new Promise((resolve, reject) => {
+          let modelsHandled = false;
+          const modelsSub = node.createSubscription(
+            'std_msgs/msg/String',
+            '/coppeliasim/models',
+            (msg) => {
+              if (modelsHandled) return;
+              modelsHandled = true;
+              node.destroySubscription(modelsSub);
+              
+              try {
+                const models = JSON.parse(msg.data);
+                resolve(models);
+              } catch (e) {
+                reject(new Error('Failed to parse models'));
+              }
+            }
+          );
+
+          setTimeout(() => {
+            if (modelsHandled) return;
+            modelsHandled = true;
+            node.destroySubscription(modelsSub);
+            reject(new Error('Timeout getting models list'));
+          }, 1000);
+        });
+
+        const models = await modelsPromise;
+        
+        // Find model by modelName (check both with and without leading slash)
+        if (Array.isArray(models)) {
+          const model = models.find(m => {
+            const cleanName = m.name && m.name.startsWith('/') ? m.name.substring(1) : m.name;
+            return cleanName === modelName || m.name === modelName;
+          });
+          
+          if (model) {
+            handle = model.handle; // Use model handle
+            console.log(`[${new Date().toISOString()}] [manageModel] Resolved modelName '${modelName}' to handle ${handle} for setPose`);
+          } else {
+            return {
+              success: false,
+              message: `Object with modelName '${modelName}' not found in the scene.`
+            };
+          }
+        }
+      } catch (error) {
+        console.warn(`[${new Date().toISOString()}] [manageModel] Could not resolve modelName to handle for setPose:`, error.message);
         return {
           success: false,
           message: `Failed to resolve modelName '${modelName}' to handle: ${error.message}`
@@ -668,6 +797,17 @@ function makeManageModel(node, { timeoutMs = 5000 } = {}) {
       }
     }
 
+    // For load operation, check for model name conflicts if modelName is provided
+    if (mode === 'load' && modelName) {
+      const hasConflict = await checkModelNameConflict(node, modelName);
+      if (hasConflict) {
+        return {
+          success: false,
+          message: `Model name '${modelName}' already exists in the scene. Please choose a different name.`
+        };
+      }
+    }
+
     // Convert position object to array if provided
     let positionArray = null;
     if (position && typeof position === 'object') {
@@ -710,6 +850,7 @@ function makeManageModel(node, { timeoutMs = 5000 } = {}) {
       ...(resolvedPath && { modelPath: resolvedPath }),
       ...(handle !== undefined && { handle: handle }),
       ...(modelName && mode === 'load' && { objectName: modelName }), // Use modelName as objectName for load
+      ...(modelName && mode === 'setPose' && { modelName: modelName }), // Include modelName for setPose
       ...(positionArray && mode === 'load' && { position: positionArray }),
       ...(orientationArray && mode === 'load' && { orientation: orientationArray }),
       ...(poseArray && mode === 'setPose' && { pose: poseArray })
@@ -786,7 +927,7 @@ function makeManageModel(node, { timeoutMs = 5000 } = {}) {
             wotServer: wotServerProcess
           });
           
-          ur10Message = ` UR10 processes spawned (MoveIt: PID ${moveitProcess.pid}, WoT Server: PID ${wotServerProcess.pid}, available at http://localhost:8082)`;
+          ur10Message = ` UR10 processes spawned (MoveIt: PID ${moveitProcess.pid}, WoT Server: PID ${wotServerProcess.pid}, available at http://localhost:${UR10_PORT})`;
         } catch (error) {
           console.error(`[${new Date().toISOString()}] [manageModel] Error spawning UR10 processes:`, error.message);
           ur10Message = ` Warning: UR10 model loaded but processes failed to start: ${error.message}`;

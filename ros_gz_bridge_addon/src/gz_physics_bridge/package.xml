@@ -2,10 +2,10 @@
 <package format="3">
   <name>gz_physics_bridge</name>
   <version>0.0.1</version>
-  <description>ROS 2 C++ bridge that exposes /world/&lt;world&gt;/set_physics as a ROS service and calls Gazebo Transport directly.</description>
+  <description>ROS 2 C++ bridge that exposes /world/.../set_physics and /world/.../generate_world_sdf as ROS services and calls Gazebo Transport directly.</description>
 
-  <maintainer email="you@example.com">Your Name</maintainer>
-  <license>Apache-2.0</license>
+  <maintainer email="evan.zhang@tum.de">evan</maintainer>
+  <license>MIT License</license>
 
   <!-- Build tools -->
   <buildtool_depend>ament_cmake</buildtool_depend>
@@ -24,10 +24,6 @@
   <depend>gz_msgs_vendor</depend>
   <exec_depend>ros_gz_bridge</exec_depend>
 
-  <!-- (Optional) metadata -->
-  <url type="website">https://gazebosim.org/</url>
-  <url type="repository">https://example.com/your/repo</url>
-  <url type="bugtracker">https://example.com/your/repo/issues</url>
 
   <export>
     <build_type>ament_cmake</build_type>

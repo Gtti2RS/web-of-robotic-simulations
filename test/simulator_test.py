@@ -34,7 +34,7 @@ SIMULATOR_CONFIGS = {
         'host': 'localhost',
         'port': 8080,
         'ur10_port': 8083,
-        'ur10_model': 'ur10_rg2.urdf',
+        'ur10_model': 'ur10_rg2_gazebo.urdf',
         'csv_prefix': 'wot_latency',
         'uses_model_id': False,  # Uses modelName instead of id
         'has_visualize': True,
@@ -44,8 +44,8 @@ SIMULATOR_CONFIGS = {
         'name': 'CoppeliaSim',
         'controller': 'cs_controller',
         'host': '10.157.150.3',
-        'port': 8080,
-        'ur10_port': 8082,
+        'port': 8081,
+        'ur10_port': 8084,
         'ur10_model': 'ur10_rg2_coppelia.urdf',
         'csv_prefix': 'cs_latency',
         'uses_model_id': True,  # Uses id from spawn response
@@ -692,11 +692,11 @@ def run_ur10_jointpositions_test(iterations=ITERATIONS, model_name='ur10_joint_t
         if i < iterations:
             time.sleep(5.0)  # 5s interval between moveToJoint commands
     
-    # Step 4: Test gripper open-close multiple times (5 iterations)
+    # Step 4: Test gripper open-close multiple times (10 iterations)
     print(f'\nTesting gripper open-close:')
     
     gripper_actions = ['gripOpen', 'gripClose']
-    gripper_iterations = 5
+    gripper_iterations = 10
     
     for i in range(1, gripper_iterations + 1):
         timestamp = datetime.now().isoformat()
@@ -735,11 +735,11 @@ def run_ur10_jointpositions_test(iterations=ITERATIONS, model_name='ur10_joint_t
     
     # Define different cartesian positions to test
     cartesian_configs = [
-        {'position': {'x': 0.3, 'y': 0.2, 'z': 0.3}, 'orientation': {'roll': 0, 'pitch': 90, 'yaw': 0}},
-        {'position': {'x': 0.3, 'y': -0.2, 'z': 0.3}, 'orientation': {'roll': 0, 'pitch': 90, 'yaw': 45}},
-        {'position': {'x': 0.4, 'y': 0.0, 'z': 0.4}, 'orientation': {'roll': 0, 'pitch': 90, 'yaw': 90}},
-        {'position': {'x': 0.3, 'y': 0.2, 'z': 0.2}, 'orientation': {'roll': 0, 'pitch': 90, 'yaw': -45}},
-        {'position': {'x': 0.35, 'y': 0.0, 'z': 0.35}, 'orientation': {'roll': 0, 'pitch': 90, 'yaw': 0}},
+        {'position': {'x': -0.5, 'y': 0.5, 'z': 0.25}, 'orientation': {'roll': 0, 'pitch': 90, 'yaw': 0}},
+        {'position': {'x': 0.5, 'y': -0.5, 'z': 0.3}, 'orientation': {'roll': 0, 'pitch': 90, 'yaw': 0}},
+        {'position': {'x': 0.5, 'y': 0.5, 'z': 0.25}, 'orientation': {'roll': 0, 'pitch': 90, 'yaw': 0}},
+        {'position': {'x': -0.5, 'y': -0.5, 'z': 0.3}, 'orientation': {'roll': 0, 'pitch': 90, 'yaw': 0}},
+        {'position': {'x': -0.5, 'y': 0.5, 'z': 0.25}, 'orientation': {'roll': 0, 'pitch': 90, 'yaw': 0}},
     ]
     
     for i in range(1, iterations + 1):

@@ -1,0 +1,29 @@
+# Build artifacts
+ros2_ws/build/
+ros2_ws/install/
+ros2_ws/log/
+ros2_ws/colcon_env/
+
+# Node modules (will be installed during build)
+node_modules/
+
+# Git and other development files
+.git/
+.gitignore
+*.log
+*.tmp
+
+# IDE files
+.vscode/
+.idea/
+*.swp
+*.swo
+
+# OS files
+.DS_Store
+Thumbs.db
+
+# Test and temporary files
+test/
+tmp/
+logs/

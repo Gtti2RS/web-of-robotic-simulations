@@ -1,0 +1,108 @@
+FROM ros:jazzy-ros-base
+
+# =============================================================================
+# System Dependencies
+# =============================================================================
+RUN apt-get update && apt-get install -y --no-install-recommends \
+    curl \
+    gnupg2 \
+    build-essential \
+    python3 \
+    python3-pip \
+    libdw1 \
+    libelf1 \
+    liboctomap1.9 \
+    liboctomap-dev \
+    libassimp5 \
+    libassimp-dev \
+    libfcl0.7 \
+    libfcl-dev \
+    libqhull-r8.0 \
+    libqhull-dev \
+    libboost-serialization1.83.0 \
+    libboost-filesystem1.83.0 \
+    libboost-system1.83.0 \
+    && rm -rf /var/lib/apt/lists/*
+
+# =============================================================================
+# Node.js Installation
+# =============================================================================
+RUN curl -fsSL https://deb.nodesource.com/setup_20.x | bash - \
+    && apt-get install -y nodejs \
+    && rm -rf /var/lib/apt/lists/*
+
+# =============================================================================
+# ROS2 Packages
+# =============================================================================
+RUN apt-get update && apt-get install -y --no-install-recommends \
+    ros-jazzy-moveit \
+    ros-jazzy-moveit-kinematics \
+    ros-jazzy-moveit-planners-ompl \
+    ros-jazzy-moveit-ros-move-group \
+    ros-jazzy-moveit-ros-planning \
+    ros-jazzy-moveit-ros-planning-interface \
+    ros-jazzy-robot-state-publisher \
+    ros-jazzy-ros-gz \
+    && rm -rf /var/lib/apt/lists/*
+
+# =============================================================================
+# Environment Setup
+# =============================================================================
+RUN echo "source /opt/ros/jazzy/setup.bash" >> /etc/bash.bashrc
+
+# =============================================================================
+# Working Directory
+# =============================================================================
+WORKDIR /project-root
+
+# =============================================================================
+# Application Setup
+# =============================================================================
+# Copy package.json first for better Docker layer caching
+COPY package.json ./
+
+# Install npm dependencies with ROS2 environment sourced
+RUN bash -c "source /opt/ros/jazzy/setup.bash && npm install"
+
+# Copy the rest of the application (excluding build artifacts via .dockerignore)
+COPY . .
+
+# =============================================================================
+# Copy Source Files
+# =============================================================================
+COPY ros_gz_bridge_addon/ ./ros_gz_bridge_addon/
+
+# =============================================================================
+# ROS2 Workspace Building
+# =============================================================================
+RUN bash -c "source /opt/ros/jazzy/setup.bash && \
+    if [ -d 'ros_gz_bridge_addon/src' ]; then \
+        cd ros_gz_bridge_addon && \
+        colcon build --packages-select gz_physics_bridge_interfaces sim_process_supervisor_interfaces gz_throttle_tool; \
+        source install/setup.bash; \
+    fi"
+
+# =============================================================================
+# Workspace Environment Setup
+# =============================================================================
+RUN echo 'if [ -f "/project-root/ros_gz_bridge_addon/install/setup.bash" ]; then source /project-root/ros_gz_bridge_addon/install/setup.bash; fi' >> /etc/bash.bashrc
+
+# Create entrypoint script to ensure workspace is sourced
+RUN echo '#!/bin/bash\n\
+source /opt/ros/jazzy/setup.bash\n\
+if [ -f "/project-root/ros_gz_bridge_addon/install/setup.bash" ]; then\n\
+    source /project-root/ros_gz_bridge_addon/install/setup.bash\n\
+fi\n\
+exec "$@"' > /usr/local/bin/ros-entrypoint.sh && \
+    chmod +x /usr/local/bin/ros-entrypoint.sh
+
+ENTRYPOINT ["/usr/local/bin/ros-entrypoint.sh"]
+
+# =============================================================================
+# Message Generation
+# =============================================================================
+RUN bash -c "source /opt/ros/jazzy/setup.bash && \
+    if [ -f 'ros_gz_bridge_addon/install/setup.bash' ]; then source ros_gz_bridge_addon/install/setup.bash; fi && \
+    if [ -f 'node_modules/rclnodejs/scripts/generate_messages.js' ]; then \
+        node /project-root/node_modules/rclnodejs/scripts/generate_messages.js; \
+    fi"

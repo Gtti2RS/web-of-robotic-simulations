@@ -4,8 +4,8 @@
   <name>ros_gz_bridge_addon</name>
   <version>0.1.0</version>
   <description>Combined launch file for ROS2 Gazebo bridge components</description>
-  <maintainer email="user@example.com">Your Name</maintainer>
-  <license>Apache License 2.0</license>
+  <maintainer email="evan.zhang@tum.de">evan</maintainer>
+  <license>MIT License</license>
 
   <buildtool_depend>ament_cmake</buildtool_depend>
 

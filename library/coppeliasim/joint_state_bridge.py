@@ -17,15 +17,15 @@ class JointStateBridge(Node):
         # Subscribe to CoppeliaSim joint data (as String/JSON)
         self.subscription = self.create_subscription(
             String,
-            '/coppeliasim/joint_states_string',  # CoppeliaSim should publish here
+            '/coppelia/ur10/joint_states_string',  # Namespaced CoppeliaSim joint states
             self.listener_callback,
             10)
         
-        # Publish standard JointState
-        self.publisher = self.create_publisher(JointState, '/joint_states', 10)
+        # Publish standard JointState to namespaced topic
+        self.publisher = self.create_publisher(JointState, '/coppelia/ur10/joint_states', 10)
         
         self.get_logger().info('Joint State Bridge started')
-        self.get_logger().info('Waiting for /coppeliasim/joint_states_string...')
+        self.get_logger().info('Waiting for /coppelia/ur10/joint_states_string...')
 
     def listener_callback(self, msg):
         try:

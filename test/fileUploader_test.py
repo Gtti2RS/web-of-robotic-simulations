@@ -8,14 +8,14 @@ Target: http://localhost:8082/upload
 
 Default All-Enabled Test Sequence (4 tests, ~40 uploads):
 ┌─────────────────────────────────────────────────────────────────────────┐
-│ 1. URDF_Upload        - Upload ur10_rg2.urdf to Gazebo (14 KB, 10x)    │
-│                         → Assets/urdf/uploaded/{modelName}/             │
-│ 2. SDF_Upload         - Upload diff_drive.sdf to Gazebo (10x)          │
-│                         → Assets/gazebo/worlds/uploaded/                │
-│ 3. Launch_Upload      - Upload diff_drive.launch.py to Gazebo (10x)    │
-│                         → Assets/gazebo/launch/uploaded/                │
-│ 4. TTT_Upload         - Upload IoTRemoteLab.ttt to CoppeliaSim (10x)   │
-│                         → Assets/coppeliasim/scenes/uploaded/           │
+│ 1. URDF_Upload    - Upload ur10_rg2_gazebo.urdf to Gazebo (14 KB, 10x)  │
+│                     → Assets/urdf/uploaded/{modelName}/                 │
+│ 2. SDF_Upload     - Upload diff_drive.sdf to Gazebo (10x)               │
+│                     → Assets/gazebo/worlds/uploaded/                    │
+│ 3. Launch_Upload  - Upload diff_drive.launch.py to Gazebo (10x)         │
+│                     → Assets/gazebo/launch/uploaded/                    │
+│ 4. TTT_Upload     - Upload IoTRemoteLab.ttt to CoppeliaSim (10x)        │
+│                     → Assets/coppeliasim/scenes/uploaded/               │
 └─────────────────────────────────────────────────────────────────────────┘
 
 Upload Targets:
@@ -55,15 +55,16 @@ UPLOAD_HOST = 'localhost'
 UPLOAD_PORT = 8082
 UPLOAD_PATH = '/upload'
 
+# Please prepare the test files and use the real assets path.
 # Base paths
-BASE_ASSETS_PATH = '/home/yifan/wos/Assets'
+BASE_ASSETS_PATH = '/path/to/test/assets'
 
 # Test files (relative to BASE_ASSETS_PATH)
 TEST_FILES = {
-    'urdf': os.path.join(BASE_ASSETS_PATH, 'urdf/examples/robots/ur10_rg2/ur10_rg2.urdf'),
-    'sdf': os.path.join(BASE_ASSETS_PATH, 'gazebo/worlds/vendor/diff_drive.sdf'),
-    'launch': os.path.join(BASE_ASSETS_PATH, 'gazebo/launch/examples/diff_drive.launch.py'),
-    'ttt': os.path.join(BASE_ASSETS_PATH, 'coppeliasim/scenes/IoTRemoteLab.ttt'),
+    'urdf': os.path.join(BASE_ASSETS_PATH, 'test1.urdf'),
+    'sdf': os.path.join(BASE_ASSETS_PATH, 'test2.sdf'),
+    'launch': os.path.join(BASE_ASSETS_PATH, 'test3.launch.py'),
+    'ttt': os.path.join(BASE_ASSETS_PATH, 'test4.ttt'),
 }
 
 ITERATIONS = 10
@@ -316,8 +317,8 @@ UPLOAD_TEST_SUITE = [
         'enabled': True,
         'file_path': TEST_FILES['urdf'],
         'simulator': 'gazebo',
-        'description': 'Upload ur10_rg2.urdf to Gazebo (14 KB)',
-        'stats_title': 'URDF Upload Test (ur10_rg2.urdf)'
+        'description': 'Upload ur10_rg2_gazebo.urdf to Gazebo (14 KB)',
+        'stats_title': 'URDF Upload Test (ur10_rg2_gazebo.urdf)'
     },
     {
         'name': 'SDF_Upload',
