@@ -118,9 +118,7 @@ See [HALF_CONTAINERIZED.md](HALF_CONTAINERIZED.md) for detailed instructions.
 
 see test/WoT_API_Examples.md
 
-
-
-### Directory Descriptions
+## Directory Descriptions
 
 **`Assets/`** - Robot models, worlds, and scenes
 - **`urdf/`**: URDF robot model definitions with example configurations

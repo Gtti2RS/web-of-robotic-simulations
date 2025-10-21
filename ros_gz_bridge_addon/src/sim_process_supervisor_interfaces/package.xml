@@ -3,8 +3,8 @@
   <name>sim_process_supervisor_interfaces</name>
   <version>0.0.1</version>
   <description>Interfaces for sim_process_supervisor</description>
-  <maintainer email="you@example.com">you</maintainer>
-  <license>Apache-2.0</license>
+  <maintainer email="evan.zhang@tum.de">evan</maintainer>
+  <license>MIT License</license>
 
   <buildtool_depend>ament_cmake</buildtool_depend>
   <build_depend>rosidl_default_generators</build_depend>
