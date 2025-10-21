@@ -41,7 +41,7 @@ A unified Web of Things (WoT) interface for controlling robotic simulations acro
 
 ### 1. Build & Start Containers
 
-#### Prerequisites: CoppeliaSim Docker Image
+### Prerequisites: CoppeliaSim Docker Image
 
 First, build the official CoppeliaSim Docker image:
 
@@ -56,7 +56,7 @@ cd docker-image-coppeliasim
 docker buildx build --load -t coppeliasim:4.10.0 .
 ```
 
-#### Start the Application
+### Start the Application
 
 Two compose files are available:
 
@@ -116,7 +116,7 @@ See [HALF_CONTAINERIZED.md](HALF_CONTAINERIZED.md) for detailed instructions.
 
 ## Usage Examples
 
-see test/WoT_API_Examples.md
+See [test/WoT_API_Examples.md](test/WoT_API_Examples.md)
 
 ## Directory Descriptions
 
@@ -193,7 +193,7 @@ docker logs CoppeliaSim_ROS2
 
 ### Testing
 
-see /test/README.md
+See [test/README.md](test/README.md)
 
 ### Development Reference
 
