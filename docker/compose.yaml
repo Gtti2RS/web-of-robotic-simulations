@@ -4,8 +4,8 @@ services:
     image: gazebo_ros2:1.0
     container_name: Gazebo_ROS2
     build:
-      context: .
-      dockerfile: Dockerfile.gazebo
+      context: ..
+      dockerfile: docker/Dockerfile.gazebo
     # Simplest discovery on Linux
     networks: [wos_net]
     environment:
@@ -20,6 +20,9 @@ services:
     working_dir: /project-root
     volumes:
       - ../:/project-root:rw
+      - ros_gz_bridge_build:/project-root/ros_gz_bridge_addon/build
+      - ros_gz_bridge_install:/project-root/ros_gz_bridge_addon/install
+      - ros_gz_bridge_log:/project-root/ros_gz_bridge_addon/log
     ports:
       - "8090:8090" # gazebo stream port
     # Production: automatically start processsupervisor
@@ -29,8 +32,8 @@ services:
     image: wot_server:1.0
     container_name: WoT_Server
     build:
-      context: .
-      dockerfile: Dockerfile.wot
+      context: ..
+      dockerfile: docker/Dockerfile.wot
     networks: [wos_net]
     environment:
       - TZ=Europe/Berlin
@@ -42,6 +45,10 @@ services:
       - ../:/project-root:rw
       # Use named volume for npm cache to speed up builds
       - npm_cache:/project-root/node_modules
+      # Preserve build artifacts in named volumes
+      - ros_gz_bridge_build:/project-root/ros_gz_bridge_addon/build
+      - ros_gz_bridge_install:/project-root/ros_gz_bridge_addon/install
+      - ros_gz_bridge_log:/project-root/ros_gz_bridge_addon/log
     ports:
       - "8080:8080" # gz_controller
       - "8081:8081" # cs_controller
@@ -57,8 +64,8 @@ services:
     image: coppeliasim_ros2:1.0
     container_name: CoppeliaSim_ROS2
     build:
-      context: .
-      dockerfile: Dockerfile.coppeliasim
+      context: ..
+      dockerfile: docker/Dockerfile.coppeliasim
     networks: [wos_net]
     environment:
       - TZ=Europe/Berlin
@@ -83,4 +90,10 @@ networks:
 
 volumes:
   npm_cache:
+    driver: local
+  ros_gz_bridge_build:
+    driver: local
+  ros_gz_bridge_install:
+    driver: local
+  ros_gz_bridge_log:
     driver: local

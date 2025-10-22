@@ -78,7 +78,7 @@ COPY ros_gz_bridge_addon/ ./ros_gz_bridge_addon/
 RUN bash -c "source /opt/ros/jazzy/setup.bash && \
     if [ -d 'ros_gz_bridge_addon/src' ]; then \
         cd ros_gz_bridge_addon && \
-        colcon build --packages-select gz_physics_bridge_interfaces sim_process_supervisor_interfaces gz_throttle_tool; \
+        colcon build; \
         source install/setup.bash; \
     fi"
 
