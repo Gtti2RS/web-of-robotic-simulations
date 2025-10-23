@@ -73,8 +73,9 @@ services:
       - ../:/project-root:rw
     ports:
       - "23020:23020"  # coppeliasim streaming port
+    working_dir: /opt/CoppeliaSim_Edu_V4_10_0_rev0_Ubuntu24_04
     # Dev mode: keep container alive without starting sim
-    command: ["tail", "-f", "/dev/null"]
+    command: ["sh", "-c", "cd /opt/CoppeliaSim_Edu_V4_10_0_rev0_Ubuntu24_04 && tail -f /dev/null"]
 
 
 networks:

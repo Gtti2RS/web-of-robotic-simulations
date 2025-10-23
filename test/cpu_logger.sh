@@ -1,9 +1,9 @@
 #!/bin/bash
 # Schedule a per-process CPU and memory logger.
 # Usage:
-#   ./scheduled_cpu_logger.sh "HH:MM:SS" [duration_s] [outdir]
+#   ./cpu_logger.sh "HH:MM:SS" [duration_s] [outdir]
 # Example:
-#   ./scheduled_cpu_logger.sh "22:30:00" 60 ~/cpu_logs
+#   ./cpu_logger.sh "22:30:00" 60 /project-root/test/logs
 # dependency: sudo apt install sysstat
 
 set -euo pipefail
@@ -51,16 +51,16 @@ sleep "$WAIT"
 echo ">>> Starting CPU logging at $(date)"
 
 # Write header
-echo "time,pid,usr%,system%,guest%,CPU%,VSZ(kB),RSS(kB),mem%,command" > "$OUTFILE"
+echo "time,uid,pid,usr%,system%,guest%,wait%,CPU%,cpu_core,minflt/s,majflt/s,VSZ(kB),RSS(kB),mem%,command" > "$OUTFILE"
 
 # Run pidstat for duration
 timeout --preserve-status "$DURATION" \
   pidstat -u -r -h -p ALL "$INTERVAL" |
   awk 'NR>1 && $1 ~ /^[0-9]/ {
-        time=$1; pid=$4; usr=$7; sys=$8; guest=$9; cpu=$10;
-        vsz=$11; rss=$12; mem=$13;
-        cmd=$14; for (i=15;i<=NF;i++) cmd=cmd" "$i;
-        print time","pid","usr","sys","guest","cpu","vsz","rss","mem","cmd; fflush();
+        time=$1; uid=$2; pid=$3; usr=$4; sys=$5; guest=$6; wait=$7; cpu=$8; cpu_core=$9;
+        minflt=$10; majflt=$11; vsz=$12; rss=$13; mem=$14;
+        cmd=$15; for (i=16;i<=NF;i++) cmd=cmd" "$i;
+        print time","uid","pid","usr","sys","guest","wait","cpu","cpu_core","minflt","majflt","vsz","rss","mem","cmd; fflush();
       }' >> "$OUTFILE"
 
 echo ">>> Done at $(date)"

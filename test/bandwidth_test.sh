@@ -1,9 +1,9 @@
 #!/bin/bash
 # Schedule a tshark capture for a fixed duration
 # Usage:
-#   ./scheduled_capture.sh "HH:MM:SS" <interface> "<capture filter>" [duration_s] [outdir]
+#   ./bandwidth_test.sh "HH:MM:SS" <interface> "<capture filter>" [duration_s] [outdir]
 # Example:
-#   ./scheduled_capture.sh "22:30:00" lo "tcp port 8081" 30 ~/captures
+#   ./bandwidth_test.sh "22:30:00" lo "tcp port 8081" 30 ~/captures
 # dependency: sudo apt install wireshark tshark, root permission
 
 set -euo pipefail
