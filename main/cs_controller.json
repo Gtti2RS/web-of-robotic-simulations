@@ -394,7 +394,21 @@
     "visualize": {
       "type": "boolean",
       "readOnly": true,
-      "description": "Visualization state (always enabled for CoppeliaSim)"
+      "description": "Visualization state (always enabled for CoppeliaSim)",
+      "forms": [
+        {
+          "href": "http://localhost:8081/cs_controller/properties/visualize",
+          "op": ["readproperty"],
+          "contentType": "application/json"
+        }
+      ],
+      "links": [
+        {
+          "rel": "alternate",
+          "href": "http://localhost:23020/stream?topic=/camera2",
+          "type": "text/html"
+        }
+      ]
     }
   }
 }

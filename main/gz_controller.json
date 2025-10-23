@@ -438,7 +438,7 @@
       "links": [
         {
           "rel": "alternate",
-          "href": "http://192.168.0.3:8081/stream?topic=/camera2",
+          "href": "http://localhost:8090/stream?topic=/camera2",
           "type": "text/html"
         }
       ]

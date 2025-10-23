@@ -29,7 +29,7 @@ def generate_launch_description():
     
     throttle_path = DeclareLaunchArgument(
         'throttle_path',
-        default_value='/project-root/ros_gz_bridge_addon/src/gz_throttle_tool/build/gz_throttle',
+        default_value='/project-root/ros_gz_bridge_addon/install/gz_throttle_tool/bin/gz_throttle',
         description='Path to throttle executable'
     )
     
