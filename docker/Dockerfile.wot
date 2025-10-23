@@ -72,6 +72,9 @@ RUN bash -c "source /opt/ros/jazzy/setup.bash && \
 # Copy the rest of the application (excluding build artifacts via .dockerignore)
 COPY . .
 
+# Fix line endings for Windows Docker compatibility
+RUN find /project-root -name "*.sh" -type f -exec sed -i 's/\r$//' {} \; 2>/dev/null || true
+
 # =============================================================================
 # Copy Source Files and Build ROS2 Packages
 # =============================================================================

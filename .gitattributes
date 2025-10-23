@@ -4,6 +4,9 @@
 # Force shell scripts to use LF line endings
 *.sh text eol=lf
 
+# Ensure the fix script itself has correct line endings
+fix-line-endings.sh text eol=lf
+
 # Force Python files to use LF line endings
 *.py text eol=lf
 

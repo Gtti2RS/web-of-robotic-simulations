@@ -1,6 +1,10 @@
 #!/bin/bash
 set -e
 
+# Fix line endings for Windows Docker compatibility
+echo "Fixing line endings for Windows Docker compatibility..."
+find /project-root -name "*.sh" -type f -exec sed -i 's/\r$//' {} \; 2>/dev/null || true
+
 # Source ROS2 environment
 source /opt/ros/jazzy/setup.bash
 
