@@ -1,11 +1,11 @@
 services:
 
   Gazebo_ROS2:
-    image: gazebo_ros2:1.0
+    image: gazebo_ros2:1.3
     container_name: Gazebo_ROS2
     build:
-      context: .
-      dockerfile: Dockerfile.gazebo
+      context: ..
+      dockerfile: docker/Dockerfile.gazebo
     # Simplest discovery on Linux
     networks: [wos_net]
     environment:
@@ -26,11 +26,11 @@ services:
     command: ["/usr/local/bin/ros-entrypoint.sh", "ros2", "launch", "sim_process_supervisor", "supervisor.launch.py"]
 
   WoT_Server:
-    image: wot_server:1.0
+    image: wot_server:1.3
     container_name: WoT_Server
     build:
-      context: .
-      dockerfile: Dockerfile.wot
+      context: ..
+      dockerfile: docker/Dockerfile.wot
     networks: [wos_net]
     environment:
       - TZ=Europe/Berlin
@@ -40,8 +40,8 @@ services:
     volumes:
      # mount the entire repo so requires to ./library/... work
       - ../:/project-root:rw
-      # Use named volume for npm cache to speed up builds
-      - npm_cache:/project-root/node_modules
+      # npm_cache is optional - baked-in dependencies will be used if not mounted
+      # - npm_cache:/project-root/node_modules
     ports:
       - "8080:8080" # gz_controller
       - "8081:8081" # cs_controller
@@ -54,11 +54,11 @@ services:
     command: ["/project-root/docker/entrypoint-wot.sh"]
 
   CoppeliaSim_ROS2:
-    image: coppeliasim_ros2:1.0
+    image: coppeliasim_ros2:1.3
     container_name: CoppeliaSim_ROS2
     build:
-      context: .
-      dockerfile: Dockerfile.coppeliasim
+      context: ..
+      dockerfile: docker/Dockerfile.coppeliasim
     networks: [wos_net]
     environment:
       - TZ=Europe/Berlin
@@ -81,6 +81,7 @@ networks:
       config:
         - subnet: 172.28.0.0/16
 
-volumes:
-  npm_cache:
-    driver: local
+# volumes:
+  # npm_cache is optional - uncomment if you want to use persistent npm cache
+  # npm_cache:
+  #   driver: local

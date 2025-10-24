@@ -23,7 +23,16 @@ node_modules/
 .DS_Store
 Thumbs.db
 
-# Test and temporary files
-test/
+# Test and temporary files (but keep test/ directory structure)
+test/logs/
+test/results/
+test/output/
 tmp/
 logs/
+
+# Documentation that changes frequently
+*.md
+README.md
+
+# Docker files (avoid copying docker context into itself)
+docker/

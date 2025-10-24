@@ -12,6 +12,7 @@ RUN apt-get update && apt-get install -y --no-install-recommends \
     nano \
     less \
     iproute2 \
+    sysstat \
     && rm -rf /var/lib/apt/lists/*
 
 # =============================================================================
@@ -55,30 +56,53 @@ RUN echo "source /opt/ros/jazzy/setup.bash" >> /etc/bash.bashrc
 WORKDIR /project-root
 
 # =============================================================================
-# Copy Source Files
+# Copy Source Files and Build ROS2 Packages
 # =============================================================================
-COPY ros_gz_bridge_addon/ ./ros_gz_bridge_addon/
+# Copy source files to a temporary build location
+COPY ros_gz_bridge_addon/ /tmp/ros_gz_bridge_addon/
 
 # =============================================================================
-# ROS2 Workspace Building
+# ROS2 Workspace Building (in temporary location)
 # =============================================================================
 RUN bash -c "source /opt/ros/jazzy/setup.bash && \
-    if [ -d 'ros_gz_bridge_addon/src' ]; then \
-        cd ros_gz_bridge_addon && \
+    if [ -d '/tmp/ros_gz_bridge_addon/src' ]; then \
+        cd /tmp/ros_gz_bridge_addon && \
         colcon build --packages-select gz_physics_bridge_interfaces sim_process_supervisor_interfaces gz_physics_bridge sim_process_supervisor ros_gz_bridge_addon gz_throttle_tool && \
         source install/setup.bash; \
     fi"
 
 # =============================================================================
+# Copy Built Packages to /opt (safe from volume mounts)
+# =============================================================================
+# Create the final directory structure and copy built packages to /opt
+RUN mkdir -p /opt/ros_gz_bridge_addon && \
+    if [ -d '/tmp/ros_gz_bridge_addon/install' ]; then \
+        cp -r /tmp/ros_gz_bridge_addon/install /opt/ros_gz_bridge_addon/; \
+    fi && \
+    if [ -d '/tmp/ros_gz_bridge_addon/src' ]; then \
+        cp -r /tmp/ros_gz_bridge_addon/src /opt/ros_gz_bridge_addon/; \
+    fi && \
+    if [ -f '/tmp/ros_gz_bridge_addon/package.xml' ]; then \
+        cp /tmp/ros_gz_bridge_addon/package.xml /opt/ros_gz_bridge_addon/; \
+    fi && \
+    if [ -f '/tmp/ros_gz_bridge_addon/COLCON_IGNORE' ]; then \
+        cp /tmp/ros_gz_bridge_addon/COLCON_IGNORE /opt/ros_gz_bridge_addon/; \
+    fi
+
+# =============================================================================
 # Workspace Environment Setup
 # =============================================================================
-RUN echo 'if [ -f "/project-root/ros_gz_bridge_addon/install/setup.bash" ]; then source /project-root/ros_gz_bridge_addon/install/setup.bash; fi' >> /etc/bash.bashrc
+RUN echo 'if [ -f "/opt/ros_gz_bridge_addon/install/setup.bash" ]; then source /opt/ros_gz_bridge_addon/install/setup.bash; fi' >> /etc/bash.bashrc
 
 # Create entrypoint script to ensure workspace is sourced
 RUN echo '#!/bin/bash\n\
 source /opt/ros/jazzy/setup.bash\n\
-if [ -f "/project-root/ros_gz_bridge_addon/install/setup.bash" ]; then\n\
-    source /project-root/ros_gz_bridge_addon/install/setup.bash\n\
+# Source baked-in workspace\n\
+if [ -f "/opt/ros_gz_bridge_addon/install/setup.bash" ]; then\n\
+    source /opt/ros_gz_bridge_addon/install/setup.bash\n\
+    echo "Sourced ROS2 workspace from baked-in packages: /opt/ros_gz_bridge_addon/install/setup.bash"\n\
+else\n\
+    echo "Baked-in ROS2 workspace not found at /opt/ros_gz_bridge_addon/install/setup.bash"\n\
 fi\n\
 exec "$@"' > /usr/local/bin/ros-entrypoint.sh && \
     chmod +x /usr/local/bin/ros-entrypoint.sh
