@@ -1,7 +1,7 @@
 services:
 
   Gazebo_ROS2:
-    image: gazebo_ros2:1.0
+    image: gazebo_ros2:1.3
     container_name: Gazebo_ROS2
     build:
       context: ..
@@ -20,16 +20,13 @@ services:
     working_dir: /project-root
     volumes:
       - ../:/project-root:rw
-      - ros_gz_bridge_build:/project-root/ros_gz_bridge_addon/build
-      - ros_gz_bridge_install:/project-root/ros_gz_bridge_addon/install
-      - ros_gz_bridge_log:/project-root/ros_gz_bridge_addon/log
     ports:
       - "8090:8090" # gazebo stream port
     # Dev mode: keep container alive without starting services
     command: ["tail", "-f", "/dev/null"]
 
   WoT_Server:
-    image: wot_server:1.0
+    image: wot_server:1.3
     container_name: WoT_Server
     build:
       context: ..
@@ -43,12 +40,8 @@ services:
     volumes:
      # mount the entire repo so requires to ./library/... work
       - ../:/project-root:rw
-      # Use named volume for npm cache to speed up builds
-      - npm_cache:/project-root/node_modules
-      # Preserve build artifacts in named volumes
-      - ros_gz_bridge_build:/project-root/ros_gz_bridge_addon/build
-      - ros_gz_bridge_install:/project-root/ros_gz_bridge_addon/install
-      - ros_gz_bridge_log:/project-root/ros_gz_bridge_addon/log
+      # npm_cache is optional - baked-in dependencies will be used if not mounted
+      # - npm_cache:/project-root/node_modules
     ports:
       - "8080:8080" # gz_controller
       - "8081:8081" # cs_controller
@@ -59,7 +52,7 @@ services:
     command: ["tail", "-f", "/dev/null"]
 
   CoppeliaSim_ROS2:
-    image: coppeliasim_ros2:1.0
+    image: coppeliasim_ros2:1.3
     container_name: CoppeliaSim_ROS2
     build:
       context: ..
@@ -85,12 +78,7 @@ networks:
       config:
         - subnet: 172.28.0.0/16
 
-volumes:
-  npm_cache:
-    driver: local
-  ros_gz_bridge_build:
-    driver: local
-  ros_gz_bridge_install:
-    driver: local
-  ros_gz_bridge_log:
-    driver: local
+# volumes:
+  # npm_cache is optional - uncomment if you want to use persistent npm cache
+  # npm_cache:
+  #   driver: local

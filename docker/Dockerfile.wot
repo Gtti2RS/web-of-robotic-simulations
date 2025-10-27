@@ -61,48 +61,93 @@ WORKDIR /project-root
 # Copy package.json first for better Docker layer caching
 COPY package.json ./
 
-# Install npm dependencies with ROS2 environment sourced
-RUN bash -c "source /opt/ros/jazzy/setup.bash && npm install"
+# Install npm dependencies in /opt (safe from volume mounts)
+RUN bash -c "source /opt/ros/jazzy/setup.bash && \
+    mkdir -p /opt/node_modules && \
+    cd /opt && \
+    cp /project-root/package.json . && \
+    npm install && \
+    rm package.json"
 
 # Copy the rest of the application (excluding build artifacts via .dockerignore)
 COPY . .
 
-# =============================================================================
-# Copy Source Files
-# =============================================================================
-COPY ros_gz_bridge_addon/ ./ros_gz_bridge_addon/
+# Fix line endings for Windows Docker compatibility
+RUN find /project-root -name "*.sh" -type f -exec sed -i 's/\r$//' {} \; 2>/dev/null || true
 
 # =============================================================================
-# ROS2 Workspace Building
+# Copy Source Files and Build ROS2 Packages
+# =============================================================================
+# Copy source files to a temporary build location
+COPY ros_gz_bridge_addon/ /tmp/ros_gz_bridge_addon/
+
+# =============================================================================
+# ROS2 Workspace Building (in temporary location)
 # =============================================================================
 RUN bash -c "source /opt/ros/jazzy/setup.bash && \
-    if [ -d 'ros_gz_bridge_addon/src' ]; then \
-        cd ros_gz_bridge_addon && \
+    if [ -d '/tmp/ros_gz_bridge_addon/src' ]; then \
+        cd /tmp/ros_gz_bridge_addon && \
         colcon build; \
         source install/setup.bash; \
     fi"
 
 # =============================================================================
+# Copy Built Packages to /opt (safe from volume mounts)
+# =============================================================================
+# Create the final directory structure and copy built packages to /opt
+RUN mkdir -p /opt/ros_gz_bridge_addon && \
+    if [ -d '/tmp/ros_gz_bridge_addon/install' ]; then \
+        cp -r /tmp/ros_gz_bridge_addon/install /opt/ros_gz_bridge_addon/; \
+    fi && \
+    if [ -d '/tmp/ros_gz_bridge_addon/src' ]; then \
+        cp -r /tmp/ros_gz_bridge_addon/src /opt/ros_gz_bridge_addon/; \
+    fi && \
+    if [ -f '/tmp/ros_gz_bridge_addon/package.xml' ]; then \
+        cp /tmp/ros_gz_bridge_addon/package.xml /opt/ros_gz_bridge_addon/; \
+    fi && \
+    if [ -f '/tmp/ros_gz_bridge_addon/COLCON_IGNORE' ]; then \
+        cp /tmp/ros_gz_bridge_addon/COLCON_IGNORE /opt/ros_gz_bridge_addon/; \
+    fi
+
+# =============================================================================
 # Workspace Environment Setup
 # =============================================================================
-RUN echo 'if [ -f "/project-root/ros_gz_bridge_addon/install/setup.bash" ]; then source /project-root/ros_gz_bridge_addon/install/setup.bash; fi' >> /etc/bash.bashrc
+RUN echo 'if [ -f "/opt/ros_gz_bridge_addon/install/setup.bash" ]; then source /opt/ros_gz_bridge_addon/install/setup.bash; fi' >> /etc/bash.bashrc
 
-# Create entrypoint script to ensure workspace is sourced
+# Create a setup script that ensures npm modules and ROS2 workspace are available
 RUN echo '#!/bin/bash\n\
-source /opt/ros/jazzy/setup.bash\n\
-if [ -f "/project-root/ros_gz_bridge_addon/install/setup.bash" ]; then\n\
-    source /project-root/ros_gz_bridge_addon/install/setup.bash\n\
+# Ensure npm modules are available\n\
+if [ -d "/opt/node_modules" ] && [ ! -f "/project-root/node_modules/rclnodejs/package.json" ]; then\n\
+    echo "Setting up npm modules..."\n\
+    rm -rf /project-root/node_modules\n\
+    cp -r /opt/node_modules /project-root/\n\
 fi\n\
-exec "$@"' > /usr/local/bin/ros-entrypoint.sh && \
-    chmod +x /usr/local/bin/ros-entrypoint.sh
+# Ensure ROS2 workspace is available\n\
+if [ -d "/opt/ros_gz_bridge_addon" ] && [ ! -d "/project-root/ros_gz_bridge_addon" ]; then\n\
+    echo "Setting up ROS2 workspace..."\n\
+    cp -r /opt/ros_gz_bridge_addon /project-root/\n\
+fi\n\
+# Source ROS2 workspace\n\
+if [ -f "/opt/ros_gz_bridge_addon/install/setup.bash" ]; then\n\
+    source /opt/ros_gz_bridge_addon/install/setup.bash\n\
+fi' > /usr/local/bin/setup-workspace.sh && \
+    chmod +x /usr/local/bin/setup-workspace.sh
 
-ENTRYPOINT ["/usr/local/bin/ros-entrypoint.sh"]
+# Add setup script to bash profile
+RUN echo 'source /usr/local/bin/setup-workspace.sh' >> /etc/bash.bashrc
+
+# Note: Entrypoint script is handled by /project-root/docker/entrypoint-wot.sh
+# which is called by the compose file command directive
+
+# =============================================================================
+# npm dependencies are already installed and baked into the image
+# =============================================================================
 
 # =============================================================================
 # Message Generation
 # =============================================================================
 RUN bash -c "source /opt/ros/jazzy/setup.bash && \
-    if [ -f 'ros_gz_bridge_addon/install/setup.bash' ]; then source ros_gz_bridge_addon/install/setup.bash; fi && \
-    if [ -f 'node_modules/rclnodejs/scripts/generate_messages.js' ]; then \
-        node /project-root/node_modules/rclnodejs/scripts/generate_messages.js; \
+    source /opt/ros_gz_bridge_addon/install/setup.bash && \
+    if [ -f '/opt/node_modules/rclnodejs/scripts/generate_messages.js' ]; then \
+        node /opt/node_modules/rclnodejs/scripts/generate_messages.js; \
     fi"

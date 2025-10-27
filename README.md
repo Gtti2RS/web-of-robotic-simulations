@@ -205,7 +205,27 @@ See [test/README.md](test/README.md)
 
 ## Troubleshooting
 
+### Line Ending Issues on Windows Docker
+
+If you encounter shell script execution errors on Windows Docker (e.g., `bad interpreter: No such file or directory`), this is typically due to CRLF vs LF line ending issues.
+
+**Automatic fixes** (recommended):
+- Docker build and entrypoint scripts automatically fix line endings
+- No manual action needed in most cases
+
+**Manual fixes** (if automatic fixes don't work):
+- **Linux/Mac/WSL**: `./fix-line-endings.sh`
+- **Windows**: `fix-line-endings.bat`
+
+### General Issues
+
 Check the logs either from docker logs or run the servers in development mode.
+
+### UR10 Issues
+
+- When loading ur10 models, you need to distinguish ur10_rg2_gazebo.urdf and ur10_rg2_coppelia.urdf for the corresponding simulators.
+
+- If ur10 is not configured after loading in Gazebo (can't move the joints), you can start the containers in dev mode, run main/start_process_supervisor.sh in Gazebo_ROS2 container and gz_controller.js in WoT_Server container; then inside Gazebo_ROS2 container, manually run /Assets/urdf/examples/robots/ur10_rg2/ur10_config.sh, if the script is not correctly interpreted, see line ending issues troubleshooting above, after successful configuration you should see "you can start planning now"
 
 ## License
 
