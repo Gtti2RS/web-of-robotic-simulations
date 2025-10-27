@@ -405,7 +405,7 @@
       "links": [
         {
           "rel": "alternate",
-          "href": "http://localhost:23020/stream?topic=/camera2",
+          "href": "http://localhost:23020",
           "type": "text/html"
         }
       ]
