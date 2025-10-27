@@ -88,7 +88,7 @@ cd /project-root/main
 node gz_controller.js
 ```
 
-Thing Description at: `http://localhost:8080/gz_controller` or `http://{server_url}:8080/gz_controller`
+Thing Description at: http://localhost:8080/gz_controller or http://{server_url}:8080/gz_controller
 
 Visualization: enable visualization by writing the property "visualize" to "true", you can use setVisualize in the [Postman collection](test/postman/sim_controller.postman_collection.json) and the [interactive script](/test/wot_api_interactive.js) for interactive control. Then view the stream in web browser with url: http://localhost:8090 or http://{server_url}:8090.
 
@@ -108,7 +108,7 @@ cd /project-root/main
 node cs_controller.js
 ```
 
-Thing Description at: `http://localhost:8081/cs_controller` or `http://{server_url}:8081/cs_controller`
+Thing Description at: http://localhost:8081/cs_controller or http://{server_url}:8081/cs_controller
 
 Visualization: The official visualization stream addon is used. The addon is lightweight so visualization is always enabled. You can view the stream in web browser with url: http://localhost:23020 or http://{server_url}:23020. Remember to close the stream web page and wait for some seconds before restarting the cs_controller, otherwise you can encounter the "address already in use" error. 
 
